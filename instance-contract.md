@@ -1,7 +1,8 @@
 # Static instance candidate — provisional
 
-This is a draft, not a frozen contract. Richer content, independent consumer
-adoption and licensed representative dogfood remain unproved.
+This is a draft, not a frozen contract. The static witnesses below include one
+licensed Blitz tie and a standalone Blender placement example. Richer content
+and broader consumer adoption remain unproved.
 
 An instance is a reusable bounded object, placed as a whole. Its authored local
 origin is meaningful even when outside its geometry. Distances are meters in a
@@ -45,7 +46,7 @@ fetched document's response URL. Shallot's public loader owns geometry decoding
 and scene spawning; decoder errors and reported unsupported content fail loading.
 The example is not an upload service or a new general-purpose importer.
 
-## Inspectable example
+## Inspectable examples
 
 `assets/wheel-carrier/` contains original MIT Blender source and export instructions.
 The asymmetric nose faces +Z. The demo repeats the same asset at (-1.5, 0, 0)
@@ -53,3 +54,12 @@ and (1.5, 0, 0), the latter rotated +90° about Y. Orbit and zoom expose both;
 there is no assembly rule or motion model. Tests and independent Blender import
 check the authored offset and metric landmarks, rather than treating two uses
 of the same decoder as independent evidence.
+
+`assets/blitz-tie/` preserves an archived MIT Modern track tie credited to Felix,
+its source notices, editable Blender contribution and rebuild instructions. The
+demo's Example selector retains wheel-carrier and adds this tie at the same two
+rigid placements. Raw OBJ positions independently anchor its metric landmarks
+and authored origin; no track-forward or assembly semantics are inferred.
+`assets/blitz-tie/place-twice.py` is a standalone Blender import-and-placement
+workflow, separate from its source-comparison oracle. This qualifies that static
+part and those placements, not profiles, trains or the whole asset contract.

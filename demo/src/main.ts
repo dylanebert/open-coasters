@@ -4,7 +4,10 @@ import { Scene, createScene } from "./scene";
 import "./style.css";
 
 try {
-    const scene = createScene(new URL("assets/wheel-carrier.gltf", document.baseURI));
+    const asset = new URLSearchParams(location.search).get("asset") === "blitz-tie"
+        ? "blitz-tie" : "wheel-carrier";
+    document.querySelector<HTMLSelectElement>("select[name=asset]")!.value = asset;
+    const scene = createScene(new URL(`assets/${asset}.gltf`, document.baseURI));
     const stepped = new URLSearchParams(location.search).has("stepped");
     const app = await (stepped ? createApp : runApp)({
         plugins: [
