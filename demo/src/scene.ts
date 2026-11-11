@@ -11,7 +11,7 @@ import { Orbit, OrbitPlugin } from "@dylanebert/shallot/extras";
 import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 
 import { loadGltfScene, spawnGltfScene } from "@dylanebert/shallot/gltf";
-import { placements, requireStaticInstance } from "./instance";
+import { placements, staticInstanceSnapshot } from "./instance";
 
 export const Scene = { create: () => ({ camera: -1, grid: -1, instances: [] as number[][] }) };
 export const createScene = (url: URL): Plugin => ({
@@ -31,10 +31,7 @@ export const createScene = (url: URL): Plugin => ({
         world.add(refs.camera, Orbit, { distance: 8, yaw: 0.7, pitch: 0.5 });
         refs.grid = world.create();
         world.add(refs.grid, Grid);
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Instance load failed: ${response.status}`);
-        requireStaticInstance(await response.json());
-        const asset = await loadGltfScene(world, url);
+        const asset = await loadGltfScene(world, await staticInstanceSnapshot(url));
         if (asset.unsupported.length)
             throw new Error(`Unsupported glTF: ${asset.unsupported.join(", ")}`);
         refs.instances = placements.map((p) => spawnGltfScene(world, asset, p).entities);

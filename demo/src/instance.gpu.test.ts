@@ -4,6 +4,66 @@ import { loadGltfScene, spawnGltfScene } from "@dylanebert/shallot/gltf";
 import { openGpuApp } from "@dylanebert/shallot/testing/gpu";
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { placements } from "./instance";
+import { createScene, Scene } from "./scene";
+
+for (const bufferKind of ["external", "data"] as const)
+    test(
+        `validated snapshot reaches spawning once with ${bufferKind} buffers`,
+        async () => {
+            const document = await Bun.file(
+                new URL("../public/assets/wheel-carrier.gltf", import.meta.url),
+            ).json();
+            const bytes = await Bun.file(
+                new URL("../public/assets/wheel-carrier.bin", import.meta.url),
+            ).bytes();
+            if (bufferKind === "data")
+                document.buffers[0].uri = `data:application/octet-stream;base64,${Buffer.from(bytes).toString("base64")}`;
+            let reads = 0,
+                buffers = 0;
+            const server = Bun.serve({
+                port: 0,
+                fetch(request) {
+                    const path = new URL(request.url).pathname;
+                    if (path === "/entry")
+                        return Response.redirect(new URL("/models/fixture.gltf", request.url));
+                    if (path === "/models/fixture.gltf") {
+                        reads++;
+                        const next = structuredClone(document);
+                        if (reads > 1) {
+                            next.animations = [{ channels: [], samplers: [] }];
+                            next.nodes[4].translation = [99, 99, 99];
+                        }
+                        return Response.json(next);
+                    }
+                    if (path === "/models/wheel-carrier.bin") {
+                        buffers++;
+                        return new Response(bytes);
+                    }
+                    return new Response(null, { status: 404 });
+                },
+            });
+            try {
+                const app = await openGpuApp({
+                    plugins: [createScene(new URL("entry", server.url))],
+                });
+                try {
+                    expect(reads).toBe(1);
+                    expect(buffers).toBe(bufferKind === "external" ? 1 : 0);
+                    const refs = app.world.resource(Scene);
+                    expect(refs.instances.map((i) => i.length)).toEqual([4, 4]);
+                    const t = app.world.storage(Transform);
+                    // Carrier's independently specified authored center, placement A.
+                    expect(t.translation.x.get(refs.instances[0][0])).toBeCloseTo(-1.25);
+                    expect(t.translation.y.get(refs.instances[0][0])).toBeCloseTo(0.45);
+                } finally {
+                    app.dispose();
+                }
+            } finally {
+                await server.stop(true);
+            }
+        },
+        TIMEOUT.gpu,
+    );
 
 test(
     "repeated placements retain origin, rotation, units and independent entity state",

@@ -1,12 +1,34 @@
 import { expect, test } from "bun:test";
-import { parseGltf, type GltfJson } from "@dylanebert/shallot/gltf";
-import { requireStaticInstance } from "./instance";
+import { loadGltf, parseGltf, type GltfJson } from "@dylanebert/shallot/gltf";
+import { requireStaticInstance, staticInstanceSnapshot } from "./instance";
 const json = (await Bun.file(
     new URL("../public/assets/wheel-carrier.gltf", import.meta.url),
 ).json()) as GltfJson;
 const bin = await Bun.file(
     new URL("../public/assets/wheel-carrier.bin", import.meta.url),
 ).arrayBuffer();
+
+test("snapshot retains external and data buffer resolution through public decoding", async () => {
+    const snapshot = await staticInstanceSnapshot(
+        new URL("../public/assets/wheel-carrier.gltf", import.meta.url),
+    );
+    expect(snapshot.protocol).toBe("data:");
+    expect((await loadGltf(snapshot)).instances).toHaveLength(4);
+    const embedded = structuredClone(json);
+    embedded.buffers![0].uri = `data:application/octet-stream;base64,${Buffer.from(bin).toString("base64")}`;
+    Object.assign(embedded, { extras: { label: "roue — 車輪" } });
+    const source = new URL(
+        `data:model/gltf+json,${encodeURIComponent(JSON.stringify(embedded))}`,
+    );
+    const frozen = await staticInstanceSnapshot(source);
+    expect((await loadGltf(frozen)).instances).toHaveLength(4);
+    embedded.animations = [{ channels: [], samplers: [] }];
+    await expect(
+        staticInstanceSnapshot(
+            new URL(`data:model/gltf+json,${encodeURIComponent(JSON.stringify(embedded))}`),
+        ),
+    ).rejects.toThrow("animations unsupported");
+});
 
 test("explicit scene selection; authored origin, metric bounds and facing landmark", () => {
     requireStaticInstance(json);

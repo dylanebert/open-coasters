@@ -71,11 +71,17 @@ export function requireStaticInstance(json: GltfJson): void {
         if (!node) continue;
         pending.push(...(node.children ?? []));
         const mesh = node.mesh === undefined ? undefined : json.meshes?.[node.mesh];
-        if (mesh?.primitives.some(p => {
-            const positions = json.accessors?.[p.attributes.POSITION]?.count ?? 0;
-            const count = p.indices === undefined ? positions : (json.accessors?.[p.indices]?.count ?? 0);
-            return positions > 0 && count >= 3;
-        })) geometry = true;
+        if (
+            mesh?.primitives.some((p) => {
+                const positions = json.accessors?.[p.attributes.POSITION]?.count ?? 0;
+                const count =
+                    p.indices === undefined
+                        ? positions
+                        : (json.accessors?.[p.indices]?.count ?? 0);
+                return positions > 0 && count >= 3;
+            })
+        )
+            geometry = true;
     }
     if (!geometry) refuse("selected scene requires mesh geometry");
 
@@ -93,6 +99,19 @@ export function requireStaticInstance(json: GltfJson): void {
         if (material.alphaMode && material.alphaMode !== "OPAQUE")
             refuse("only opaque materials supported");
     }
+}
+
+/** Freeze the accepted document; Shallot must not refetch the mutable source URL. */
+export async function staticInstanceSnapshot(url: URL): Promise<URL> {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Instance load failed: ${response.status}`);
+    const json = (await response.json()) as GltfJson;
+    requireStaticInstance(json);
+    const base = response.url || url.href;
+    for (const buffer of json.buffers ?? []) {
+        if (buffer.uri) buffer.uri = new URL(buffer.uri, base).href;
+    }
+    return new URL(`data:model/gltf+json,${encodeURIComponent(JSON.stringify(json))}`);
 }
 
 export const placements = [
