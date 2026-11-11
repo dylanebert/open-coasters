@@ -7,6 +7,9 @@ import { liveScene, type Selection } from "./live";
 import { defaults, type Parameters } from "./track";
 import { attachFieldScrubbing } from "./field-scrub";
 
+const bootstrap = document.querySelector<HTMLElement>("[data-shallot-bootstrap]")!;
+const loading = shallotDark({ container: document.body, bootstrap });
+
 try {
   const query = new URLSearchParams(location.search);
   const form = document.querySelector("form")!;
@@ -78,10 +81,7 @@ try {
   });
   attachFieldScrubbing(form);
   const app = await createApp({
-    loading: shallotDark({
-      container: document.body,
-      bootstrap: document.querySelector<HTMLElement>("[data-shallot-bootstrap]")!,
-    }),
+    loading,
     plugins: [
       live.plugin,
       {
@@ -168,11 +168,7 @@ try {
   }
   document.body.dataset.ready = "true";
 } catch (error) {
-  const bootstrap = document.querySelector<HTMLElement>("[data-shallot-bootstrap]");
-  if (bootstrap) {
-    bootstrap.dataset.state = "error";
-    bootstrap.setAttribute("role", "alert");
-    bootstrap.textContent = "Unable to start this application. Check the console and reload.";
-  }
+  bootstrap.remove();
+  loading.error?.(error);
   console.error(error);
 }

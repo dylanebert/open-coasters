@@ -46,6 +46,26 @@ for (const stepped of [false, true]) {
   });
 }
 
+test("failure after loader cleanup and before readiness stays visible", async ({ page }) => {
+  await page.route(/\/assets\/index-[^/]+\.js$/, async (route) => {
+    const response = await route.fetch();
+    const source = await response.text();
+    // Replace the host's readiness publication, after createApp and first step,
+    // rather than depending on GPU call counts or a production fault switch.
+    const boundary = /document\.body\.dataset\.ready\s*=\s*(["'`])true\1/;
+    expect(source.match(new RegExp(boundary.source, "g"))).toHaveLength(1);
+    await route.fulfill({ response, body: source.replace(boundary,
+      '(()=>{throw new Error("Readiness boundary fault")})()') });
+  });
+  await page.goto("./?stepped");
+  await expect(page.locator("[data-shallot-bootstrap]")).toHaveCount(0);
+  await expect(page.locator("[data-shallot-loading]")).toBeVisible();
+  await expect(page.locator("[data-shallot-loading]")).toContainText("Readiness boundary fault");
+  await expect(page.locator("body")).not.toHaveAttribute("data-ready", "true");
+  await expect(page.locator("aside")).toBeHidden();
+  await expect(page.locator("main")).toBeHidden();
+});
+
 test("failed entry leaves a visible error, not controls", async ({ page }) => {
   await page.route(/\/assets\/index-[^/]+\.js$/, (route) => route.abort("failed"));
   await page.goto("./");
