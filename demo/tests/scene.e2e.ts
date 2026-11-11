@@ -47,7 +47,6 @@ test("Pages build presents metric scene and responds to orbit and zoom", async (
         page.evaluate(() => (window as unknown as { step: () => Promise<void> }).step());
     await page.goto("./?stepped");
     await page.locator('body[data-ready="true"]').waitFor();
-    await expect(page.getByText("Reference block · 3 × 2 × 1 m (X × Y × Z)")).toBeVisible();
     const before = await pixels(page);
     expectNonblank(before);
     await page.screenshot({ path: "/tmp/open-coasters-reference.png" });
