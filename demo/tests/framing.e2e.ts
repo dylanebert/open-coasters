@@ -2,11 +2,13 @@ import { expect, test } from '@playwright/test';
 import { pixels } from './pixels';
 
 for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
-  test(`initial loop centered without crop ${viewport.width}`, async ({ page }, info) => {
+  test(`default to loop centered without crop ${viewport.width}`, async ({ page }, info) => {
     await page.setViewportSize(viewport);
-    await page.goto('./?configuration=loop&stepped');
+    await page.goto('./?stepped');
     await page.locator('body[data-ready="true"]').waitFor();
     const step = () => page.evaluate(() => (window as any).step());
+    await step();
+    await page.locator('[name=configuration]').selectOption('loop');
     await step();
     const initialOrbit = await page.evaluate(() => (window as any).demo.orbit());
     // Independently recorded default generated bounds; geometry stays in world space.

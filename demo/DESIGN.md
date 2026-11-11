@@ -19,5 +19,6 @@ fields use muted hover borders, line pressed surfaces and flat bg2 disabled surf
 
 Scene materials are not chrome colors; keep the subject brighter and more saturated.
 Improve composition with grid weight or initial framing, not changes to track geometry.
-Center the initial view on the track; edits retain the camera.
+Frame the track on entry and example changes, retaining yaw and pitch.
+Parameter and paint edits retain the full orbit; all edits retain the camera.
 Isolated assets keep their source-witness framing.

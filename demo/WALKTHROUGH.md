@@ -6,8 +6,9 @@ The production Pages route is `/open-coasters/`.
 1. Start with **Banked curve**: a quarter circle of radius 8 m, banked 30°.
    Drag the view to orbit; scroll to zoom.
 2. Choose **Straight** (12 m) or the force-shaped **Vertical loop**.
-   Changes are immediate in the same app. Orbit, pan and zoom are retained even
-   within the current task; there is no automatic reframing.
+   Changes are immediate in the same app. Entering a different track example
+   reframes its target and distance, retaining yaw and pitch. Parameter and paint
+   edits, including same-example undo/redo, retain the full orbit.
 3. Edit **Spacing · m**. Ties follow metric centerline distance, not equal chords.
    The loop has separate entry/exit ends and a shorter final spacing remainder.
 4. With **Adjustable**, **Gauge · m** (rail center-to-center) changes the provisional tie span.
@@ -82,7 +83,7 @@ It is neither a circle nor a closed layout.
 
 The app reads only recorded positions/rotations and interpolates by recorded arc
 length. No physics engine or sibling checkout is needed to run, build or test it.
-Initial framing fits the starting example; edits still never reframe the camera. Use side and front views to inspect its teardrop and lateral
+Use side and front views to inspect its teardrop and lateral
 separation rather than judging clearance from a projected crossing.
 
 Construction in `src/track.ts` remains local demo code, not a shared profile, recipe

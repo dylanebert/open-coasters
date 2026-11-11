@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { pixels as capturePixels, changedPixels } from "./pixels";
 const pixels = (page: Page) => capturePixels(page, [480, 400]);
 const step = (page: Page) => page.evaluate(() => (window as any).step());
-test("Pages: edits immediately change geometry in one document/app/camera and retain orbit", async ({
+test("Pages: edits immediately change geometry in one document/app/camera; examples reframe and parameters retain orbit", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -47,10 +47,23 @@ test("Pages: edits immediately change geometry in one document/app/camera and re
   await step(page);
   await page.mouse.wheel(0, -100);
   await step(page);
-  const orbit = await page.evaluate(() => (window as any).demo.orbit());
+  let orbit = await page.evaluate(() => (window as any).demo.orbit());
   let prior = await pixels(page);
-  const edited = async () => {
+  const edited = async (kind?: string) => {
     await step(page);
+    if (kind) {
+      const nextOrbit = await page.evaluate(() => (window as any).demo.orbit());
+      expect(nextOrbit.yaw).toBe(orbit.yaw);
+      expect(nextOrbit.pitch).toBe(orbit.pitch);
+      const centers: Record<string, number[]> = {
+        straight: [0, 1.24750003, -0.02749991],
+        curve: [0.89461407, 1.40449849, -0.05211520],
+        loop: [3.52908933, 8.17340931, 1.08367634],
+      };
+      centers[kind].forEach((value, axis) => expect(nextOrbit.pan[axis]).toBeCloseTo(value, 5));
+      expect(nextOrbit.distance).toBe(kind === 'loop' ? 26 : 19);
+      orbit = nextOrbit;
+    }
     const next = await pixels(page);
     expect(await changedPixels(next, prior)).toBeGreaterThan(30);
     await prior.dispose();
@@ -73,8 +86,12 @@ test("Pages: edits immediately change geometry in one document/app/camera and re
   };
   for (const kind of ["straight", "curve", "loop"]) {
     await page.locator("[name=configuration]").selectOption(kind);
-    await edited();
+    await edited(kind);
   }
+  await page.keyboard.press('ControlOrMeta+z');
+  await edited('curve');
+  await page.keyboard.press('ControlOrMeta+Shift+z');
+  await edited('loop');
   for (const [name, value] of [
     ["spacing", "1.2"],
     ["separation", "1.5"],

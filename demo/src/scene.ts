@@ -34,8 +34,13 @@ export function geometryCenter(vertices: Float32Array): [number, number, number]
     }
   return low.map((value, axis) => (value + high[axis]) / 2) as [number, number, number];
 }
+export function frameTrack(world: World, parameters: Parameters, vertices: Float32Array) {
+  const orbit = world.storage(Orbit);
+  const camera = world.resource(Scene).camera;
+  orbit.pan.set(camera, ...geometryCenter(vertices));
+  orbit.distance.set(camera, parameters.configuration === "loop" ? 26 : 19);
+}
 export function initializeView(world: World, parameters?: Parameters) {
-  const configuration = parameters?.configuration;
   const refs = world.resource(Scene);
   Object.assign(world.resource(GlobalAmbientLight), {
     color: 0xd8e4ff,
@@ -52,11 +57,12 @@ export function initializeView(world: World, parameters?: Parameters) {
   world.add(refs.camera, StandardRenderer);
   world.add(refs.camera, Transform);
   world.add(refs.camera, Orbit, {
-    distance: configuration === "loop" ? 26 : configuration ? 19 : 8,
-    pan: parameters ? geometryCenter(generate(parameters).vertices) : [0, 0, 0],
+    distance: 8,
+    pan: [0, 0, 0],
     yaw: 0.7,
     pitch: 0.5,
   });
+  if (parameters) frameTrack(world, parameters, generate(parameters).vertices);
   refs.grid = world.create();
   world.add(refs.grid, Grid);
 }

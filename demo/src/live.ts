@@ -18,7 +18,7 @@ import {
 } from "@dylanebert/shallot/utils";
 import { OrbitPlugin } from "@dylanebert/shallot/extras";
 import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
-import { initializeView, Scene } from "./scene";
+import { frameTrack, initializeView, Scene } from "./scene";
 import { placements, staticInstanceSnapshot } from "./instance";
 import { generate, ties, rotation, type Parameters } from "./track";
 import { linearColor, initialConfiguration, type Paint } from "./configuration";
@@ -139,7 +139,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     if (!selection.isolated) paint(selection.paint ?? initialConfiguration.paint);
     const geometry = (s: Selection) => JSON.stringify([s.parameters, s.isolated, s.asset]);
     if (previous && geometry(previous) === geometry(selection)) { previous = selection; return; }
-    previous = selection;
+    const newSubject = !previous || previous.isolated || previous.parameters.configuration !== selection.parameters.configuration;
     const refs = world.resource(Scene);
     for (const group of refs.instances)
       for (const entity of group) world.destroy(entity);
@@ -150,6 +150,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     const { parameters, isolated, asset } = selection;
     if (!isolated) {
       const mesh = generate(parameters);
+      if (newSubject) frameTrack(world, parameters, mesh.vertices);
       for (const part of mesh.parts) {
         if (part.index === part.endIndex) continue;
         const eid = world.create();
@@ -174,6 +175,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
             })),
         isolated ? undefined : paintHandles.ties,
       );
+    previous = selection;
   }
   const plugin: Plugin = {
     name: "LiveScene",
