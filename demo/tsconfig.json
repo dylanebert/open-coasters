@@ -1,1 +1,13 @@
-{"compilerOptions":{"target":"ESNext","module":"ESNext","moduleResolution":"bundler","strict":true,"skipLibCheck":true,"noEmit":true,"types":["bun","@webgpu/types","vite/client"],"lib":["ESNext","DOM"]},"include":["src","tests","*.ts"]}
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "skipLibCheck": true,
+        "noEmit": true,
+        "types": ["bun", "@webgpu/types", "vite/client"],
+        "lib": ["ESNext", "DOM"]
+    },
+    "include": ["src", "tests", "*.ts"]
+}

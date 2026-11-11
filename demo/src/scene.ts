@@ -1,10 +1,23 @@
-import { Camera, DirectionalLight, GlobalAmbientLight, lookAtRotation, Materials, MeshInstance, MeshMaterial, StandardMaterial, StandardRenderer, Transform, type Plugin } from '@dylanebert/shallot';
-import { Orbit, OrbitPlugin } from '@dylanebert/shallot/extras';
-import { Grid, GridPlugin } from '@dylanebert/shallot-grid';
+import {
+    Camera,
+    DirectionalLight,
+    GlobalAmbientLight,
+    lookAtRotation,
+    Materials,
+    MeshInstance,
+    MeshMaterial,
+    StandardMaterial,
+    StandardRenderer,
+    Transform,
+    type Plugin,
+} from "@dylanebert/shallot";
+import { Orbit, OrbitPlugin } from "@dylanebert/shallot/extras";
+import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 
 export const Scene = { create: () => ({ camera: -1, grid: -1, object: -1 }) };
 export const scene: Plugin = {
-    name: 'ReferenceScene', dependencies: [OrbitPlugin, GridPlugin],
+    name: "ReferenceScene",
+    dependencies: [OrbitPlugin, GridPlugin],
     initialize(world) {
         const refs = world.resource(Scene);
         Object.assign(world.resource(GlobalAmbientLight), { color: 0xd8e4ff, brightness: 380 });
@@ -21,9 +34,16 @@ export const scene: Plugin = {
         world.add(refs.grid, Grid);
         refs.object = world.create();
         world.add(refs.object, MeshInstance);
-        world.add(refs.object, MeshMaterial, world.resource(Materials).add(StandardMaterial({
-            baseColor: [0.72, 0.4, 0.05, 1], perceptualRoughness: 0.38,
-        })));
+        world.add(
+            refs.object,
+            MeshMaterial,
+            world.resource(Materials).add(
+                StandardMaterial({
+                    baseColor: [0.72, 0.4, 0.05, 1],
+                    perceptualRoughness: 0.38,
+                }),
+            ),
+        );
         world.add(refs.object, Transform, { translation: [1.5, 1, 0.5], scale: [3, 2, 1] });
     },
 };
