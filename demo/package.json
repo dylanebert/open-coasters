@@ -1,0 +1,23 @@
+{
+  "name": "demo",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "bun test src"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/bun": "1.4.4",
+    "@webgpu/types": "0.1.74",
+    "vite": "8.3.8",
+    "webgpu": "0.6.2"
+  },
+  "dependencies": {
+    "@dylanebert/shallot": "0.10.3",
+    "@dylanebert/shallot-grid": "0.2.0",
+    "typegpu": "0.12.8"
+  }
+}
