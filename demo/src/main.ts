@@ -33,6 +33,6 @@ try {
     }
     document.body.dataset.ready = "true";
 } catch (error) {
-    document.querySelector("#status")!.textContent = "WebGPU initialization failed. See console.";
+    document.body.textContent = "WebGPU initialization failed. See console.";
     console.error(error);
 }

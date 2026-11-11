@@ -8,7 +8,7 @@ bunx playwright install chromium
 bun run dev
 ```
 
-Open `/open-coasters/`. WebGPU is required. Drag to orbit; scroll to zoom.
+Open Vite's printed URL at `/`. WebGPU is required. Drag to orbit; scroll to zoom.
 
 Checks, narrow to wide:
 
@@ -18,7 +18,7 @@ bun run test
 bunx playwright test
 ```
 
-Dawn checks require a GPU adapter; absence fails rather than skips. Playwright builds and serves `/open-coasters/` headlessly. Verification opens no desktop windows unless the person asks.
+Dawn checks require a GPU adapter; absence fails rather than skips. Playwright mounts the build at `/open-coasters/` headlessly to verify GitHub Pages deployment. Verification opens no desktop windows unless the person asks.
 
 The Bun preload supplies the required shader transform; Vite uses the public Shallot plugin. Local engine links are iteration aids, not committed dependencies; verify the release pin with `bun install --frozen-lockfile`.
 
@@ -29,4 +29,4 @@ bun run build
 bun run preview --host 127.0.0.1
 ```
 
-Visit `http://127.0.0.1:4173/open-coasters/`.
+Visit `http://127.0.0.1:4173/`.
