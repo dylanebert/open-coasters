@@ -21,7 +21,7 @@ bun check
 
 `bun test` runs both scene tests. Dawn checks require a GPU adapter; absence is a failure, not a skip. Playwright uses Shallot's headless browser configuration and builds the Pages-path subject itself. Its `?stepped` host advances frames explicitly while sending real pointer events.
 
-Use `bun check`, not an independently installed TypeScript compiler: released Shallot exports TypeScript source. The Bun preload supplies the required shader transform; Vite uses the public Shallot plugin. Keep registry dependencies and the lockfile, not a local engine link.
+Use `bun check` for type checking. The Bun preload supplies the required shader transform; Vite uses the public Shallot plugin. Local engine links are iteration aids, not committed dependencies; verify the release pin with `bun install --frozen-lockfile`.
 
 To inspect the production build:
 
