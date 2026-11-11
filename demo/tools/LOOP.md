@@ -21,14 +21,23 @@ The recipe authors a new loop rather than extracting `ride.fixture.ts`, whose
 loop holds constant normal g.
 
 The force intent falls from high normal g on entry to near-zero at the crown
-and rises again on exit. A smooth roll-rate pulse around the crown separates the
-lower branches. These are inputs to KexEdit's force/free-roll policies, not a
-geometric fit or post-export deformation. The default force floor is unchanged.
+and rises again on exit. A supported signed bank guide supplies roll rate;
+two bounded, condition-checked roll trims shoot the terminal yaw and bank.
+Entry speed is 17.2 m/s. These are inputs to KexEdit's force/free-roll policies,
+not a geometric fit or post-export deformation. The default force floor is unchanged.
 
 ## Records and placement
 
 - `src/loop-path.json`: `[distance, px, py, pz, qx, qy, qz, qw]` in KexEdit coordinates
 - `fixtures/loop-state.json`: source provenance, constants, initial state, recording cadence and matching state/intent samples
+
+Regular records retain fixed-rate timestamps. The final record is a physical
+partial step at the negative-to-nonnegative forward-Y root, bounded within its last
+integration interval. Free energy is recomputed for that actual duration.
+`wholeTicks`, `terminalDuration` and `endTime` distinguish this event from a whole
+tick; no position or orientation is independently snapped. The exporter excludes
+the asymmetric final full-rate stencil from its centered audit; the independent
+recorded audit uses a three-point derivative with actual unequal time intervals.
 
 Only the path is imported by the app. `track.ts` interpolates position and the
 shortest-hemisphere unit quaternion by recorded distance.

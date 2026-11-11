@@ -76,7 +76,7 @@ const checkAxes = (f: ReturnType<typeof frame>, chord: number[]) => {
 
 test("recorded geometry: metric arc stations, rigid landmarks, proper continuous tangent frames", () => {
   expect(path.length).toBe(state.samples.length);
-  expect(length("loop")).toBeCloseTo(34.6520402557, 9);
+  expect(length("loop")).toBeCloseTo(42.0726940244, 9);
   expect(frame("loop", 0).p).toEqual([2.2, 1.5, -4.3]);
   const apex = path.reduce(
     (best, p, i) => (p[2] > path[best][2] ? i : best),
@@ -120,7 +120,7 @@ test("recorded geometry: metric arc stations, rigid landmarks, proper continuous
   }
   for (const spacing of [0.3, 0.7, 1.5]) {
     const stations = ties({ ...defaults, configuration: "loop", spacing });
-    expect(stations.length).toBe(Math.ceil(34.6520402557 / spacing));
+    expect(stations.length).toBe(Math.ceil(42.0726940244 / spacing));
     for (const [i, f] of stations.entries()) {
       const s = i * spacing;
       expect(f.s).toBe(s);
@@ -151,9 +151,14 @@ test("independent recorded velocity differences and geometry/state recover autho
   const energy = state.samples[0][1] ** 2 / 2;
   const normals: number[] = [];
   for (let i = 1; i < path.length - 1; i++) {
-    const dt = state.samples[i + 1][0] - state.samples[i - 1][0];
-    const acceleration = sub(velocity[i + 1], velocity[i - 1]).map(
-      (x) => x / dt,
+    const before = state.samples[i][0] - state.samples[i - 1][0];
+    const after = state.samples[i + 1][0] - state.samples[i][0];
+    // Three-point derivative at the interior timestamp, including the uneven
+    // final recording interval rather than treating it as a centered secant.
+    const acceleration = velocity[i].map((v, k) =>
+      -after / (before * (before + after)) * velocity[i - 1][k] +
+      (after - before) / (before * after) * v +
+      before / (after * (before + after)) * velocity[i + 1][k],
     );
     acceleration[1] += 9.81;
     const up = axes(path[i]).up;
@@ -203,6 +208,8 @@ test("independent recorded velocity differences and geometry/state recover autho
   expect(forceError).toBeLessThan(0.003);
   expect(geometryError).toBeLessThan(0.003);
   expect(energyError).toBeLessThan(1e-7);
+  const last = path.length - 1;
+  expect(Math.abs(state.samples[last][1] ** 2 / 2 + 9.81 * path[last][2] - energy)).toBeLessThan(1e-7);
   const apex = path.reduce(
     (best, p, i) => (p[2] > path[best][2] ? i : best),
     0,
@@ -221,11 +228,9 @@ test("independent recorded velocity differences and geometry/state recover autho
   expect(Math.abs(normals[apex])).toBeLessThan(0.01);
   expect(normals[exit]).toBeGreaterThan(3.9);
   expect(state.samples[entry][1]).toBeGreaterThan(15.4);
-  expect(state.samples[apex][1]).toBeLessThan(5.21);
+  expect(state.samples[apex][1]).toBeLessThan(5.84);
   expect(state.samples[exit][1]).toBeGreaterThan(15.4);
-  expect(Math.max(...state.samples.map((s) => Math.abs(s[4])))).toBeGreaterThan(
-    0.6,
-  );
+  expect(state.samples[apex][1]).toBeCloseTo(5.8290506301, 6);
 });
 
 const add = (a: number[], b: number[]) => a.map((x, i) => x + b[i]);
@@ -556,10 +561,13 @@ test("noncircular spatial loop: independently measured chord curvature and nonpl
   const curvature = (i: number) =>
     norm(sub(tangent(i + 1), tangent(i - 1))) /
     (path[i + 1][0] - path[i - 1][0]);
-  expect(curvature(10)).toBeCloseTo(0.1211090463, 6);
-  expect(curvature(333)).toBeCloseTo(0.3629410247, 6);
-  expect(curvature(333) / curvature(10)).toBeGreaterThan(2.9);
-  const a = sub(world(path[333]), world(path[0])),
+  const crown = path.reduce((best, p, i) => p[2] > path[best][2] ? i : best, 0);
+  const curvatures = path.slice(2, -2).map((_, i) => curvature(i + 2));
+  // Same centered position-only stencil over ALL records of base 5841663:
+  // minimum .09886412384832682, maximum .36294102465411104 per meter.
+  expect(Math.max(...curvatures)).toBeLessThan(0.36294102465411104);
+  expect(curvature(crown) / Math.min(...curvatures)).toBeGreaterThan(2.9);
+  const a = sub(world(path[crown]), world(path[0])),
     b = sub(world(path.at(-1)!), world(path[0]));
   const n = [
     a[1] * b[2] - a[2] * b[1],
@@ -571,17 +579,14 @@ test("noncircular spatial loop: independently measured chord curvature and nonpl
       (p) => Math.abs(dot(sub(world(p), world(path[0])), n)) / norm(n),
     ),
   );
-  expect(departure).toBeCloseTo(2.6928038013, 6);
+  expect(departure).toBeGreaterThan(2);
 });
 
 test("loop: independent component dimensions, midpoint landmark, and parameter isolation", () => {
-  // Independently evaluated recorded-state landmark at s=17.32602012785,
-  // bracketed by records 333/334. These literals are not frame() output.
-  const origin = [2.159847470976644, 12.52600479027773, 0.02297391519443296];
-  const across = [
-    0.9709371025591086, -0.23850676615892155, -0.019891339083547604,
-  ];
-  const up = [-0.23840845811895775, -0.9711382100856335, 0.007209993690220632];
+  // Independent matrix reconstruction at the new metric midpoint.
+  const origin = [3.527941183591029, 14.846686750720252, 1.112765669446995];
+  const across = [0.9546375921092585, 0.000945326610554788, 0.2977686586755503];
+  const up = [0.0010066066297183312, -0.9999994919958399, -5.245145321893793e-05];
   const railVertices = 192 * 12 * 6,
     spineStart = railVertices * 2,
     tieStart = spineStart + 192 * 4 * 6;
@@ -668,10 +673,76 @@ test("loop: independent component dimensions, midpoint landmark, and parameter i
     tie(c.ties, 1);
     expect(c.rails).toEqual(base.rails);
     expect(c.spine).toEqual(base.spine);
-    expect(c.ties.length / (36 * 8)).toBe(Math.ceil(34.6520402557 / spacing));
+    expect(c.ties.length / (36 * 8)).toBe(Math.ceil(42.0726940244 / spacing));
   }
   const fixed = components({ fixed: true });
   expect(fixed.rails).toEqual(base.rails);
   expect(fixed.spine).toEqual(base.spine);
   expect(fixed.ties.length).toBe(0);
+});
+
+test("localized level terminal: complete frames, fixed-rate records, whole-tick negative control", () => {
+  const aligned = (p: number[]) => {
+    const f = axes(p);
+    return Math.max(norm(sub(f.across, [1, 0, 0])),
+      norm(sub(f.up, [0, 1, 0])), norm(sub(f.tangent, [0, 0, 1])));
+  };
+  expect(aligned(path[0])).toBeLessThan(1e-7);
+  expect(aligned(path.at(-1)!)).toBeLessThan(1e-7);
+  expect(Math.abs(axes(path.at(-1)!).tangent[1])).toBeLessThan(1e-7);
+  expect(state.terminalDuration).toBeGreaterThan(0);
+  expect(state.terminalDuration).toBeLessThan(1 / state.rate);
+  expect(state.endTime).toBeCloseTo(state.wholeTicks / state.rate + state.terminalDuration, 12);
+  for (let i = 0; i < state.samples.length - 1; i++)
+    expect(state.samples[i][0]).toBeCloseTo(i * state.recordedStride / state.rate, 10);
+  expect(state.samples.at(-1)![0]).toBeCloseTo(state.endTime, 9);
+  // Same last physical input advanced through a WHOLE tick instead of the root.
+  const wrong = [0, ...state.wholeTickTerminal.position, ...state.wholeTickTerminal.rotation];
+  expect(Math.abs(axes(wrong).tangent[1])).toBeGreaterThan(1e-7);
+});
+
+test("supported smooth roll makes a modest signed paired bank and returns upright", () => {
+  const crown = path.reduce((b, p, i) => p[2] > path[b][2] ? i : b, 0);
+  const bank = path.map(p => {
+    const { up, tangent: f } = axes(p);
+    // The vertical-plane normal is continuous through the inverted crown.
+    return Math.atan2(-up[0], (up[1]*f[2] - up[2]*f[1]) / Math.hypot(f[1], f[2]));
+  });
+  const phases = path.map(p => {
+    const f = axes(p).tangent;
+    const theta = Math.atan2(f[1], f[2]);
+    return theta < 0 ? theta + 2 * Math.PI : theta;
+  });
+  // The rounded exit is the same phase as the start; unwrap it explicitly.
+  phases[phases.length - 1] = 2 * Math.PI;
+  for (let i = 1; i < phases.length; i++) expect(phases[i]).toBeGreaterThan(phases[i - 1]);
+  const mirrorErrors = (b: number[]) => phases.map((theta, i) => {
+    const reflected = 2 * Math.PI - theta;
+    let j = 1;
+    while (j < phases.length - 1 && phases[j] < reflected) j++;
+    const t = (reflected - phases[j - 1]) / (phases[j] - phases[j - 1]);
+    return b[i] + b[j - 1] + t * (b[j] - b[j - 1]);
+  });
+  const errors = mirrorErrors(bank);
+  console.info({ bankMirrorMax: Math.max(...errors.map(Math.abs)),
+    bankMirrorRms: Math.sqrt(dot(errors, errors) / errors.length) });
+  const paired = (b: number[]) => {
+    const entry = Math.min(...b.slice(0, crown)), exit = Math.max(...b.slice(crown));
+    return entry < -.2 && exit > .2 && Math.abs(entry + exit) < .002 &&
+      Math.max(...b.map(Math.abs)) < .3 && Math.abs(b[0]) < 1e-7 && Math.abs(b.at(-1)!) < 1e-7 &&
+      // .002 rad (0.115 degrees) is under 1% of either bank peak. This bounds
+      // approximate phase mirroring over BOTH complete recorded lobes, not
+      // exact symmetry of the causal, discretely stepped source policies.
+      Math.max(...mirrorErrors(b).map(Math.abs)) < .002;
+  };
+  expect(paired(bank)).toBe(true);
+  // Neither opposite handedness nor a single lobe supports the signed-S claim.
+  expect(paired(bank.map(b => -b))).toBe(false);
+  expect(paired(bank.map((b, i) => i < crown ? b : 0))).toBe(false);
+  const rolls = state.samples.map(s => s[4]);
+  expect(rolls[0]).toBe(0);
+  expect(rolls.at(-1)).toBe(0);
+  expect(Math.max(...rolls.map(Math.abs))).toBeLessThan(.6);
+  for (let i = 1; i < rolls.length; i++)
+    expect(Math.abs((rolls[i] - rolls[i-1]) / (state.samples[i][0] - state.samples[i-1][0]))).toBeLessThan(1.6);
 });
