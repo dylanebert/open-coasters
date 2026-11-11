@@ -14,9 +14,12 @@ Checks, narrow to wide:
 
 ```sh
 bun check
+bun run typecheck
 bun run test
 bunx playwright test
 ```
+
+`bun run typecheck` covers Svelte components, which `bun check` does not.
 
 Dawn checks require a GPU adapter; absence fails rather than skips. Playwright mounts the build at `/open-coasters/` headlessly to verify GitHub Pages deployment. Verification opens no desktop windows unless the person asks.
 

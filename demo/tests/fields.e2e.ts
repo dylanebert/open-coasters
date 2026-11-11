@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { pixels, changedPixels } from './pixels';
 const step = (page: Page) => page.evaluate(() => (window as any).step());
 async function start(page: Page) {
   await page.goto("./?stepped");
@@ -23,14 +24,16 @@ test("label scrub updates rendered geometry through native input and retains sce
     const w = window as any;
     w.saved = { document, app: w.demo.app, camera: w.demo.camera, orbit: w.demo.orbit() };
   });
-  const before = await canvas.screenshot();
+  const before = await pixels(page, [480, 400]);
   const meshes = await page.evaluate(() => (window as any).demo.meshes());
   const p = await down(page);
   await page.mouse.move(p.x + 20, p.y);
   await expect(page.locator('[name=spacing]')).toHaveValue("0.9");
   await step(page);
   expect(await page.evaluate(() => (window as any).demo.meshes())).not.toEqual(meshes);
-  expect(await canvas.screenshot()).not.toEqual(before);
+  const after = await pixels(page, [480, 400]);
+  expect(await changedPixels(after, before)).toBeGreaterThan(30);
+  await before.dispose(); await after.dispose();
   expect(await page.evaluate(() => {
     const w = window as any;
     return w.saved.document === document && w.saved.app === w.demo.app && w.saved.camera === w.demo.camera && JSON.stringify(w.saved.orbit) === JSON.stringify(w.demo.orbit());
@@ -38,7 +41,7 @@ test("label scrub updates rendered geometry through native input and retains sce
   await page.mouse.up();
   await page.mouse.move(p.x + 80, p.y);
   await expect(page.locator('[name=spacing]')).toHaveValue("0.9");
-  await page.screenshot({ path: "/tmp/coasters-stage5-desktop.png", fullPage: true });
+
 });
 test("scrub bounds, cleanup, disabled labels and native editing", async ({ page }) => {
   await start(page);
@@ -82,6 +85,6 @@ test("all field columns align on desktop and phone", async ({ page }) => {
     expect(new Set(rows.map(r => r.left)).size).toBe(1);
     expect(new Set(rows.map(r => r.label)).size).toBe(1);
     expect(rows.every(r => r.right <= width)).toBe(true);
-    if (width === 390) await page.screenshot({ path: "/tmp/coasters-stage5-phone.png", fullPage: true });
+
   }
 });

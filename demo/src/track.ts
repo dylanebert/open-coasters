@@ -159,12 +159,14 @@ export function generate(p: Parameters) {
         0.065 * Math.sin((i * Math.PI) / 6),
       ]),
     );
+  const railEnd = { vertex: vertices.length / 8, index: indices.length };
   sweep([
     [-p.width / 2, -0.22],
     [-p.width / 2, -0.22 - p.depth],
     [p.width / 2, -0.22 - p.depth],
     [p.width / 2, -0.22],
   ]);
+  const spineEnd = { vertex: vertices.length / 8, index: indices.length };
   if (!p.fixed)
     for (const f of ties(p)) {
       const w = p.separation / 2 + 0.15,
@@ -192,6 +194,11 @@ export function generate(p: Parameters) {
   return {
     vertices: new Float32Array(vertices),
     indices: new Uint32Array(indices),
+    parts: [
+      { name: "rails" as const, vertex: 0, index: 0, endVertex: railEnd.vertex, endIndex: railEnd.index },
+      { name: "spine" as const, vertex: railEnd.vertex, index: railEnd.index, endVertex: spineEnd.vertex, endIndex: spineEnd.index },
+      { name: "ties" as const, vertex: spineEnd.vertex, index: spineEnd.index, endVertex: vertices.length / 8, endIndex: indices.length },
+    ],
   };
 }
 // Proper orthonormal frame -> quaternion, retaining the asset's authored axes.

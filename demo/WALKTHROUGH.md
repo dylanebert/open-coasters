@@ -10,16 +10,21 @@ The production Pages route is `/open-coasters/`.
    within the current task; there is no automatic reframing.
 3. Edit **Spacing · m**. Ties follow metric centerline distance, not equal chords.
    The loop has separate entry/exit ends and a shorter final spacing remainder.
-4. With **Adjustable**, rail separation changes the provisional tie span.
+4. With **Adjustable**, **Gauge · m** (rail center-to-center) changes the provisional tie span.
    Rail radius remains 65 mm. Spine width and depth change only the rectangular
    spine, whose top is 220 mm below the path. The initial width is 0.28 m.
 5. Choose **Blitz**. The authored 1.2 m-wide tie stays rigid and unscaled;
-   separation becomes disabled at 1 m immediately. Spacing and spine remain editable.
+   Gauge becomes disabled at 1 m immediately. Spacing and spine remain editable.
    Switching back restores the remembered adjustable separation. MIT notices,
    dimensions and reuse limits are in `assets/blitz-tie/PROVENANCE.md` at the repo root.
-6. Open `?asset=wheel-carrier` or `?asset=blitz-tie` separately to inspect the
+6. Use native **Rails**, **Ties** and **Spine** color inputs to paint independently.
+   Undo/Redo and Ctrl/Cmd+Z, Ctrl+Y or Cmd+Shift+Z restore configuration and paint.
+   A label drag, typed session (blur or Enter), or color acceptance is one edit.
+   The Blitz contribution has no authored material; track paint is viewer-owned,
+   while isolated inspection retains the default glTF material.
+7. Open `?asset=wheel-carrier` or `?asset=blitz-tie` separately to inspect the
    isolated metric witnesses. Each appears twice with rigid placements. Only the
-   asset selector remains; its edits retain the app and camera. The identity link
+   asset selector and undo/redo remain; its edits retain the app and camera. The identity link
    returns to track configuration in a new app. Zoom as needed.
 
 Drag numeric labels horizontally to adjust, or type in their fields.
@@ -37,7 +42,7 @@ resets while an encoder is open. Inputs coalesce to the latest valid selection.
 Shallot 0.10.3 does not export `clearMeshes`, and `Meshes.remove` retains packed
 family slices. The exported `MeshPlugin.initialize(world)` lifecycle performs the
 whole-registry release and re-stages its default cube. This demo owns that entire
-registry: each edit destroys scene-owned entities, invokes that lifecycle between
+registry: each geometry edit destroys scene-owned entities, invokes that lifecycle between
 frames and re-stages/rebinds scene meshes. Camera, lights, grid and materials survive.
 Do not add another mesh producer without revisiting this ownership boundary.
 
@@ -48,7 +53,9 @@ It supports only the existing validated static subset, not general animated glTF
 The independent `createScene(url)` witness path still uses `loadGltfScene` unchanged;
 GPU tests compare both isolated live renders with that path pixel-for-pixel.
 
-Edits repack the bounded scene and may wait for the GPU; this is not a large-editor
+Paint-only edits call `Materials.update` on stable handles without repacking,
+registering materials or overwriting cached source materials. Geometry edits repack
+the bounded scene and may wait for the GPU; this is not a large-editor
 streaming mechanism.
 
 ## Checks
@@ -56,9 +63,12 @@ streaming mechanism.
 Focused commands, from `demo/`:
 
 ```sh
-bun test src/reset.gpu.test.ts src/live.gpu.test.ts
-bun test src/track.test.ts src/loop.test.ts src/track.gpu.test.ts
-bunx playwright test tests/track.e2e.ts tests/loop.e2e.ts tests/scene.e2e.ts --workers=1
+bun test ./src/configuration.test.ts ./src/paint.gpu.test.ts
+bun run typecheck
+bun test ./src/reset.gpu.test.ts ./src/live.gpu.test.ts
+bun test ./src/track.test.ts ./src/loop.test.ts ./src/track.gpu.test.ts
+bunx playwright test tests/history.e2e.ts tests/fields.e2e.ts --workers=1
+bunx playwright test tests/track.e2e.ts tests/scene.e2e.ts --workers=1
 ```
 
 ## Recorded force-shaped loop

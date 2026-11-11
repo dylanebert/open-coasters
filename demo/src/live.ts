@@ -21,11 +21,13 @@ import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 import { initializeView, Scene } from "./scene";
 import { placements, staticInstanceSnapshot } from "./instance";
 import { generate, ties, rotation, type Parameters } from "./track";
+import { linearColor, initialConfiguration, type Paint } from "./configuration";
 
 export type Selection = {
   parameters: Parameters;
   isolated: boolean;
   asset: "blitz-tie" | "wheel-carrier";
+  paint?: Paint;
 };
 type Placement = {
   translation: readonly [number, number, number];
@@ -37,14 +39,19 @@ type Placement = {
 export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
   let world: World;
   const assets = new Map<string, Awaited<ReturnType<typeof cacheAsset>>>();
-  let material: MaterialHandle;
+  const paintHandles = {} as Record<keyof Paint, MaterialHandle>;
+  let previous: Selection | undefined;
+  function paint(colors: Paint) {
+    for (const part of ["rails", "ties", "spine"] as const)
+      world.resource(Materials).update(paintHandles[part], { baseColor: linearColor(colors[part]) });
+  }
   async function cacheAsset(name: string) {
     const data = await loadGltf(await staticInstanceSnapshot(assetUrl(name)));
     if (data.unsupported.length)
       throw new Error(`Unsupported glTF: ${data.unsupported.join(", ")}`);
     // The contribution gate excludes images, animation, skins and non-opaque modes.
     // Register only material variants used by these immutable static instances, once.
-    const materials = new Map<string, typeof material>();
+    const materials = new Map<string, MaterialHandle>();
     const primitives = data.instances.map((instance) => {
       const mesh = data.meshes[instance.mesh];
       const source = data.materials[mesh.material];
@@ -76,7 +83,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     });
     return { data, primitives };
   }
-  function place(name: string, positions: readonly Placement[]) {
+  function place(name: string, positions: readonly Placement[], override?: MaterialHandle) {
     const cached = assets.get(name)!;
     const handles = cached.data.meshes.map((mesh) =>
       world.resource(Meshes).add(mesh),
@@ -122,13 +129,17 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
           scale: [t[7], t[8], t[9]],
         });
         world.add(eid, MeshInstance, { mesh: handles[primitive.mesh] });
-        world.add(eid, MeshMaterial, primitive.material);
+        world.add(eid, MeshMaterial, override ?? primitive.material);
         return eid;
       });
       world.resource(Scene).instances.push(entities);
     }
   }
   async function update(selection: Selection) {
+    if (!selection.isolated) paint(selection.paint ?? initialConfiguration.paint);
+    const geometry = (s: Selection) => JSON.stringify([s.parameters, s.isolated, s.asset]);
+    if (previous && geometry(previous) === geometry(selection)) { previous = selection; return; }
+    previous = selection;
     const refs = world.resource(Scene);
     for (const group of refs.instances)
       for (const entity of group) world.destroy(entity);
@@ -138,15 +149,19 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     await MeshPlugin.initialize!(world);
     const { parameters, isolated, asset } = selection;
     if (!isolated) {
-      const eid = world.create();
-      world.add(eid, Transform);
-      world.add(eid, MeshInstance, {
-        mesh: world
-          .resource(Meshes)
-          .add({ name: "Provisional track", ...generate(parameters) }),
-      });
-      world.add(eid, MeshMaterial, material);
-      refs.instances.push([eid]);
+      const mesh = generate(parameters);
+      for (const part of mesh.parts) {
+        if (part.index === part.endIndex) continue;
+        const eid = world.create();
+        world.add(eid, Transform);
+        world.add(eid, MeshInstance, { mesh: world.resource(Meshes).add({
+          name: `Track ${part.name}`,
+          vertices: mesh.vertices.subarray(part.vertex * 8, part.endVertex * 8),
+          indices: mesh.indices.slice(part.index, part.endIndex).map(i => i - part.vertex),
+        }) });
+        world.add(eid, MeshMaterial, paintHandles[part.name]);
+        refs.instances.push([eid]);
+      }
     }
     if (isolated || parameters.fixed)
       place(
@@ -157,6 +172,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
               translation: f.p,
               rotation: rotation(f),
             })),
+        isolated ? undefined : paintHandles.ties,
       );
   }
   const plugin: Plugin = {
@@ -169,15 +185,12 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
       world.storage(Orbit).distance.set(refs.camera, initial.isolated ? 8 : 19);
       world.storage(Orbit).pan.set(refs.camera, 0, initial.isolated ? 0 : 5, 0);
       world.storage(Grid).opacity.set(refs.grid, 0.12);
-      material = world
-        .resource(Materials)
-        .add(
-          StandardMaterial({
-            baseColor: [0.08, 0.65, 0.72, 1],
-            metallic: 0.4,
-            perceptualRoughness: 0.35,
-          }),
-        );
+      for (const part of ["rails", "ties", "spine"] as const)
+        paintHandles[part] = world.resource(Materials).add(StandardMaterial({
+          baseColor: linearColor((initial.paint ?? initialConfiguration.paint)[part]),
+          metallic: 0.4,
+          perceptualRoughness: 0.35,
+        }));
       for (const name of ["blitz-tie", "wheel-carrier"])
         assets.set(name, await cacheAsset(name));
       await update(initial);

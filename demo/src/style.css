@@ -102,7 +102,8 @@ label {
   min-height: 32px;
 }
 input,
-select {
+select,
+button {
   width: 100%;
   min-width: 0;
   min-height: 32px;
@@ -126,17 +127,17 @@ input::-webkit-outer-spin-button {
 select:enabled {
   cursor: pointer;
 }
-:is(input, select):hover:not(:disabled) {
+:is(input, select, button):hover:not(:disabled) {
   border-color: var(--muted);
 }
-:is(input, select):active:not(:disabled) {
+:is(input, select, button):active:not(:disabled) {
   background: var(--line);
 }
-:is(input, select):focus-visible {
+:is(input, select, button):focus-visible {
   outline: 1px solid var(--gold);
   outline-offset: 1px;
 }
-:is(input, select):disabled {
+:is(input, select, button):disabled {
   background: var(--bg2);
   color: var(--muted);
 }
@@ -188,7 +189,8 @@ input:enabled {
 @media (pointer: coarse), (max-width: 480px) {
   label,
   input,
-  select {
+  select,
+  button {
     min-height: 44px;
   }
 }
@@ -207,3 +209,7 @@ input:enabled {
     border-top: 1px solid var(--line);
   }
 }
+
+.history-actions { display: flex; gap: var(--s2); }
+button:enabled, input[type="color"]:enabled { cursor: pointer; }
+input[type="color"] { padding: var(--s1); }

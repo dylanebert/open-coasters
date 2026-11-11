@@ -8,83 +8,8 @@
     <title>Open Coasters · track inspection</title>
   </head>
   <body>
-    <aside aria-label="Track inspector">
-      <h1 id="identity">Open Coasters</h1>
-      <form>
-        <section>
-          <h2>Configuration</h2>
-          <label id="configuration-row"
-            >Track<select name="configuration">
-              <option value="straight">Straight</option>
-              <option value="curve" selected>Banked curve</option>
-              <option value="loop">Vertical loop</option>
-            </select></label
-          >
-          <label id="asset-row" hidden
-            >Asset<select name="asset">
-              <option value="wheel-carrier">Wheel carrier</option>
-              <option value="blitz-tie">Blitz tie</option>
-            </select></label
-          >
-        </section>
-        <section id="ties">
-          <h2>Ties</h2>
-          <label
-            >Type<select name="component">
-              <option value="local">Adjustable</option>
-              <option value="fixed">Blitz</option>
-            </select></label
-          >
-          <label
-            >Spacing · m<input
-              name="spacing"
-              type="number"
-              min="0.3"
-              max="1.5"
-              step="0.05"
-              value="0.65"
-              required
-          /></label>
-          <label
-            >Rail spacing · m<input
-              name="separation"
-              aria-label="Rail center-to-center spacing · m"
-              type="number"
-              min="0.6"
-              max="1.6"
-              step="0.05"
-              value="1"
-              required
-          /></label>
-        </section>
-        <section id="spine">
-          <h2>Spine</h2>
-          <label
-            >Width · m<input
-              name="width"
-              type="number"
-              min="0.15"
-              max="0.6"
-              step="0.01"
-              value="0.28"
-              required
-          /></label>
-          <label
-            >Depth · m<input
-              name="depth"
-              type="number"
-              min="0.15"
-              max="0.8"
-              step="0.05"
-              value="0.35"
-              required
-          /></label>
-        </section>
-      </form>
-    </aside>
-    <main>
-      <canvas aria-label="Metric track playground"></canvas>
-    </main>
+    <aside aria-label="Track inspector"></aside>
+    <main><canvas aria-label="Metric track playground"></canvas></main>
     <div data-shallot-bootstrap data-state="loading" role="status">Loading…</div>
     <script src="%BASE_URL%startup.js"></script>
     <script type="module" src="/src/main.ts"></script>
