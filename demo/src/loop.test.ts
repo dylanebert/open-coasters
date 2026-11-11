@@ -231,19 +231,20 @@ test("independent recorded velocity differences and geometry/state recover autho
 const add = (a: number[], b: number[]) => a.map((x, i) => x + b[i]);
 const scale = (a: number[], k: number) => a.map((x) => x * k);
 
-test("all supported swept profiles fit an independently certified embedded regular tube", () => {
+const clearanceMesh = (overrides: Partial<typeof defaults> = {}) =>
+  generate({ ...defaults, configuration: "loop", ...overrides });
+
+test("nonlocal emitted envelope: whole-interval ball separation", () => {
   // Reference curve: C1 cubic Hermite through recorded centers, with recorded
   // unit tangents. Bounds below use Bezier convex hulls, NOT a sampling claim.
-  // Tube means different track branches cannot collide; rail/tie/spine joints
-  // within a branch intentionally overlap and are not claimed disjoint.
+  // This proves ONLY nonlocal separation. Euclidean containment does not prove
+  // local mesh embedding; actual local pieces are checked separately below.
   const cells: { lo: number; hi: number; center: number[]; radius: number }[] =
     [];
   const beziers: number[][][] = [];
   let maxAcceleration = 0,
     maxSpeed = 1,
-    curvature = 0,
-    sourceDeviation = 0,
-    angularRate = 0;
+    sourceDeviation = 0;
   for (let i = 0; i < path.length - 1; i++) {
     const p = world(path[i]),
       q = world(path[i + 1]),
@@ -254,12 +255,9 @@ test("all supported swept profiles fit an independently certified embedded regul
       c = sub(q, scale(u, h / 3));
     const d = scale(sub(c, b), 3 / h);
     const vmax = Math.max(norm(t), norm(d), norm(u));
-    const vmin = norm(t) - Math.max(norm(sub(d, t)), norm(sub(u, t)));
-    expect(vmin).toBeGreaterThan(0);
     const acceleration = (2 * Math.max(norm(sub(d, t)), norm(sub(u, d)))) / h;
     maxAcceleration = Math.max(maxAcceleration, acceleration);
     maxSpeed = Math.max(maxSpeed, vmax);
-    curvature = Math.max(curvature, acceleration / vmin ** 2);
     sourceDeviation = Math.max(
       sourceDeviation,
       norm(sub(b, add(scale(p, 2 / 3), scale(q, 1 / 3)))),
@@ -273,16 +271,6 @@ test("all supported swept profiles fit an independently certified embedded regul
       center: middle,
       radius: (vmax * h) / 2,
     });
-    const cosine = Math.min(
-      1,
-      Math.abs(dot(path[i].slice(4), path[i + 1].slice(4))) /
-        (norm(path[i].slice(4)) * norm(path[i + 1].slice(4))),
-    );
-    // Exact maximum angular speed for shortest-hemisphere normalized lerp.
-    angularRate = Math.max(
-      angularRate,
-      (4 * Math.tan(Math.acos(cosine) / 2)) / h + 1e-8,
-    );
   }
   const total = path.at(-1)![0],
     extension = 0.6;
@@ -338,96 +326,43 @@ test("all supported swept profiles fit an independently certified embedded regul
       beziers[i].reduce((sum, p, j) => sum + p[k] * weights[j], 0),
     );
   };
-  // Audit every actual emitted corner, not only a centerline or end rings.
-  // Parameter endpoints span all linear profile dimensions; ties at both
-  // spacing limits are audited, while the certificate above covers ALL stations.
-  for (const separation of [0.6, 1.6])
-    for (const width of [0.15, 0.6])
-      for (const depth of [0.15, 0.8])
-        for (const spacing of [0.3, 1.5]) {
-          const { vertices: v } = generate({
-            ...defaults,
-            configuration: "loop",
-            separation,
-            width,
-            depth,
-            spacing,
-          });
-          let offset = 0;
-          for (const sides of [12, 12, 4]) {
-            for (let segment = 0; segment < 192; segment++) {
-              const centers = [
-                reference(segment * meshStep),
-                reference((segment + 1) * meshStep),
-              ];
-              for (let vertex = 0; vertex < sides * 6; vertex++) {
-                const ring = [0, 0, 1, 0, 1, 1][vertex % 6];
-                const p = Array.from(
-                  v.slice((offset + vertex) * 8, (offset + vertex) * 8 + 3),
-                );
-                expect(norm(sub(p, centers[ring]))).toBeLessThan(
-                  envelopeRadius,
-                );
-              }
-              offset += sides * 6;
-            }
-          }
-          let station = 0;
-          for (; offset < v.length / 8; offset += 36, station++) {
-            const center = reference(station * spacing);
-            for (let vertex = 0; vertex < 36; vertex++) {
-              const p = Array.from(
-                v.slice((offset + vertex) * 8, (offset + vertex) * 8 + 3),
-              );
-              expect(norm(sub(p, center))).toBeLessThan(envelopeRadius);
-            }
-          }
+  // Audit actual emitted corners. Maximal spine/tie rectangles contain all
+  // smaller widths/depths/spans; each rail vertex is affine in separation.
+  // The radius bound above covers arbitrary stations, not a spacing snapshot.
+  let worstCorner = { error: 0, vertex: -1, parameters: "" };
+  const audit = (error: number, vertex: number, parameters: string) => {
+    if (error > worstCorner.error) worstCorner = { error, vertex, parameters };
+  };
+  for (const separation of [0.6, 1.6]) {
+    const width = 0.6, depth = 0.8, spacing = 0.3;
+    const { vertices: v } = clearanceMesh({ separation, width, depth, spacing });
+    const parameters = `${separation}/${width}/${depth}/${spacing}`;
+    let offset = 0;
+    for (const sides of [12, 12, 4]) {
+      for (let segment = 0; segment < 192; segment++) {
+        const centers = [reference(segment * meshStep), reference((segment + 1) * meshStep)];
+        for (let vertex = 0; vertex < sides * 6; vertex++) {
+          const ring = [0, 0, 1, 0, 1, 1][vertex % 6];
+          const p = Array.from(v.subarray((offset + vertex) * 8, (offset + vertex) * 8 + 3));
+          audit(norm(sub(p, centers[ring])), offset + vertex, parameters);
         }
-
-  // Exclude nearest points at either reference endpoint, including arbitrary
-  // tie stations for EVERY spacing .3..1.5. A union box encloses every allowed
-  // rail, spine, variable tie and fixed tie. Interval speed/rotation bounds
-  // cover between records, not just endpoint boxes.
-  let endpointMargin = Infinity;
-  for (let i = 0; i < path.length; i++) {
-    const p = world(path[i]),
-      f = axes(path[i]);
-    const h = Math.max(
-      i ? path[i][0] - path[i - 1][0] : 0,
-      i + 1 < path.length ? path[i + 1][0] - path[i][0] : 0,
-    );
-    const boxRadius = Math.hypot(0.95, 1.02, 0.055);
-    const guard =
-      ((maxSpeed + angularRate * boxRadius) * h) / 2 +
-      sourceDeviation +
-      roundoff;
-    for (const [tip, tangent, sign] of [
-      [sub(first, scale(startT, extension)), startT, 1],
-      [add(last, scale(endT, extension)), endT, -1],
-    ] as [number[], number[], number][]) {
-      const support =
-        0.95 * Math.abs(dot(f.across, tangent)) +
-        1.02 * Math.abs(dot(f.up, tangent)) +
-        0.055 * Math.abs(dot(f.tangent, tangent));
-      endpointMargin = Math.min(
-        endpointMargin,
-        sign * dot(sub(p, tip), tangent) - support - guard,
-      );
+        offset += sides * 6;
+      }
+    }
+    let station = 0;
+    for (; offset < v.length / 8; offset += 36, station++) {
+      const center = reference(station * spacing);
+      for (let vertex = 0; vertex < 36; vertex++) {
+        const p = Array.from(v.subarray((offset + vertex) * 8, (offset + vertex) * 8 + 3));
+        audit(norm(sub(p, center)), offset + vertex, parameters);
+      }
     }
   }
-  expect(endpointMargin).toBeGreaterThan(0);
 
-  // No arbitrary arc-gap exclusion: for every cell pair either ALL pairs of
-  // parameters are in the proved local neighborhood, or their entire balls
-  // are disjoint. Source-cell balls enclose the complete Hermite intervals.
+  expect(worstCorner.error, JSON.stringify(worstCorner)).toBeLessThan(envelopeRadius);
+
+  // Pairs omitted here are the obligation of the direct local-piece check.
   const neighborhood = 2.6;
-  // For arclength L in this neighborhood: chord dot T >= L cos(k L),
-  // while an offset normal disk contributes at most r sin(k L)<=r k L.
-  // Thus two radius-r normal disks cannot meet; r*k<1 also proves local
-  // nonsingularity. Piecewise C2 / C1 joins preserve the integral bounds.
-  const localMargin =
-    Math.cos(curvature * maxSpeed * neighborhood) - radius * curvature;
-  expect(localMargin).toBeGreaterThan(0);
   let clearance = Infinity,
     globalPairs = 0,
     localPairs = 0;
@@ -445,18 +380,173 @@ test("all supported swept profiles fit an independently certified embedded regul
       globalPairs++;
     }
   console.info({
-    curvature,
     maxSpeed,
-    angularRate,
     envelopeRadius,
-    endpointMargin,
-    localMargin,
+    worstCorner,
     clearance,
     globalPairs,
     localPairs,
   });
   expect(clearance).toBeGreaterThan(0);
-}, 5000);
+});
+
+test("local emitted pieces: chord hulls and thick ties separate except their joints", () => {
+  const total = path.at(-1)![0], step = total / 192, epsilon = 1e-5;
+  const small = clearanceMesh({ separation: 0.6, width: 0.15, depth: 0.15, spacing: 0.3 }).vertices;
+  const large = clearanceMesh({ separation: 1.6, width: 0.6, depth: 0.8, spacing: 0.3 }).vertices;
+  const vertex = (v: Float32Array, i: number) => Array.from(v.subarray(i * 8, i * 8 + 3));
+  type Piece = { lo: number; hi: number; points: number[][]; f: ReturnType<typeof frame>; guard: number; name: string };
+  // Positions are affine in each profile control. The convex hull of actual
+  // min/max-control ring corners therefore contains every supported chord face.
+  // Rail/spine pieces are solids enclosing one section, not auxiliary normal disks.
+  const sweeps: (Piece & { kind: number; segment: number })[] = [];
+  const starts = [0, 192 * 72, 2 * 192 * 72];
+  for (let segment = 0; segment < 192; segment++)
+    for (let kind = 0; kind < 3; kind++) {
+      const sides = kind === 2 ? 4 : 12, points: number[][] = [];
+      for (const v of [small, large])
+        for (let side = 0; side < sides; side++)
+          for (const corner of [0, 5])
+            points.push(vertex(v, starts[kind] + segment * sides * 6 + side * 6 + corner));
+      sweeps.push({ lo: segment * step, hi: (segment + 1) * step, points,
+        f: frame("loop", (segment + 0.5) * step), guard: epsilon,
+        kind, segment, name: `${["left rail", "right rail", "spine"][kind]}:${segment}` });
+    }
+  const project = (points: number[][], axis: number[]) => {
+    let lo = Infinity, hi = -Infinity;
+    const [x, y, z] = axis;
+    for (const p of points) {
+      const n = p[0] * x + p[1] * y + p[2] * z;
+      if (n < lo) lo = n;
+      if (n > hi) hi = n;
+    }
+    return [lo, hi];
+  };
+  // One positive projection gap is a separating plane for the ENTIRE convex
+  // hulls, including the interiors of all emitted triangles (not just vertices).
+  const gap = (a: Piece, b: Piece) => {
+    const z = add(a.f.z, b.f.z), unit = scale(z, 1 / norm(z));
+    let best = -Infinity;
+    for (const axis of [unit, a.f.y, a.f.x, b.f.y, b.f.x]) {
+      const aa = project(a.points, axis), bb = project(b.points, axis);
+      const d = Math.max(bb[0] - aa[1], aa[0] - bb[1]) - a.guard - b.guard;
+      if (d > 0.02) return d; // Stop at a useful plane, not the optimal one.
+      best = Math.max(best, d);
+    }
+    return best;
+  };
+  let seamLeak = 0, seamAdvance = Infinity;
+  for (let segment = 0; segment < 191; segment++)
+    for (let kind = 0; kind < 3; kind++) {
+      const a = sweeps[segment * 3 + kind], b = sweeps[(segment + 1) * 3 + kind];
+      const seam = frame("loop", a.hi);
+      // Adjacent sections share only the ring-plane slab at mesh roundoff.
+      // Every other ring corner must strictly advance, excluding folded-back
+      // chord faces rather than exempting entire neighboring sections.
+      for (const [piece, sign] of [[a, -1], [b, 1]] as const)
+        for (let i = 0; i < piece.points.length; i++) {
+          const d = sign * dot(sub(piece.points[i], seam.p), seam.z);
+          const sharedRing = i % 2 === (sign === -1 ? 1 : 0);
+          if (sharedRing) seamLeak = Math.max(seamLeak, Math.abs(d));
+          else seamAdvance = Math.min(seamAdvance, d);
+        }
+    }
+  let sweepGap = Infinity, sweepPair = "";
+  for (let i = 0; i < sweeps.length; i++)
+    for (let j = i + 1; j < sweeps.length; j++) {
+      const a = sweeps[i], b = sweeps[j];
+      if (b.lo - a.hi > 2.6) break; // All remaining parameter pairs have the nonlocal proof.
+      if (a.kind === b.kind && b.segment === a.segment + 1) continue; // proved shared-ring joint above
+      const d = gap(a, b);
+      if (d < sweepGap) { sweepGap = d; sweepPair = `${a.name}/${b.name}`; }
+    }
+
+  const tieStart = 192 * (12 + 12 + 4) * 6, first = frame("loop", 0);
+  const body = Array.from({ length: 36 }, (_, i) => {
+    const p = sub(vertex(large, tieStart + i), first.p);
+    return [dot(p, first.x), dot(p, first.y), dot(p, first.z)];
+  });
+  const prototype = [...new Map(body.map(p => [p.join(","), p])).values()];
+  const bodyBounds = [0, 1, 2].map(k => [Math.min(...body.map(p => p[k])), Math.max(...body.map(p => p[k]))]);
+  // This maximal variable tie also encloses the unchanged fixed asset's source
+  // box. Smaller separations only shrink X; no spine or width control affects it.
+  for (const [k, extent] of [[0, 0.6], [1, 0.05], [2, 0.050001]]) {
+    expect(bodyBounds[k][0]).toBeLessThanOrEqual(-extent);
+    expect(bodyBounds[k][1]).toBeGreaterThanOrEqual(extent);
+  }
+  let tieBodyLeak = 0;
+  for (const v of [small, large])
+    for (let station = 0, offset = tieStart; offset < v.length / 8; offset += 36, station++) {
+      const f = frame("loop", station * 0.3);
+      for (let i = 0; i < 36; i++) {
+        const p = sub(vertex(v, offset + i), f.p);
+        for (const [k, axis] of [f.x, f.y, f.z].entries()) {
+          const n = dot(p, axis);
+          tieBodyLeak = Math.max(tieBodyLeak, bodyBounds[k][0] - n, n - bodyBounds[k][1]);
+        }
+      }
+    }
+  // Bound every arbitrary tie station, not just .3 and 1.5 spacing snapshots.
+  // The consumer is piecewise linear in position and normalized-lerp in rotation.
+  let speedBound = 0, angularBound = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const h = path[i + 1][0] - path[i][0];
+    speedBound = Math.max(speedBound, norm(sub(world(path[i + 1]), world(path[i]))) / h);
+    const a = path[i].slice(4), b = path[i + 1].slice(4);
+    const cosine = Math.min(1, Math.abs(dot(a, b)) / (norm(a) * norm(b)));
+    angularBound = Math.max(angularBound, 4 * Math.tan(Math.acos(cosine) / 2) / h + 1e-6);
+  }
+  const radius = Math.max(...prototype.map(norm));
+  const cells = Math.ceil(total / 0.025), ties: Piece[] = [];
+  for (let i = 0; i < cells; i++) {
+    const lo = total * i / cells, hi = total * (i + 1) / cells, f = frame("loop", (lo + hi) / 2);
+    const points = prototype.map(p => f.p.map((x, k) => x + f.x[k] * p[0] + f.y[k] * p[1] + f.z[k] * p[2]));
+    ties.push({ lo, hi, f, points, guard: (speedBound + angularBound * radius) * (hi - lo) / 2 + epsilon,
+      name: `tie station:[${lo.toFixed(3)},${hi.toFixed(3)}]` });
+  }
+  const extended = (s: number) => {
+    const clamped = Math.max(0, Math.min(total, s)), f = frame("loop", clamped);
+    return { ...f, p: add(f.p, scale(f.z, s - clamped)) };
+  };
+  let tieGap = Infinity, tiePair = "", spineGap = Infinity, railGap = Infinity, attachmentMargin = Infinity;
+  const attachmentHalf = 0.12;
+  // Even the whole uncertain station cell's attachment strip is shorter than
+  // minimum tie spacing; this is not a blanket local-arc joint exemption.
+  expect(total / cells + 2 * attachmentHalf).toBeLessThan(0.3);
+  for (let i = 0; i < ties.length; i++) {
+    const a = ties[i];
+    // A tie can touch rails only in this station's attachment strip. Its full
+    // thick box is strictly between these planes; no tie/spine joint is exempt.
+    for (const [s, sign] of [[a.lo - attachmentHalf, 1], [a.hi + attachmentHalf, -1]]) {
+      const plane = extended(s);
+      for (const p of a.points)
+        attachmentMargin = Math.min(attachmentMargin, sign * dot(sub(p, plane.p), plane.z) - a.guard);
+    }
+    for (let j = i + 1; j < ties.length; j++) {
+      const b = ties[j];
+      if (b.lo - a.hi > 2.6) break;
+      if (b.hi - a.lo < 0.3 - 1e-10) continue; // distinct legal stations are at least .3 m apart
+      const d = gap(a, b);
+      if (d < tieGap) { tieGap = d; tiePair = `${a.name}/${b.name}`; }
+    }
+    for (const b of sweeps) {
+      if (b.lo - a.hi > 2.6 || a.lo - b.hi > 2.6) continue;
+      if (b.kind !== 2 && b.lo <= a.hi + attachmentHalf && b.hi >= a.lo - attachmentHalf) continue;
+      const d = gap(a, b);
+      if (b.kind === 2) spineGap = Math.min(spineGap, d);
+      else railGap = Math.min(railGap, d);
+    }
+  }
+  console.info({ seamLeak, seamAdvance, sweepGap, sweepPair, tieBodyLeak, tieGap, tiePair, spineGap, railGap, attachmentMargin });
+  expect(seamLeak).toBeLessThan(epsilon);
+  expect(seamAdvance).toBeGreaterThan(epsilon);
+  expect(sweepGap, sweepPair).toBeGreaterThan(0);
+  expect(tieBodyLeak).toBeLessThan(epsilon);
+  expect(tieGap, tiePair).toBeGreaterThan(0);
+  expect(spineGap).toBeGreaterThan(0);
+  expect(railGap).toBeGreaterThan(0);
+  expect(attachmentMargin).toBeGreaterThan(0);
+});
 
 test("noncircular spatial loop: independently measured chord curvature and nonplanarity", () => {
   const tangent = (i: number) => {

@@ -51,10 +51,15 @@ Its track-envelope certificate encloses rail profiles, spine corners and both
 adjustable and fixed ties over the supported controls, not only the centerline.
 A C1 Hermite reference through the generated records is used only for that
 certificate, never to author or render the path.
-Bezier derivative bounds cover curvature, interpolation error and whole intervals.
-Local normal-disk regularity, global interval-ball separation and endpoint
-extensions cover the track envelope without an arbitrary adjacent-arc exclusion.
-Intentional rail/tie/spine joints within one branch are not claimed disjoint.
+Bezier derivative bounds cover interpolation error and whole intervals for the
+nonlocal interval-ball separation check; tube containment alone says nothing
+about local mesh intersections.
+The separate local check uses separating planes for convex hulls of actual emitted
+chord corners over the control ranges, and inflated thick tie boxes covering every
+station. Shared-ring joints must stay within mesh roundoff of their ring plane.
+Only bounded rail/tie attachment strips are exempt from separation; tie/tie and
+tie/spine pairs are not.
+No local mesh-embedding claim is inferred from Hermite normal-disk regularity.
 
 The certificate's implementation and bounds live in that test; update them when
 changing records, interpolation, profiles or supported controls.
