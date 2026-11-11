@@ -7,7 +7,7 @@ The production Pages route is `/open-coasters/`.
    Drag the view to orbit; scroll to zoom.
 2. Choose **Straight** (12 m) or **Vertical loop** (3 m centerline radius).
    Changes are immediate in the same app. Orbit, pan and zoom are retained even
-   across isolated/track choices; there is no automatic reframing.
+   within the current task; there is no automatic reframing.
 3. Edit **Spacing · m**. Ties follow metric centerline distance, not equal chords.
    The closed loop has a shorter final spacing remainder.
 4. With **Adjustable**, rail separation changes the provisional tie span.
@@ -17,9 +17,10 @@ The production Pages route is `/open-coasters/`.
    separation becomes disabled at 1 m immediately. Spacing and spine remain editable.
    Switching back restores the remembered adjustable separation. MIT notices,
    dimensions and reuse limits are in `assets/blitz-tie/PROVENANCE.md` at the repo root.
-6. Choose **Isolated instances**. Only the asset selector remains; wheel carrier
-   and Blitz tie each appear twice with rigid placements. Zoom as needed: the
-   camera intentionally does not jump to a different framing when the example changes.
+6. Open `?asset=wheel-carrier` or `?asset=blitz-tie` separately to inspect the
+   isolated metric witnesses. Each appears twice with rigid placements. Only the
+   asset selector remains; its edits retain the app and camera. The identity link
+   returns to track configuration in a new app. Zoom as needed.
 
 Numbers support native keyboard editing and focus. Invalid/out-of-range in-progress
 edits do not replace geometry; the latest valid edit is applied on the next frame.
@@ -48,6 +49,9 @@ GPU tests compare both isolated live renders with that path pixel-for-pixel.
 
 Edits repack the bounded scene and may wait for the GPU; this is not a large-editor
 streaming mechanism.
+
+Generated vertices use Shallot's `px,py,pz,u,nx,ny,nz,v` layout. The view uses
+Shallot's standard sun and ambient setup without additional lights.
 
 ## Checks
 

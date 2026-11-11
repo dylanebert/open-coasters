@@ -91,7 +91,7 @@ test("Pages: edits immediately change geometry in one document/app/camera and re
     await page.locator("[name=configuration]").selectOption(kind);
     await edited();
     await page.screenshot({
-      path: `/tmp/coasters-stage2-${kind}.png`,
+      path: `/tmp/coasters-stage3-${kind}.png`,
       fullPage: true,
     });
   }
@@ -119,9 +119,9 @@ test("Pages: edits immediately change geometry in one document/app/camera and re
   await edited();
   await expect(page.locator("[name=separation]")).toHaveValue("1");
   await expect(page.locator("[name=separation]")).toBeDisabled();
-  await expect(page.locator("#meaning")).toContainText("unscaled");
+  await expect(page.locator("#meaning, .hint")).toHaveCount(0);
   await page.screenshot({
-    path: "/tmp/coasters-stage2-fixed.png",
+    path: "/tmp/coasters-stage3-fixed.png",
     fullPage: true,
   });
   await page.locator("[name=component]").selectOption("local");
@@ -129,17 +129,6 @@ test("Pages: edits immediately change geometry in one document/app/camera and re
   await expect(page.locator("[name=separation]")).toBeEnabled();
   await expect(page.locator("[name=separation]")).toHaveValue("1.5");
   await expect(page.locator("[name=asset]")).toBeHidden();
-  await page.locator("[name=configuration]").selectOption("isolated");
-  await edited();
-  await expect(page.locator("[name=asset]")).toBeVisible();
-  await expect(page.locator("#ties")).toBeHidden();
-  await expect(page.locator("#spine")).toBeHidden();
-  await page.locator("[name=asset]").selectOption("blitz-tie");
-  await edited();
-  await page.screenshot({
-    path: "/tmp/coasters-stage2-isolated.png",
-    fullPage: true,
-  });
   expect(requests.length).toBe(requestCount);
   expect(
     await page.evaluate(async () => {
@@ -209,7 +198,7 @@ test("desktop and phone fields are aligned, keyboard editable, locally fonted an
     expect(layout.canvasHeight).toBeGreaterThan(300);
     if (width === 390)
       await page.screenshot({
-        path: "/tmp/coasters-stage2-phone.png",
+        path: "/tmp/coasters-stage3-phone.png",
         fullPage: true,
       });
   }
@@ -226,3 +215,30 @@ test("desktop and phone fields are aligned, keyboard editable, locally fonted an
     ),
   ).toBe(true);
 });
+
+for (const asset of ["wheel-carrier", "blitz-tie"]) {
+  test(`separate ${asset} entry retains immediate asset editing`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", e => errors.push(e.message));
+    await page.goto(`./?stepped&asset=${asset}`);
+    await page.locator('body[data-ready="true"]').waitFor();
+    await step(page);
+    await expect(page.locator("[name=configuration]")).toBeHidden();
+    await expect(page.locator("#ties")).toBeHidden();
+    await expect(page.locator("#spine")).toBeHidden();
+    await expect(page.locator("[name=asset]")).toHaveValue(asset);
+    await page.screenshot({path: `/tmp/coasters-stage3-${asset}.png`, fullPage: true});
+    const before = await pixels(page);
+    const url = page.url();
+    await page.evaluate(() => { (window as any).saved = (window as any).demo.app; });
+    await page.locator("[name=asset]").selectOption(asset === "blitz-tie" ? "wheel-carrier" : "blitz-tie");
+    await step(page);
+    expect(await pixels(page)).not.toEqual(before);
+    expect(page.url()).toBe(url);
+    expect(await page.evaluate(() => (window as any).saved === (window as any).demo.app)).toBe(true);
+    await page.getByRole("link", {name: "Open Coasters"}).click();
+    await page.locator('body[data-ready="true"]').waitFor();
+    await expect(page.locator("[name=configuration]")).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+}

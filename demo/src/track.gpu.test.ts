@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Meshes, MeshInstance, type MeshHandle } from "@dylanebert/shallot";
+import { DirectionalLight, Meshes, MeshInstance, type MeshHandle } from "@dylanebert/shallot";
 import { openGpuApp } from "@dylanebert/shallot/testing/gpu";
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { attachTexture, captureTexture } from "@dylanebert/shallot/rendering";
@@ -49,3 +49,30 @@ for (const configuration of ["straight", "curve", "loop"] as Configuration[])
     },
     TIMEOUT.gpu,
   );
+
+test("Dawn: standard directional light shapes the generated track", async () => {
+  const app = await openGpuApp({plugins: [createScene(
+    new URL("../public/assets/blitz-tie.gltf", import.meta.url), defaults,
+  )]});
+  try {
+    const w = app.world, s = w.resource(Scene);
+    attachTexture(w, s.camera, {width: 384, height: 288});
+    const frame = async () => {
+      w.step(0);
+      const image = await captureTexture(w, s.camera);
+      await w.frameFence;
+      return image.rgba;
+    };
+    const lit = await frame();
+    // Remove only the standard sun, leaving ambient, geometry, material and camera alone.
+    for (const eid of w.query([DirectionalLight])) w.storage(DirectionalLight).illuminance.set(eid, 0);
+    const ambient = await frame();
+    let shaped = 0;
+    for (let i = 0; i < lit.length; i += 4) {
+      // Cyan subject mask excludes the neutral grid and background.
+      if (lit[i+1] > lit[i] * 1.4 && lit[i+2] > lit[i] * 1.4 &&
+          Math.max(lit[i+1]-ambient[i+1], lit[i+2]-ambient[i+2]) > 12) shaped++;
+    }
+    expect(shaped).toBeGreaterThan(100);
+  } finally { app.dispose(); }
+}, TIMEOUT.gpu);

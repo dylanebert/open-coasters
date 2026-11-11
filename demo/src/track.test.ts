@@ -254,3 +254,21 @@ test("generated dimensions are independently bounded and all controls affect act
   );
   near(point(frame("loop", Math.PI * 3), 0, 0.2), [0, 7.3, 0]);
 });
+
+for (const configuration of ["straight", "curve", "loop"] as Configuration[])
+  test(`${configuration}: Shallot packed normals are unit and follow face winding`, () => {
+    const { vertices: v, indices } = generate({ ...defaults, configuration });
+    for (let t = 0; t < indices.length; t += 3) {
+      const a = indices[t] * 8, b = indices[t + 1] * 8, c = indices[t + 2] * 8;
+      const u = [0,1,2].map(i => v[b+i]-v[a+i]);
+      const w = [0,1,2].map(i => v[c+i]-v[a+i]);
+      const cross = [u[1]*w[2]-u[2]*w[1], u[2]*w[0]-u[0]*w[2], u[0]*w[1]-u[1]*w[0]];
+      const size = Math.hypot(...cross);
+      for (const offset of [a,b,c]) {
+        // Shallot: px,py,pz,u,nx,ny,nz,v.
+        const n = [v[offset+4],v[offset+5],v[offset+6]];
+        expect(Math.hypot(...n)).toBeCloseTo(1, 5);
+        expect(n.reduce((sum, x, i) => sum + x * cross[i] / size, 0)).toBeCloseTo(1, 5);
+      }
+    }
+  });

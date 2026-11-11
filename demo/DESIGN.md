@@ -8,10 +8,11 @@ Keep the view primary and the inspector bounded, below the view on phones.
 Fields share one label allocation; dependency indentation subtracts from the label,
 not the field. Spacing groups related rows and separates independent sections.
 
-Presence follows context: configuration chooses the example; track mode exposes ties
-and spine; isolated mode exposes only its asset choice. Fixed ties retain a disabled
-separation field and concise dependency meaning. No submit action, decorative card,
-status badge or repeated explanatory block. Native fields retain keyboard focus and
+Presence follows the current task: the default view exposes track configuration,
+ties and spine only. Asset inspection uses a separate `?asset=wheel-carrier` or
+`?asset=blitz-tie` entry with only its asset choice and an identity return link.
+Fixed ties retain a disabled separation field. Keep gesture guidance and helper
+paragraphs out of the view. No submit action, decorative card or status badge. Native fields retain keyboard focus and
 text editing/selection; visible focus uses the gold border role. Raised resting
 fields use muted hover borders, line pressed surfaces and flat bg2 disabled surfaces.
 

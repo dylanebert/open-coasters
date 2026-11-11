@@ -86,7 +86,7 @@ export function generate(p: Parameters) {
     const l = Math.hypot(...n) || 1;
     const start = vertices.length / 8;
     for (const pt of [a, b, c, d])
-      vertices.push(...pt, ...n.map((v) => v / l), 0, 0);
+      vertices.push(...pt, 0, ...n.map((v) => v / l), 0);
     indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
   }
   function sweep(section: [number, number][]) {

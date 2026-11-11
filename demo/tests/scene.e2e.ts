@@ -60,7 +60,7 @@ test("Pages build presents metric scene and responds to orbit and zoom", async (
     page.evaluate(() =>
       (window as unknown as { step: () => Promise<void> }).step(),
     );
-  await page.goto("./?stepped&configuration=isolated");
+  await page.goto("./?stepped&asset=wheel-carrier");
   await page.locator('body[data-ready="true"]').waitFor();
   const before = await pixels(page);
   expectNonblank(before);

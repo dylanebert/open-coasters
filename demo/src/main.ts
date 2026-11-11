@@ -25,12 +25,18 @@ try {
       }
     }
   }
-  if (query.has("asset") && !query.has("configuration"))
-    field("configuration").value = "isolated";
+  const isolated = query.has("asset");
+  document.querySelector<HTMLElement>("#configuration-row")!.hidden = isolated;
+  if (isolated) {
+    const link = document.createElement("a");
+    link.href = location.pathname;
+    link.textContent = "Open Coasters";
+    document.querySelector("#identity")!.replaceChildren(link);
+    document.querySelector("h2")!.textContent = "Asset";
+  }
   let adjustableSeparation = field("separation").value;
   let wasFixed = false;
   function read(): Selection {
-    const isolated = field("configuration").value === "isolated";
     const fixed = field("component").value === "fixed";
     if (fixed && !wasFixed) adjustableSeparation = field("separation").value;
     if (!fixed && wasFixed) field("separation").value = adjustableSeparation;
@@ -42,9 +48,6 @@ try {
     document.querySelector<HTMLElement>("#asset-row")!.hidden = !isolated;
     document.querySelector<HTMLElement>("#ties")!.hidden = isolated;
     document.querySelector<HTMLElement>("#spine")!.hidden = isolated;
-    document.querySelector("#meaning")!.textContent = fixed
-      ? "Authored tie, unscaled · separation fixed at 1 m."
-      : "Provisional ties follow rail separation.";
     const parameters: Parameters = {
       ...defaults,
       configuration: isolated

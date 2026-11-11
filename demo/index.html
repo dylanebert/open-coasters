@@ -8,16 +8,15 @@
   </head>
   <body>
     <aside aria-label="Track inspector">
-      <h1>Open Coasters</h1>
+      <h1 id="identity">Open Coasters</h1>
       <form>
         <section>
           <h2>Configuration</h2>
-          <label
+          <label id="configuration-row"
             >Example<select name="configuration">
               <option value="straight">Straight</option>
               <option value="curve" selected>Banked curve</option>
               <option value="loop">Vertical loop</option>
-              <option value="isolated">Isolated instances</option>
             </select></label
           >
           <label id="asset-row" hidden
@@ -31,11 +30,10 @@
           <h2>Ties</h2>
           <label
             >Component<select name="component">
-              <option value="local">Adjustable</option>
+              <option value="local">Adjustable · provisional</option>
               <option value="fixed">Blitz · fixed</option>
             </select></label
           >
-          <p id="meaning"></p>
           <label
             >Spacing · m<input
               name="spacing"
@@ -86,7 +84,6 @@
     </aside>
     <main>
       <canvas aria-label="Metric track playground"></canvas>
-      <div class="hint">Drag to orbit · scroll to zoom</div>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

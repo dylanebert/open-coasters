@@ -138,9 +138,12 @@ label:has(:disabled) {
 .dependency label {
   grid-template-columns: 135px minmax(0, 1fr);
 }
-p {
-  margin: 0;
-  color: var(--muted);
+h1 a {
+  color: inherit;
+  text-decoration: none;
+}
+h1 a:focus-visible {
+  outline: 1px solid var(--gold);
 }
 main {
   position: relative;
@@ -150,13 +153,6 @@ canvas {
   width: 100%;
   height: 100%;
   touch-action: none;
-}
-.hint {
-  position: absolute;
-  left: calc(var(--s5) + env(safe-area-inset-left));
-  bottom: calc(var(--s5) + env(safe-area-inset-bottom));
-  color: var(--muted);
-  pointer-events: none;
 }
 body,
 body * {
@@ -194,9 +190,5 @@ input:enabled {
     max-height: 60dvh;
     border-right: 0;
     border-top: 1px solid var(--line);
-  }
-  .hint {
-    left: calc(var(--s4) + env(safe-area-inset-left));
-    bottom: calc(var(--s4) + env(safe-area-inset-bottom));
   }
 }
