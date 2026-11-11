@@ -19,12 +19,13 @@ No required names, empty markers or custom metadata identify the origin.
 The normative geometry format is [glTF 2.0](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html),
 particularly Coordinate System and Units, Scenes, Transformations and
 Instantiation. Its meters, basis, node hierarchy and mesh reuse map directly to
-the meaning above; there is no additional coordinate conversion by the consumer.
+the meaning above. A consumer may use a different internal frame, but conversion
+must preserve these units and placement semantics.
 
 This candidate's demo accepts JSON `.gltf` with external/data buffers, an explicit
 `scene` index selecting a nonempty scene, triangle meshes and opaque core
 metallic-roughness materials without textures. Only that scene's roots are
-instantiated; all authored ancestors and transforms are retained. Standard glTF
+instantiated, with their authored hierarchy and transforms retained. Standard glTF
 matrix/TRS encoding is retained; compositions that Shallot cannot represent as
 TRS are refused rather than approximated. Placements in this example are rigid
 translations and unit XYZW quaternions, without placement scale.
