@@ -38,6 +38,9 @@ World placement is rigid, with no scale.
 
 The path has separate entry/exit ends. A side projection can cross even when the
 spatial branches are separated; inspect a front view too.
+For manual perspective, side, front and entry/exit captures, start a built preview
+and run from `demo/`: `bun tools/loop.oracle.ts http://127.0.0.1:4173/open-coasters/`.
+The tool writes `/tmp/coasters-stage4-*.png`; these are inspection aids, not gates.
 Nonplanar sweep quads need per-triangle geometric normals.
 
 ## Independent checks

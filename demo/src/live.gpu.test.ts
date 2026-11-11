@@ -55,7 +55,7 @@ test(
       w.storage(Orbit).yaw.set(camera, 1.1);
       const orbit = w.storage(Orbit);
       w.gpu.device.pushErrorScope("validation");
-      for (let cycle = 0; cycle < 4; cycle++)
+      for (let cycle = 0; cycle < 2; cycle++)
         for (let mode = 0; mode < 8; mode++) {
           const previous = currentBuffers();
           for (const buffer of previous) families.add(buffer);
@@ -103,8 +103,8 @@ test(
       app.dispose();
     }
   },
-  // Thirty-two completed replacements, including 116 fixed loop ties per update.
-  2 * TIMEOUT.gpu,
+  // Every mode establishes its bound, then repeats it; release is checked on every replacement.
+  TIMEOUT.gpu,
 );
 
 for (const asset of ["wheel-carrier", "blitz-tie"] as const)

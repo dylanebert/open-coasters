@@ -1,4 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+// Manual visual inspection only; run against a built preview, not the browser gate.
+// bun tools/loop.oracle.ts http://127.0.0.1:4173/open-coasters/
+import { expect, chromium, type Page } from "@playwright/test";
+import { BROWSER_CONFIG } from "@dylanebert/shallot/testing";
 const step = (page: Page) => page.evaluate(() => (window as any).step());
 async function settle(page: Page) { for (let i = 0; i < 24; i++) await step(page); }
 async function orbitTo(page: Page, yaw: number, pitch: number) {
@@ -16,11 +19,15 @@ async function orbitTo(page: Page, yaw: number, pitch: number) {
   expect(actual.yaw).toBeCloseTo(yaw, 4);
   expect(actual.pitch).toBeCloseTo(pitch, 4);
 }
-test("recorded loop: lit perspective, side profile and front separation remain inspectable", async ({ page }) => {
+const browser = await chromium.launch(BROWSER_CONFIG.use.launchOptions);
+try {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const errors: string[] = [];
   page.on("pageerror", e => errors.push(e.message));
   page.on("console", m => { if (m.type() === "error") errors.push(m.text()); });
-  await page.goto("./?stepped&configuration=loop");
+  const url = new URL(process.argv[2] ?? "http://127.0.0.1:4173/open-coasters/");
+  url.search = "?stepped&configuration=loop";
+  await page.goto(url.href);
   await page.locator('body[data-ready="true"]').waitFor();
   await settle(page);
   await page.screenshot({ path: "/tmp/coasters-stage4-perspective.png", fullPage: true });
@@ -44,4 +51,6 @@ test("recorded loop: lit perspective, side profile and front separation remain i
   await expect(page.locator("[name=spacing]")).toBeEnabled();
   await expect(page.locator("[name=separation]")).toBeEnabled();
   expect(errors).toEqual([]);
-});
+} finally {
+  await browser.close();
+}

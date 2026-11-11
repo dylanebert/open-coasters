@@ -1,5 +1,6 @@
 import { holdFrames } from "@dylanebert/shallot/testing";
 import { expect, test, type Page } from "@playwright/test";
+import { pixels, nonblank, changedChannels, landmarks, type Pixels } from "./pixels";
 
 function watchErrors(page: Page) {
   const errors: string[] = [];
@@ -8,28 +9,6 @@ function watchErrors(page: Page) {
     if (message.type() === "error") errors.push(message.text());
   });
   return errors;
-}
-
-async function pixels(page: Page) {
-  const png = await page.locator("canvas").screenshot();
-  return page.evaluate(async (base64) => {
-    const image = await createImageBitmap(
-      new Blob([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))]),
-    );
-    const canvas = new OffscreenCanvas(image.width, image.height);
-    const context = canvas.getContext("2d")!;
-    context.drawImage(image, 0, 0);
-    image.close();
-    return Array.from(
-      context.getImageData(0, 0, canvas.width, canvas.height).data,
-    );
-  }, png.toString("base64"));
-}
-
-function expectNonblank(rgba: number[]) {
-  expect(
-    rgba.filter((value, i) => Math.abs(value - rgba[i % 4]) > 8).length,
-  ).toBeGreaterThan(1000);
 }
 
 test("ordinary Pages route runs and presents a nonblank scene", async ({
@@ -42,13 +21,13 @@ test("ordinary Pages route runs and presents a nonblank scene", async ({
   await frames.run(2);
   await expect(page.locator("canvas")).toBeVisible();
   const before = await pixels(page);
-  expectNonblank(before);
+  expect(await nonblank(before)).toBeGreaterThan(1000);
   await page.locator("[name=spacing]").fill("1.2");
   await frames.run(2);
   const after = await pixels(page);
-  expect(
-    after.filter((value, i) => Math.abs(value - before[i]) > 8).length,
-  ).toBeGreaterThan(1000);
+  expect(await changedChannels(after, before)).toBeGreaterThan(1000);
+  await before.dispose();
+  await after.dispose();
   expect(errors).toEqual([]);
 });
 
@@ -63,29 +42,16 @@ test("Pages build presents metric scene and responds to orbit and zoom", async (
   await page.goto("./?stepped&asset=wheel-carrier");
   await page.locator('body[data-ready="true"]').waitFor();
   const before = await pixels(page);
-  expectNonblank(before);
+  expect(await nonblank(before)).toBeGreaterThan(1000);
   // Fixed production viewport: independently visible blue carrier and orange
   // facing landmark on each side, not merely a nonblank grid.
   const size = await page.locator("canvas").boundingBox();
   const width = Math.round(size!.width),
     height = Math.round(size!.height);
-  for (const [left, right] of [
-    [0, width / 2],
-    [width / 2, width],
-  ]) {
-    let blue = 0,
-      orange = 0;
-    for (let y = 0; y < height; y++)
-      for (let x = Math.floor(left); x < right; x++) {
-        const i = (y * width + x) * 4;
-        const [r, g, b] = before.slice(i, i + 3);
-        if (b > r * 1.25 && b > g * 1.1 && b > 60) blue++;
-        if (r > g * 1.2 && g > b * 1.3 && r > 80) orange++;
-      }
+  for (const { blue, orange } of await landmarks(before, width, height)) {
     expect(blue).toBeGreaterThan(100);
     expect(orange).toBeGreaterThan(20);
   }
-  await page.screenshot({ path: "/tmp/open-coasters-instance-candidate.png" });
   await page.mouse.move(800, 450);
   await page.mouse.down();
   await step();
@@ -95,9 +61,11 @@ test("Pages build presents metric scene and responds to orbit and zoom", async (
   }
   await page.mouse.up();
   await step();
-  const changed = async (prior: number[]) => {
+  const changed = async (prior: Pixels) => {
     const next = await pixels(page);
-    return next.filter((value, i) => Math.abs(value - prior[i]) > 8).length;
+    const count = await changedChannels(next, prior);
+    await next.dispose();
+    return count;
   };
   expect(await changed(before)).toBeGreaterThan(1000);
   const orbited = await pixels(page);
@@ -105,5 +73,7 @@ test("Pages build presents metric scene and responds to orbit and zoom", async (
   await page.waitForTimeout(100);
   await step();
   expect(await changed(orbited)).toBeGreaterThan(1000);
+  await before.dispose();
+  await orbited.dispose();
   expect(errors).toEqual([]);
 });
