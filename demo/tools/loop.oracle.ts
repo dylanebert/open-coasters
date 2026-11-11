@@ -19,7 +19,10 @@ async function orbitTo(page: Page, yaw: number, pitch: number) {
   expect(actual.yaw).toBeCloseTo(yaw, 4);
   expect(actual.pitch).toBeCloseTo(pitch, 4);
 }
-const browser = await chromium.launch(BROWSER_CONFIG.use.launchOptions);
+const browser = await chromium.launch({
+  ...BROWSER_CONFIG.use.launchOptions,
+  channel: BROWSER_CONFIG.use.channel,
+});
 try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const errors: string[] = [];
