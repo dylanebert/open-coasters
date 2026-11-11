@@ -5,7 +5,7 @@ The production Pages route is `/open-coasters/`.
 
 1. Start with **Banked curve**: a quarter circle of radius 8 m, banked 30°.
    Drag the view to orbit; scroll to zoom.
-2. Choose **Straight** (12 m) or **Vertical loop** (34.652 m sampled centerline).
+2. Choose **Straight** (12 m) or the force-shaped **Vertical loop**.
    Changes are immediate in the same app. Orbit, pan and zoom are retained even
    within the current task; there is no automatic reframing.
 3. Edit **Spacing · m**. Ties follow metric centerline distance, not equal chords.
@@ -13,7 +13,7 @@ The production Pages route is `/open-coasters/`.
 4. With **Adjustable**, rail separation changes the provisional tie span.
    Rail radius remains 65 mm. Spine width and depth change only the rectangular
    spine, whose top is 220 mm below the path. The initial width is 0.28 m.
-5. Choose **Blitz · fixed**. The authored 1.2 m-wide tie stays rigid and unscaled;
+5. Choose **Blitz**. The authored 1.2 m-wide tie stays rigid and unscaled;
    separation becomes disabled at 1 m immediately. Spacing and spine remain editable.
    Switching back restores the remembered adjustable separation. MIT notices,
    dimensions and reuse limits are in `assets/blitz-tie/PROVENANCE.md` at the repo root.
@@ -22,8 +22,9 @@ The production Pages route is `/open-coasters/`.
    asset selector remains; its edits retain the app and camera. The identity link
    returns to track configuration in a new app. Zoom as needed.
 
-Numbers support native keyboard editing and focus. Invalid/out-of-range in-progress
-edits do not replace geometry; the latest valid edit is applied on the next frame.
+Drag numeric labels horizontally to adjust, or type in their fields.
+Invalid/out-of-range in-progress edits do not replace geometry; the latest valid
+edit is applied on the next frame.
 On phones the inspector sits below the view, with 44px targets and vertical scrolling.
 The compact local visual constraints are in `DESIGN.md`.
 
@@ -63,12 +64,10 @@ bunx playwright test tests/track.e2e.ts tests/loop.e2e.ts tests/scene.e2e.ts --w
 ## Recorded force-shaped loop
 
 The loop was authored offline through KexEdit's force and free-roll policies, not
-fitted as a geometric curve. Entry speed is 15.6 m/s; gravity slows it to about
-5.199 m/s at the crown and accelerates it again on exit. Its authored normal force
-falls from 4 g to zero and returns to 4 g. A smooth roll pulse around the crown
-separates the two lower branches. The path rises 11.026 m; it is not a circle or a
-closed layout. `tools/LOOP.md` records the source revision, inputs, generation and
-independent force/energy and track-envelope evidence.
+fitted as a geometric curve. Gravity slows it toward the crown and accelerates it
+on exit; normal g falls from high to near-zero and rises again. A smooth roll pulse
+separates the lower branches. It is neither a circle nor a closed layout.
+`tools/LOOP.md` owns reproduction and the verification boundary.
 
 The app reads only recorded positions/rotations and interpolates by recorded arc
 length. No physics engine or sibling checkout is needed to run, build or test it.
@@ -80,4 +79,4 @@ Construction in `src/track.ts` remains local demo code, not a shared profile, re
 or asset contract. Sweeps use finite rings, flat triangle normals and open ends.
 The bounded geometry checks cover this track's supported controls, not train
 clearance. There are no supports, runtime dynamics, structural or ride-safety
-claims. This mass-point, lossless example is not train-dynamics certification.
+claims.
