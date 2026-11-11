@@ -6,6 +6,7 @@ import { Scene } from "./scene";
 import { liveScene, type Selection } from "./live";
 import { defaults, type Parameters } from "./track";
 import "./style.css";
+import { attachFieldScrubbing } from "./field-scrub";
 
 try {
   const query = new URLSearchParams(location.search);
@@ -76,6 +77,7 @@ try {
     const selection = read();
     if (form.checkValidity()) pending = selection;
   });
+  attachFieldScrubbing(form);
   const app = await createApp({
     plugins: [
       live.plugin,

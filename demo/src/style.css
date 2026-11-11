@@ -131,12 +131,15 @@ select:enabled {
 label:has(:disabled) {
   color: var(--muted);
 }
-.dependency {
-  border-left: 1px solid var(--line);
-  padding-left: var(--s2);
+label:has(input[type="number"]:enabled) {
+  cursor: ew-resize;
+  touch-action: pan-y;
 }
-.dependency label {
-  grid-template-columns: 135px minmax(0, 1fr);
+label.scrubbing {
+  color: var(--gold);
+}
+input:enabled {
+  cursor: text;
 }
 h1 a {
   color: inherit;

@@ -13,7 +13,7 @@
         <section>
           <h2>Configuration</h2>
           <label id="configuration-row"
-            >Example<select name="configuration">
+            >Track<select name="configuration">
               <option value="straight">Straight</option>
               <option value="curve" selected>Banked curve</option>
               <option value="loop">Vertical loop</option>
@@ -29,9 +29,9 @@
         <section id="ties">
           <h2>Ties</h2>
           <label
-            >Component<select name="component">
-              <option value="local">Adjustable · provisional</option>
-              <option value="fixed">Blitz · fixed</option>
+            >Type<select name="component">
+              <option value="local">Adjustable</option>
+              <option value="fixed">Blitz</option>
             </select></label
           >
           <label
@@ -44,18 +44,17 @@
               value="0.65"
               required
           /></label>
-          <div class="dependency">
-            <label
-              >Rail separation · m<input
-                name="separation"
-                type="number"
-                min="0.6"
-                max="1.6"
-                step="0.05"
-                value="1"
-                required
-            /></label>
-          </div>
+          <label
+            >Rail spacing · m<input
+              name="separation"
+              aria-label="Rail center-to-center spacing · m"
+              type="number"
+              min="0.6"
+              max="1.6"
+              step="0.05"
+              value="1"
+              required
+          /></label>
         </section>
         <section id="spine">
           <h2>Spine</h2>

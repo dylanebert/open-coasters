@@ -5,8 +5,8 @@ following Shallot's tool-control vocabulary. Reuse those roles, not per-control 
 Fonts and OFL notices live in `public/fonts/`; controls import no other example's styles.
 
 Keep the view primary and the inspector bounded, below the view on phones.
-Fields share one label allocation; dependency indentation subtracts from the label,
-not the field. Spacing groups related rows and separates independent sections.
+Fields share one label allocation without dependency indentation.
+Spacing groups related rows and separates independent sections.
 
 The default view exposes only track configuration, ties and spine.
 Asset inspection is a separate task with its own entry; `WALKTHROUGH.md` owns the URLs.
