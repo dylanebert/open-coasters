@@ -46,12 +46,10 @@ It supports only the existing validated static subset, not general animated glTF
 The independent `createScene(url)` witness path still uses `loadGltfScene` unchanged;
 GPU tests compare both isolated live renders with that path pixel-for-pixel.
 
-This intentionally repacks the bounded scene on edits rather than keeping a growing
-mesh history or adding an engine abstraction. It may wait for the GPU on each edit;
-there is no promise of large-editor streaming performance. No engine patch or private
-mesh-resource access is used.
+Edits repack the bounded scene and may wait for the GPU; this is not a large-editor
+streaming mechanism.
 
-## Evidence
+## Checks
 
 Focused commands, from `demo/`:
 
@@ -60,26 +58,6 @@ bun test src/reset.gpu.test.ts src/live.gpu.test.ts
 bun test src/track.test.ts src/track.gpu.test.ts
 bunx playwright test tests/track.e2e.ts tests/scene.e2e.ts --workers=1
 ```
-
-The reset spike checks twelve same-world replacements, unchanged pixels and orbit,
-prior buffer destruction, live GPU family bytes/counts and collection of historical
-buffer wrappers while the app/root remain alive (44 of 48 historical wrappers
-collected; the remaining four also report destroyed). A deliberate replacement of reset
-with `Meshes.remove` failed the prior-buffer destruction assertion (expected true,
-received false); that fault was removed and the check passed again.
-
-The live test cycles parameters, components and examples 24 times. Every prior
-family is destroyed; each mode returns to identical live GPU bytes/counts, entity
-and registry counts, without another material registration. Tested modes retain four
-live family buffers totaling 3,840–676,176 bytes, not a growing series of families.
-Browser evidence checks
-immediate visible changes, latest-input registered geometry, document/app/world/camera identity,
-retained real orbit/zoom, dependencies, contextual controls, fonts and 1280/390/320px
-layouts. Existing isolated color-landmark, orbit and zoom witnesses remain.
-
-Full-frame comparison captures: `/tmp/coasters-stage2-{straight,curve,loop}.png`,
-`/tmp/coasters-stage2-fixed.png`, `/tmp/coasters-stage2-isolated.png`, and
-`/tmp/coasters-stage2-phone.png`. These are inspection artifacts, not golden images.
 
 All construction in `src/track.ts` remains provisional local demo code, not a shared
 profile, recipe or asset contract. Sweeps use finite rings, flat normals and open
