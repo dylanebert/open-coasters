@@ -80,6 +80,143 @@ for (const kind of ["straight", "curve", "loop"] as Configuration[]) {
     }
   });
 }
+// Inspect component slices, not just whether any vertex changed. These offsets
+// describe the emitted mesh layout; expected dimensions below are metric literals.
+for (const configuration of ["straight", "curve", "loop"] as Configuration[]) {
+  test(`${configuration}: non-default dimensions and parameter isolation`, () => {
+    const railVertices = 192 * 12 * 4;
+    const spineStart = 2 * railVertices;
+    const tieStart = spineStart + 192 * 4 * 4;
+    const components = (overrides: Partial<typeof defaults> = {}) => {
+      const mesh = generate({ ...defaults, configuration, ...overrides });
+      return {
+        rails: mesh.vertices.slice(0, spineStart * 8),
+        spine: mesh.vertices.slice(spineStart * 8, tieStart * 8),
+        ties: mesh.vertices.slice(tieStart * 8),
+      };
+    };
+    const position = (data: Float32Array, vertex: number) =>
+      Array.from(data.slice(vertex * 8, vertex * 8 + 3));
+    const distance = (a: number[], b: number[]) =>
+      Math.hypot(...a.map((v, i) => v - b[i]));
+    const center = (data: Float32Array, vertices: number[]) =>
+      [0, 1, 2].map(
+        (axis) =>
+          vertices.reduce((sum, vertex) => sum + data[vertex * 8 + axis], 0) /
+          vertices.length,
+      );
+    // Midpoint landmarks: straight center, banked arc bisector, inverted crown.
+    // No production frame/point helper is used to measure the generated mesh.
+    const origin =
+      configuration === "loop"
+        ? [0, 7.5, 0]
+        : configuration === "curve"
+          ? [2, 1.5, 0]
+          : [0, 1.5, 0];
+    const across =
+      configuration === "curve" ? [Math.sqrt(3) / 2, 0.5, 0] : [1, 0, 0];
+    const up =
+      configuration === "curve"
+        ? [-0.5, Math.sqrt(3) / 2, 0]
+        : configuration === "loop"
+          ? [0, -1, 0]
+          : [0, 1, 0];
+    const range = (data: Float32Array, vertices: number[], axis: number[]) => {
+      const projected = vertices.map((vertex) =>
+        position(data, vertex).reduce(
+          (sum, value, i) => sum + (value - origin[i]) * axis[i],
+          0,
+        ),
+      );
+      return [Math.min(...projected), Math.max(...projected)];
+    };
+    const spineRing = [0, 1, 2, 3].map((side) => 96 * 16 + side * 4);
+    const checkSpine = (
+      data: Float32Array,
+      halfWidth: number,
+      bottom: number,
+    ) => {
+      near(range(data, spineRing, across), [-halfWidth, halfWidth]);
+      near(range(data, spineRing, up), [bottom, -0.22]);
+    };
+    const checkRails = (data: Float32Array, halfSeparation: number) => {
+      for (const [side, sign] of [
+        [0, -1],
+        [1, 1],
+      ]) {
+        const ring = Array.from(
+          { length: 12 },
+          (_, i) => side * railVertices + 96 * 48 + i * 4,
+        );
+        // Rail centers establish both separation and unchanged path position.
+        near(
+          center(data, ring),
+          origin.map((v, i) => v + sign * halfSeparation * across[i]),
+        );
+        near(range(data, ring, across), [
+          sign * halfSeparation - 0.065,
+          sign * halfSeparation + 0.065,
+        ]);
+        near(range(data, ring, up), [-0.065, 0.065]);
+      }
+    };
+    const checkTie = (data: Float32Array, span: number) => {
+      expect(distance(position(data, 1), position(data, 2))).toBeCloseTo(
+        span,
+        5,
+      );
+      expect(distance(position(data, 0), position(data, 1))).toBeCloseTo(
+        0.11,
+        5,
+      );
+      expect(distance(position(data, 0), position(data, 4))).toBeCloseTo(
+        0.11,
+        5,
+      );
+    };
+    const base = components();
+    const separated = components({ separation: 1.4 });
+    checkRails(separated.rails, 0.7);
+    checkTie(separated.ties, 1.7);
+    expect(separated.spine).toEqual(base.spine);
+    // Separation changes tie span, not their centers/stations or number.
+    expect(separated.ties.length).toBe(base.ties.length);
+    for (let i = 0; i < base.ties.length / (24 * 8); i++) {
+      const vertices = Array.from({ length: 24 }, (_, j) => i * 24 + j);
+      near(center(separated.ties, vertices), center(base.ties, vertices));
+    }
+    const wider = components({ width: 0.5 });
+    checkSpine(wider.spine, 0.25, -0.57); // 0.50 wide, still 0.35 deep
+    expect(wider.rails).toEqual(base.rails);
+    expect(wider.ties).toEqual(base.ties);
+    const deeper = components({ depth: 0.7 });
+    checkSpine(deeper.spine, 0.14, -0.92); // still 0.28 wide, 0.70 deep
+    expect(deeper.rails).toEqual(base.rails);
+    expect(deeper.ties).toEqual(base.ties);
+    const spaced = components({ spacing: 1.2 });
+    expect(spaced.rails).toEqual(base.rails);
+    expect(spaced.spine).toEqual(base.spine);
+    expect(spaced.ties.length / (24 * 8)).toBe(
+      configuration === "straight" ? 10 : configuration === "curve" ? 11 : 16,
+    );
+    checkTie(spaced.ties, 1.3);
+    // Independent 1.2 m station landmarks: 1.2/8 = 0.15 rad on
+    // the horizontal radius-8 arc; 1.2/3 = 0.4 rad on the radius-3 loop.
+    const secondStation =
+      configuration === "straight"
+        ? [0, 1.5, -4.8]
+        : configuration === "curve"
+          ? [0.438683608715, 1.5, -4.747984139278]
+          : [0, 1.736817017991, 1.168255026926];
+    near(
+      center(
+        spaced.ties,
+        Array.from({ length: 24 }, (_, i) => 24 + i),
+      ),
+      secondStation,
+    );
+  });
+}
 test("independent orientation landmarks: straight, 30 degree bank, inverted loop crown", () => {
   near(frame("straight", 6).p, [0, 1.5, 0]);
   near(frame("straight", 6).y, [0, 1, 0]);
