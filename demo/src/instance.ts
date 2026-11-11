@@ -59,6 +59,26 @@ export function requireStaticInstance(json: GltfJson): void {
             if (p.attributes.POSITION === undefined) refuse("POSITION required");
         }
     }
+    // Empty grouping nodes are allowed, but only selected descendants contribute.
+    const visited = new Set<number>();
+    const pending = [...json.scenes![json.scene!].nodes!];
+    let geometry = false;
+    while (pending.length) {
+        const index = pending.pop()!;
+        if (visited.has(index)) continue; // Hierarchy validity belongs to the decoder.
+        visited.add(index);
+        const node = json.nodes?.[index];
+        if (!node) continue;
+        pending.push(...(node.children ?? []));
+        const mesh = node.mesh === undefined ? undefined : json.meshes?.[node.mesh];
+        if (mesh?.primitives.some(p => {
+            const positions = json.accessors?.[p.attributes.POSITION]?.count ?? 0;
+            const count = p.indices === undefined ? positions : (json.accessors?.[p.indices]?.count ?? 0);
+            return positions > 0 && count >= 3;
+        })) geometry = true;
+    }
+    if (!geometry) refuse("selected scene requires mesh geometry");
+
     for (const material of json.materials ?? []) {
         extensions(material.pbrMetallicRoughness);
         for (const info of [

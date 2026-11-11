@@ -51,6 +51,20 @@ test("explicit scene selection; authored origin, metric bounds and facing landma
     expect(Array.from(only[0].matrix.slice(12, 15))).toEqual([7, 8, 9]);
 });
 
+test("selected empty subtree is refused even when another scene has geometry", () => {
+    const copy = structuredClone(json);
+    const root = copy.nodes!.length;
+    copy.nodes!.push({ children: [root + 1] }, {});
+    copy.scenes!.push({ nodes: [root] });
+    copy.scene = 1;
+    expect(parseGltf(copy, [bin]).instances).toHaveLength(0);
+    expect(() => requireStaticInstance(copy)).toThrow("selected scene requires mesh geometry");
+    copy.nodes![root + 1] = { children: [root + 2] };
+    copy.nodes!.push({ mesh: 0 });
+    expect(() => requireStaticInstance(copy)).not.toThrow();
+    expect(parseGltf(copy, [bin]).instances).toHaveLength(1);
+});
+
 test("parent-first hierarchy preserves authored offsets", () => {
     const source: GltfJson = structuredClone(json);
     source.nodes = [
