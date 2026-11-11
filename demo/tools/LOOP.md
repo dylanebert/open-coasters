@@ -43,7 +43,8 @@ Only the path is imported by the app. `track.ts` interpolates position and the
 shortest-hemisphere unit quaternion by recorded distance.
 Source -Z is forward, while demo +Z follows increasing distance: reverse both
 local X and Z to preserve handedness and rider-up, never reflect one axis.
-World placement is rigid, with no scale.
+World placement is rigid, with no scale. Its X translation puts the highest
+recorded centerline point at world X = 0; camera framing is separate.
 
 The path has separate entry/exit ends. A side projection can cross even when the
 spatial branches are separated; inspect a front view too.

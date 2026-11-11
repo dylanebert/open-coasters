@@ -18,7 +18,7 @@ text editing/selection; visible focus uses the gold border role. Raised resting
 fields use muted hover borders, line pressed surfaces and flat bg2 disabled surfaces.
 
 Scene materials are not chrome colors; keep the subject brighter and more saturated.
-Improve composition with grid weight or framing, not changes to track geometry.
+Improve composition with grid weight or framing, not by deforming the track.
 Frame the track on entry and example changes without changing view direction.
 Edits within an example retain orbit; all edits retain the camera entity.
 Isolated assets keep their source-witness framing.
