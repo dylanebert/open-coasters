@@ -35,12 +35,7 @@
 <svelte:window onkeydown={shortcut} />
 <h1 id="identity">{#if c.isolated}<a href={location.pathname}>Open Coasters</a>{:else}Open Coasters{/if}</h1>
 <form onsubmit={event => event.preventDefault()}>
-  <div class="history-actions">
-    <button type="button" disabled={!commit(h).past.length} onclick={() => show(undo(h))}>Undo</button>
-    <button type="button" disabled={!commit(h).future.length} onclick={() => show(redo(h))}>Redo</button>
-  </div>
   <section>
-    <h2>{c.isolated ? 'Asset' : 'Configuration'}</h2>
     <label id="configuration-row" hidden={c.isolated}>Track<select name="configuration" value={c.parameters.configuration} onchange={event => change({ ...c, parameters: { ...c.parameters, configuration: event.currentTarget.value as Configuration['parameters']['configuration'] } }, true)}>
       <option value="straight">Straight</option><option value="curve">Banked curve</option><option value="loop">Vertical loop</option>
     </select></label>

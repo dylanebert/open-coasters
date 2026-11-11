@@ -22,7 +22,7 @@ test('native sessions, grouped drag/color, shortcuts, gauge memory and render un
   for (const dx of [4, 8, 20]) await page.mouse.move(box.x + 40 + dx, box.y + box.height / 2);
   await page.mouse.up();
   await expect(spacing).toHaveValue('0.9');
-  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await page.keyboard.press('ControlOrMeta+z');
   await expect(spacing).toHaveValue('0.65');
   await expect(width).toHaveValue('0.41');
   await page.keyboard.press('Control+y');
@@ -31,7 +31,7 @@ test('native sessions, grouped drag/color, shortcuts, gauge memory and render un
   await gauge.fill('1.4'); await gauge.blur();
   await page.locator('[name=component]').selectOption('fixed');
   await expect(gauge).toBeDisabled(); await expect(gauge).toHaveValue('1');
-  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await page.keyboard.press('ControlOrMeta+z');
   await expect(gauge).toBeEnabled(); await expect(gauge).toHaveValue('1.4');
   await step();
   const before = await pixels(page, [480, 400]);
@@ -46,12 +46,14 @@ test('native sessions, grouped drag/color, shortcuts, gauge memory and render un
   await expect(color).toHaveValue('#00ff00');
   const painted = await pixels(page, [480, 400]);
   expect(await changedPixels(painted, before)).toBeGreaterThan(30);
-  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await page.keyboard.press('ControlOrMeta+z');
   await expect(color).toHaveValue('#50d3dd');
   await step();
   const restored = await pixels(page, [480, 400]);
   expect(await changedPixels(restored, before)).toBe(0);
   await before.dispose(); await painted.dispose(); await restored.dispose();
   await width.fill('0.5'); await width.blur();
-  await expect(page.getByRole('button', { name: 'Redo', exact: true })).toBeDisabled();
+  await page.keyboard.press('ControlOrMeta+Shift+z');
+  await expect(width).toHaveValue('0.5');
+  await expect(color).toHaveValue('#50d3dd');
 });

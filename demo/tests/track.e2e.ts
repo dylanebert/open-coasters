@@ -18,9 +18,9 @@ test("Pages: edits immediately change geometry in one document/app/camera and re
   await page.locator('body[data-ready="true"]').waitFor();
   await step(page);
   const originalUrl = page.url();
-  await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Redo", exact: true })).toBeDisabled();
-  await expect(page.getByRole("button")).toHaveCount(2);
+  await expect(page.getByRole("button", { name: "Undo", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Redo", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button")).toHaveCount(0);
   await page.evaluate(() => {
     const w = window as any;
     w.witness = {

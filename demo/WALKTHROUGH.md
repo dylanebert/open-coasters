@@ -18,14 +18,14 @@ The production Pages route is `/open-coasters/`.
    Switching back restores the remembered adjustable separation. MIT notices,
    dimensions and reuse limits are in `assets/blitz-tie/PROVENANCE.md` at the repo root.
 6. Use native **Rails**, **Ties** and **Spine** color inputs to paint independently.
-   Undo/Redo and Ctrl/Cmd+Z, Ctrl+Y or Cmd+Shift+Z restore configuration and paint.
+   Ctrl/Cmd+Z undoes; Ctrl+Y or Cmd+Shift+Z redoes configuration and paint.
    A label drag, typed session (blur or Enter), or color acceptance is one edit.
    The Blitz contribution has no authored material; track paint is viewer-owned,
    while isolated inspection retains the default glTF material.
 7. Open `?asset=wheel-carrier` or `?asset=blitz-tie` separately to inspect the
-   isolated metric witnesses. Each appears twice with rigid placements. Only the
-   asset selector and undo/redo remain; its edits retain the app and camera. The identity link
-   returns to track configuration in a new app. Zoom as needed.
+   isolated metric witnesses. Each appears twice with rigid placements. The asset
+   selector changes the witness without replacing the app or camera. The identity
+   link returns to track configuration in a new app. Zoom as needed.
 
 Drag numeric labels horizontally to adjust, or type in their fields.
 Invalid/out-of-range in-progress edits do not replace geometry; the latest valid

@@ -23,7 +23,19 @@ import { generate, ties, rotation, type Parameters } from "./track";
 export const Scene = {
   create: () => ({ camera: -1, grid: -1, instances: [] as number[][] }),
 };
-export function initializeView(world: World, configuration?: Parameters["configuration"]) {
+// Positions occupy the first three floats of each eight-float vertex.
+export function geometryCenter(vertices: Float32Array): [number, number, number] {
+  const low = [Infinity, Infinity, Infinity];
+  const high = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < vertices.length; i += 8)
+    for (let axis = 0; axis < 3; axis++) {
+      low[axis] = Math.min(low[axis], vertices[i + axis]);
+      high[axis] = Math.max(high[axis], vertices[i + axis]);
+    }
+  return low.map((value, axis) => (value + high[axis]) / 2) as [number, number, number];
+}
+export function initializeView(world: World, parameters?: Parameters) {
+  const configuration = parameters?.configuration;
   const refs = world.resource(Scene);
   Object.assign(world.resource(GlobalAmbientLight), {
     color: 0xd8e4ff,
@@ -41,7 +53,7 @@ export function initializeView(world: World, configuration?: Parameters["configu
   world.add(refs.camera, Transform);
   world.add(refs.camera, Orbit, {
     distance: configuration === "loop" ? 26 : configuration ? 19 : 8,
-    pan: [0, configuration === "loop" ? 8 : configuration ? 5 : 0, 0],
+    pan: parameters ? geometryCenter(generate(parameters).vertices) : [0, 0, 0],
     yaw: 0.7,
     pitch: 0.5,
   });
@@ -52,7 +64,7 @@ export const createScene = (url: URL, parameters?: Parameters): Plugin => ({
   name: "ReferenceScene",
   dependencies: [OrbitPlugin, GridPlugin],
   async initialize(world) {
-    initializeView(world, parameters?.configuration);
+    initializeView(world, parameters);
     const refs = world.resource(Scene);
     if (parameters) {
       const eid = world.create();

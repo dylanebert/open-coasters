@@ -180,7 +180,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     dependencies: [OrbitPlugin, GridPlugin],
     async initialize(w) {
       world = w;
-      initializeView(world, initial.isolated ? undefined : initial.parameters.configuration);
+      initializeView(world, initial.isolated ? undefined : initial.parameters);
       const refs = world.resource(Scene);
       world.storage(Grid).opacity.set(refs.grid, 0.12);
       for (const part of ["rails", "ties", "spine"] as const)
