@@ -62,7 +62,6 @@ chord corners over the control ranges, and inflated thick tie boxes covering eve
 station. Shared-ring joints must stay within mesh roundoff of their ring plane.
 Only bounded rail/tie attachment strips are exempt from separation; tie/tie and
 tie/spine pairs are not.
-No local mesh-embedding claim is inferred from Hermite normal-disk regularity.
 
 The certificate's implementation and bounds live in that test; update them when
 changing records, interpolation, profiles or supported controls.
