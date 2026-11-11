@@ -1,4 +1,39 @@
 // Provisional demo construction, not an asset or track specification. Meters throughout.
+import { qRotate } from "@dylanebert/shallot";
+import loopPath from "./loop-path.json";
+
+// Recorded KexEdit positions/rotations; no solver runs in the demo. See tools/LOOP.md.
+const loopLength = loopPath.at(-1)![0];
+function loopFrame(s: number) {
+  s = Math.max(0, Math.min(loopLength, s));
+  let low = 0,
+    high = loopPath.length - 1;
+  while (high - low > 1) {
+    const mid = (low + high) >>> 1;
+    if (loopPath[mid][0] <= s) low = mid;
+    else high = mid;
+  }
+  const a = loopPath[low],
+    b = loopPath[high];
+  const t = (s - a[0]) / (b[0] - a[0]);
+  const p = [1, 2, 3].map((i) => a[i] + t * (b[i] - a[i]));
+  const sign = a.slice(4).reduce((n, v, i) => n + v * b[i + 4], 0) < 0 ? -1 : 1;
+  const q = [4, 5, 6, 7].map((i) => a[i] + t * (sign * b[i] - a[i]));
+  const norm = Math.hypot(...q);
+  const axis = (x: number, y: number, z: number) =>
+    qRotate(q[0] / norm, q[1] / norm, q[2] / norm, q[3] / norm, x, y, z);
+  const right = axis(1, 0, 0),
+    up = axis(0, 1, 0),
+    forward = axis(0, 0, -1);
+  // World Y half-turn + translation, never scale. Reverse BOTH local X and Z
+  // from KexEdit's -Z-forward frame so demo +Z tangent remains right-handed.
+  return {
+    p: [-p[0] + 2.2, p[1] + 1.5, -p[2] - 4.3] as Vec,
+    x: [right[0], -right[1], right[2]] as Vec,
+    y: [-up[0], up[1], -up[2]] as Vec,
+    z: [-forward[0], forward[1], -forward[2]] as Vec,
+  };
+}
 export type Vec = [number, number, number];
 export type Configuration = "straight" | "curve" | "loop";
 export interface Parameters {
@@ -22,7 +57,7 @@ export function length(kind: Configuration) {
     ? 12
     : kind === "curve"
       ? 4 * Math.PI
-      : 6 * Math.PI;
+      : loopLength;
 }
 export function frame(kind: Configuration, s: number) {
   if (kind === "straight")
@@ -32,15 +67,7 @@ export function frame(kind: Configuration, s: number) {
       y: [0, 1, 0] as Vec,
       z: [0, 0, 1] as Vec,
     };
-  if (kind === "loop") {
-    const a = s / 3;
-    return {
-      p: [0, 4.5 - 3 * Math.cos(a), 3 * Math.sin(a)] as Vec,
-      x: [1, 0, 0] as Vec,
-      y: [0, Math.cos(a), -Math.sin(a)] as Vec,
-      z: [0, Math.sin(a), Math.cos(a)] as Vec,
-    };
-  }
+  if (kind === "loop") return loopFrame(s);
   const a = s / 8 - Math.PI / 4,
     b = Math.PI / 6;
   return {
@@ -76,6 +103,13 @@ export function generate(p: Parameters) {
   const vertices: number[] = [],
     indices: number[] = [];
   function quad(a: Vec, b: Vec, c: Vec, d: Vec) {
+    // Nonplanar loop sections do not make planar quads. Give each triangle its
+    // own geometric normal instead of lighting the second with the first's.
+    if (p.configuration === "loop") {
+      triangle(a, b, c);
+      triangle(a, c, d);
+      return;
+    }
     const u = b.map((v, i) => v - a[i]),
       v = c.map((v, i) => v - a[i]);
     const n = [
@@ -88,6 +122,20 @@ export function generate(p: Parameters) {
     for (const pt of [a, b, c, d])
       vertices.push(...pt, 0, ...n.map((v) => v / l), 0);
     indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
+  }
+  function triangle(a: Vec, b: Vec, c: Vec) {
+    const u = b.map((v, i) => v - a[i]),
+      v = c.map((v, i) => v - a[i]);
+    const n = [
+      u[1] * v[2] - u[2] * v[1],
+      u[2] * v[0] - u[0] * v[2],
+      u[0] * v[1] - u[1] * v[0],
+    ];
+    const size = Math.hypot(...n);
+    const start = vertices.length / 8;
+    for (const pt of [a, b, c])
+      vertices.push(...pt, 0, ...n.map((v) => v / size), 0);
+    indices.push(start, start + 1, start + 2);
   }
   function sweep(section: [number, number][]) {
     for (let i = 0; i < 192; i++) {

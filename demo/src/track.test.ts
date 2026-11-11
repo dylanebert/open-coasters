@@ -12,10 +12,9 @@ import {
 import { qRotate } from "@dylanebert/shallot";
 const near = (a: number[], b: number[]) =>
   a.forEach((v, i) => expect(v).toBeCloseTo(b[i], 5));
-for (const kind of ["straight", "curve", "loop"] as Configuration[]) {
+for (const kind of ["straight", "curve"] as Configuration[]) {
   test(`${kind}: independent metric station count, spacing and unit orientation`, () => {
-    const total =
-      kind === "straight" ? 12 : kind === "curve" ? Math.PI * 4 : Math.PI * 6;
+    const total = kind === "straight" ? 12 : Math.PI * 4;
     expect(length(kind)).toBeCloseTo(total, 8);
     const stations = ties({ ...defaults, configuration: kind, spacing: 0.7 });
     const base = generate({ ...defaults, configuration: kind });
@@ -31,11 +30,7 @@ for (const kind of ["straight", "curve", "loop"] as Configuration[]) {
     const c = Math.SQRT1_2,
       b = Math.sqrt(3) / 2;
     const origin =
-      kind === "straight"
-        ? [0, 1.5, -6]
-        : kind === "curve"
-          ? [8 * c - 6, 1.5, -8 * c]
-          : [0, 1.5, 0];
+      kind === "straight" ? [0, 1.5, -6] : [8 * c - 6, 1.5, -8 * c];
     const across = kind === "curve" ? [c * b, 0.5, -c * b] : [1, 0, 0];
     const up = kind === "curve" ? [-c * 0.5, b, c * 0.5] : [0, 1, 0];
     const local = (vertex: number, axis: number[]) =>
@@ -55,23 +50,8 @@ for (const kind of ["straight", "curve", "loop"] as Configuration[]) {
       const distance =
         kind === "straight"
           ? f.p[2] + 6
-          : kind === "curve"
-            ? 8 * (Math.atan2(f.p[2], f.p[0] + 6) + Math.PI / 4)
-            : i * 0.7;
+          : 8 * (Math.atan2(f.p[2], f.p[0] + 6) + Math.PI / 4);
       expect(distance).toBeCloseTo(i * 0.7, 6);
-      if (kind === "loop") {
-        near(f.p, [
-          0,
-          4.5 - 3 * Math.cos((i * 0.7) / 3),
-          3 * Math.sin((i * 0.7) / 3),
-        ]);
-        if (i > 0) {
-          const previous = stations[i - 1].p;
-          const cosine =
-            ((4.5 - f.p[1]) * (4.5 - previous[1]) + f.p[2] * previous[2]) / 9;
-          expect(3 * Math.acos(cosine)).toBeCloseTo(0.7, 6);
-        }
-      }
       for (const axis of [f.x, f.y, f.z])
         expect(Math.hypot(...axis)).toBeCloseTo(1, 8);
       expect(f.x.reduce((n, v, j) => n + v * f.y[j], 0)).toBeCloseTo(0, 8);
@@ -82,7 +62,7 @@ for (const kind of ["straight", "curve", "loop"] as Configuration[]) {
 }
 // Inspect component slices, not just whether any vertex changed. These offsets
 // describe the emitted mesh layout; expected dimensions below are metric literals.
-for (const configuration of ["straight", "curve", "loop"] as Configuration[]) {
+for (const configuration of ["straight", "curve"] as Configuration[]) {
   test(`${configuration}: non-default dimensions and parameter isolation`, () => {
     const railVertices = 192 * 12 * 4;
     const spineStart = 2 * railVertices;
@@ -105,22 +85,13 @@ for (const configuration of ["straight", "curve", "loop"] as Configuration[]) {
           vertices.reduce((sum, vertex) => sum + data[vertex * 8 + axis], 0) /
           vertices.length,
       );
-    // Midpoint landmarks: straight center, banked arc bisector, inverted crown.
+    // Midpoint landmarks: straight center and banked arc bisector.
     // No production frame/point helper is used to measure the generated mesh.
-    const origin =
-      configuration === "loop"
-        ? [0, 7.5, 0]
-        : configuration === "curve"
-          ? [2, 1.5, 0]
-          : [0, 1.5, 0];
+    const origin = configuration === "curve" ? [2, 1.5, 0] : [0, 1.5, 0];
     const across =
       configuration === "curve" ? [Math.sqrt(3) / 2, 0.5, 0] : [1, 0, 0];
     const up =
-      configuration === "curve"
-        ? [-0.5, Math.sqrt(3) / 2, 0]
-        : configuration === "loop"
-          ? [0, -1, 0]
-          : [0, 1, 0];
+      configuration === "curve" ? [-0.5, Math.sqrt(3) / 2, 0] : [0, 1, 0];
     const range = (data: Float32Array, vertices: number[], axis: number[]) => {
       const projected = vertices.map((vertex) =>
         position(data, vertex).reduce(
@@ -197,17 +168,15 @@ for (const configuration of ["straight", "curve", "loop"] as Configuration[]) {
     expect(spaced.rails).toEqual(base.rails);
     expect(spaced.spine).toEqual(base.spine);
     expect(spaced.ties.length / (24 * 8)).toBe(
-      configuration === "straight" ? 10 : configuration === "curve" ? 11 : 16,
+      configuration === "straight" ? 10 : 11,
     );
     checkTie(spaced.ties, 1.3);
     // Independent 1.2 m station landmarks: 1.2/8 = 0.15 rad on
-    // the horizontal radius-8 arc; 1.2/3 = 0.4 rad on the radius-3 loop.
+    // the horizontal radius-8 arc.
     const secondStation =
       configuration === "straight"
         ? [0, 1.5, -4.8]
-        : configuration === "curve"
-          ? [0.438683608715, 1.5, -4.747984139278]
-          : [0, 1.736817017991, 1.168255026926];
+        : [0.438683608715, 1.5, -4.747984139278];
     near(
       center(
         spaced.ties,
@@ -217,14 +186,11 @@ for (const configuration of ["straight", "curve", "loop"] as Configuration[]) {
     );
   });
 }
-test("independent orientation landmarks: straight, 30 degree bank, inverted loop crown", () => {
+test("independent orientation landmarks: straight and 30 degree bank", () => {
   near(frame("straight", 6).p, [0, 1.5, 0]);
   near(frame("straight", 6).y, [0, 1, 0]);
   near(frame("curve", 2 * Math.PI).x, [Math.sqrt(3) / 2, 0.5, 0]);
   near(frame("curve", 2 * Math.PI).y, [-0.5, Math.sqrt(3) / 2, 0]);
-  near(frame("loop", 3 * Math.PI).p, [0, 7.5, 0]);
-  near(frame("loop", 3 * Math.PI).y, [0, -1, 0]);
-  near(frame("loop", 3 * Math.PI).z, [0, 0, -1]);
 });
 test("generated dimensions are independently bounded and all controls affect actual vertices", () => {
   const p = { ...defaults, configuration: "straight" as const };
@@ -252,23 +218,31 @@ test("generated dimensions are independently bounded and all controls affect act
   expect(generate({ ...p, fixed: true }).vertices.length).toBeLessThan(
     mesh.vertices.length,
   );
-  near(point(frame("loop", Math.PI * 3), 0, 0.2), [0, 7.3, 0]);
+  near(point(frame("straight", 6), 0, 0.2), [0, 1.7, 0]);
 });
 
 for (const configuration of ["straight", "curve", "loop"] as Configuration[])
   test(`${configuration}: Shallot packed normals are unit and follow face winding`, () => {
     const { vertices: v, indices } = generate({ ...defaults, configuration });
     for (let t = 0; t < indices.length; t += 3) {
-      const a = indices[t] * 8, b = indices[t + 1] * 8, c = indices[t + 2] * 8;
-      const u = [0,1,2].map(i => v[b+i]-v[a+i]);
-      const w = [0,1,2].map(i => v[c+i]-v[a+i]);
-      const cross = [u[1]*w[2]-u[2]*w[1], u[2]*w[0]-u[0]*w[2], u[0]*w[1]-u[1]*w[0]];
+      const a = indices[t] * 8,
+        b = indices[t + 1] * 8,
+        c = indices[t + 2] * 8;
+      const u = [0, 1, 2].map((i) => v[b + i] - v[a + i]);
+      const w = [0, 1, 2].map((i) => v[c + i] - v[a + i]);
+      const cross = [
+        u[1] * w[2] - u[2] * w[1],
+        u[2] * w[0] - u[0] * w[2],
+        u[0] * w[1] - u[1] * w[0],
+      ];
       const size = Math.hypot(...cross);
-      for (const offset of [a,b,c]) {
+      for (const offset of [a, b, c]) {
         // Shallot: px,py,pz,u,nx,ny,nz,v.
-        const n = [v[offset+4],v[offset+5],v[offset+6]];
+        const n = [v[offset + 4], v[offset + 5], v[offset + 6]];
         expect(Math.hypot(...n)).toBeCloseTo(1, 5);
-        expect(n.reduce((sum, x, i) => sum + x * cross[i] / size, 0)).toBeCloseTo(1, 5);
+        expect(
+          n.reduce((sum, x, i) => sum + (x * cross[i]) / size, 0),
+        ).toBeCloseTo(1, 5);
       }
     }
   });

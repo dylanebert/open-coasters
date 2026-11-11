@@ -56,19 +56,21 @@ test(
       const orbit = w.storage(Orbit);
       w.gpu.device.pushErrorScope("validation");
       for (let cycle = 0; cycle < 4; cycle++)
-        for (let mode = 0; mode < 6; mode++) {
+        for (let mode = 0; mode < 8; mode++) {
           const previous = currentBuffers();
           for (const buffer of previous) families.add(buffer);
           const next: Selection = {
             parameters: {
               ...defaults,
               configuration:
-                mode % 3 === 0 ? "straight" : mode % 3 === 1 ? "curve" : "loop",
+                mode === 0 ? "straight" : mode === 1 ? "curve" : "loop",
               spacing: mode % 2 ? 0.3 : 1.5,
+              separation: mode === 7 ? 1.6 : 1,
               width: mode % 2 ? 0.6 : 0.15,
+              depth: mode === 7 ? 0.8 : 0.35,
               fixed: mode === 3,
             },
-            isolated: mode >= 4,
+            isolated: mode === 4 || mode === 5,
             asset: mode === 4 ? "blitz-tie" : "wheel-carrier",
           };
           await scene.update(next);
@@ -101,7 +103,8 @@ test(
       app.dispose();
     }
   },
-  TIMEOUT.gpu,
+  // Thirty-two completed replacements, including 116 fixed loop ties per update.
+  2 * TIMEOUT.gpu,
 );
 
 for (const asset of ["wheel-carrier", "blitz-tie"] as const)

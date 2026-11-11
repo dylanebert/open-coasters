@@ -5,11 +5,11 @@ The production Pages route is `/open-coasters/`.
 
 1. Start with **Banked curve**: a quarter circle of radius 8 m, banked 30°.
    Drag the view to orbit; scroll to zoom.
-2. Choose **Straight** (12 m) or **Vertical loop** (3 m centerline radius).
+2. Choose **Straight** (12 m) or **Vertical loop** (34.652 m sampled centerline).
    Changes are immediate in the same app. Orbit, pan and zoom are retained even
    within the current task; there is no automatic reframing.
 3. Edit **Spacing · m**. Ties follow metric centerline distance, not equal chords.
-   The closed loop has a shorter final spacing remainder.
+   The loop has separate entry/exit ends and a shorter final spacing remainder.
 4. With **Adjustable**, rail separation changes the provisional tie span.
    Rail radius remains 65 mm. Spine width and depth change only the rectangular
    spine, whose top is 220 mm below the path. The initial width is 0.28 m.
@@ -56,11 +56,28 @@ Focused commands, from `demo/`:
 
 ```sh
 bun test src/reset.gpu.test.ts src/live.gpu.test.ts
-bun test src/track.test.ts src/track.gpu.test.ts
-bunx playwright test tests/track.e2e.ts tests/scene.e2e.ts --workers=1
+bun test src/track.test.ts src/loop.test.ts src/track.gpu.test.ts
+bunx playwright test tests/track.e2e.ts tests/loop.e2e.ts tests/scene.e2e.ts --workers=1
 ```
 
-All construction in `src/track.ts` remains provisional local demo code, not a shared
-profile, recipe or asset contract. Sweeps use finite rings, flat normals and open
-ends. There are no supports, transitions, clearance checks, dynamics or structural
-claims. The loop is a geometric study, not a traversable ride layout.
+## Recorded force-shaped loop
+
+The loop was authored offline through KexEdit's force and free-roll policies, not
+fitted as a geometric curve. Entry speed is 15.6 m/s; gravity slows it to about
+5.199 m/s at the crown and accelerates it again on exit. Its authored normal force
+falls from 4 g to zero and returns to 4 g. A smooth roll pulse around the crown
+separates the two lower branches. The path rises 11.026 m; it is not a circle or a
+closed layout. `tools/LOOP.md` records the source revision, inputs, generation and
+independent force/energy and track-envelope evidence.
+
+The app reads only recorded positions/rotations and interpolates by recorded arc
+length. No physics engine or sibling checkout is needed to run, build or test it.
+A shared initial camera framing accommodates the larger loop; edits still never
+reframe the camera. Use side and front views to inspect its teardrop and lateral
+separation rather than judging clearance from a projected crossing.
+
+Construction in `src/track.ts` remains local demo code, not a shared profile, recipe
+or asset contract. Sweeps use finite rings, flat triangle normals and open ends.
+The bounded geometry checks cover this track's supported controls, not train
+clearance. There are no supports, runtime dynamics, structural or ride-safety
+claims. This mass-point, lossless example is not train-dynamics certification.

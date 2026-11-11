@@ -167,7 +167,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
       initializeView(world);
       const refs = world.resource(Scene);
       world.storage(Orbit).distance.set(refs.camera, initial.isolated ? 8 : 19);
-      world.storage(Orbit).pan.set(refs.camera, 0, initial.isolated ? 0 : 3, 0);
+      world.storage(Orbit).pan.set(refs.camera, 0, initial.isolated ? 0 : 5, 0);
       world.storage(Grid).opacity.set(refs.grid, 0.12);
       material = world
         .resource(Materials)

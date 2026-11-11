@@ -51,7 +51,7 @@ export const createScene = (url: URL, parameters?: Parameters): Plugin => ({
     const refs = world.resource(Scene);
     if (parameters) {
       world.storage(Orbit).distance.set(refs.camera, 19);
-      world.storage(Orbit).pan.set(refs.camera, 0, 3, 0);
+      world.storage(Orbit).pan.set(refs.camera, 0, 5, 0);
       const eid = world.create();
       const mesh = world
         .resource(Meshes)
