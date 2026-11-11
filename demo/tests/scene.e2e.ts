@@ -41,7 +41,14 @@ test("ordinary Pages route runs and presents a nonblank scene", async ({
   await page.locator('body[data-ready="true"]').waitFor();
   await frames.run(2);
   await expect(page.locator("canvas")).toBeVisible();
-  expectNonblank(await pixels(page));
+  const before = await pixels(page);
+  expectNonblank(before);
+  await page.locator("[name=spacing]").fill("1.2");
+  await frames.run(2);
+  const after = await pixels(page);
+  expect(
+    after.filter((value, i) => Math.abs(value - before[i]) > 8).length,
+  ).toBeGreaterThan(1000);
   expect(errors).toEqual([]);
 });
 

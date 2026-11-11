@@ -1,75 +1,84 @@
-import { createApp, runApp } from "@dylanebert/shallot";
+import { createApp, Meshes } from "@dylanebert/shallot";
+import { blurCanvas } from "@dylanebert/shallot/input";
 import { attachCanvas } from "@dylanebert/shallot/rendering";
-import { Scene, createScene } from "./scene";
+import { Orbit } from "@dylanebert/shallot/extras";
+import { Scene } from "./scene";
+import { liveScene, type Selection } from "./live";
+import { defaults, type Parameters } from "./track";
 import "./style.css";
-import { defaults, ties, type Parameters } from "./track";
 
 try {
   const query = new URLSearchParams(location.search);
   const form = document.querySelector("form")!;
+  const field = (name: string) =>
+    form.elements.namedItem(name) as HTMLInputElement;
   for (const control of form.elements) {
     if (
       control instanceof HTMLInputElement ||
       control instanceof HTMLSelectElement
     ) {
       const value = query.get(control.name);
-      if (value !== null) control.value = value;
+      if (value !== null) {
+        const fallback = control.value;
+        control.value = value;
+        if (!control.value || !control.validity.valid) control.value = fallback;
+      }
     }
   }
-  const value = (name: string) =>
-    (form.elements.namedItem(name) as HTMLInputElement).value;
-  const isolated =
-    value("configuration") === "isolated" ||
-    (query.has("asset") && !query.has("configuration"));
-  if (isolated)
-    (form.elements.namedItem("configuration") as HTMLSelectElement).value =
-      "isolated";
-  const fixed = value("component") === "fixed";
-  const parameters: Parameters = {
-    ...defaults,
-    configuration: value("configuration") as Parameters["configuration"],
-    fixed,
-  };
-  for (const key of ["spacing", "separation", "width", "depth"] as const) {
-    const input = form.elements.namedItem(key) as HTMLInputElement;
-    parameters[key] = input.validity.valid
-      ? Number(input.value)
-      : defaults[key];
+  if (query.has("asset") && !query.has("configuration"))
+    field("configuration").value = "isolated";
+  let adjustableSeparation = field("separation").value;
+  let wasFixed = false;
+  function read(): Selection {
+    const isolated = field("configuration").value === "isolated";
+    const fixed = field("component").value === "fixed";
+    if (fixed && !wasFixed) adjustableSeparation = field("separation").value;
+    if (!fixed && wasFixed) field("separation").value = adjustableSeparation;
+    if (fixed) field("separation").value = "1";
+    for (const name of ["component", "spacing", "width", "depth"])
+      field(name).disabled = isolated;
+    field("separation").disabled = isolated || fixed;
+    wasFixed = fixed;
+    document.querySelector<HTMLElement>("#asset-row")!.hidden = !isolated;
+    document.querySelector<HTMLElement>("#ties")!.hidden = isolated;
+    document.querySelector<HTMLElement>("#spine")!.hidden = isolated;
+    document.querySelector("#meaning")!.textContent = fixed
+      ? "Authored tie, unscaled · separation fixed at 1 m."
+      : "Provisional ties follow rail separation.";
+    const parameters: Parameters = {
+      ...defaults,
+      configuration: isolated
+        ? "curve"
+        : (field("configuration").value as Parameters["configuration"]),
+      fixed,
+    };
+    for (const key of ["spacing", "separation", "width", "depth"] as const)
+      parameters[key] = field(key).validity.valid
+        ? Number(field(key).value)
+        : defaults[key];
+    return {
+      parameters,
+      isolated,
+      asset: field("asset").value as Selection["asset"],
+    };
   }
-  if (fixed) {
-    parameters.separation = 1;
-    (form.elements.namedItem("separation") as HTMLInputElement).value = "1";
-    (form.elements.namedItem("separation") as HTMLInputElement).readOnly = true;
-  }
-  // A navigation replaces the whole app: GPU resources cannot accumulate over rebuilds.
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const next = new URLSearchParams(
-      new FormData(form) as unknown as Record<string, string>,
-    );
-    if (query.has("stepped")) next.set("stepped", "");
-    location.search = next.toString();
-  });
-  const asset = isolated ? value("asset") : "blitz-tie";
-  document.querySelector("#explanation")!.textContent = isolated
-    ? "Two rigid isolated instances; these remain narrow asset witnesses."
-    : fixed
-      ? "Fixed Blitz ties: rail separation stays at the demo’s 1 m placement. Spacing and spine dimensions still change. The source tie is never scaled."
-      : "Adjustable provisional ties follow rail separation. Spacing is measured along the centerline; width and depth affect only the spine. Rails have a fixed 65 mm radius.";
-  if (!isolated)
-    document.querySelector("#summary")!.textContent =
-      `${ties(parameters).length} ties · ${parameters.configuration} · meters`;
-  const scene = createScene(
-    new URL(`assets/${asset}.gltf`, document.baseURI),
-    isolated ? undefined : parameters,
+  let pending: Selection | undefined = read();
+  const live = liveScene(
+    pending,
+    (name) => new URL(`assets/${name}.gltf`, document.baseURI),
   );
-  const stepped = new URLSearchParams(location.search).has("stepped");
-  const app = await (stepped ? createApp : runApp)({
+  // Install listeners before asynchronous startup: edits made while loading are not lost.
+  form.addEventListener("submit", (event) => event.preventDefault());
+  form.addEventListener("input", () => {
+    const selection = read();
+    if (form.checkValidity()) pending = selection;
+  });
+  const app = await createApp({
     plugins: [
-      scene,
+      live.plugin,
       {
         name: "CanvasHost",
-        dependencies: [scene],
+        dependencies: [live.plugin],
         initialize(world) {
           attachCanvas(
             world,
@@ -81,14 +90,73 @@ try {
     ],
     pixelRatio: 1,
   });
-  window.addEventListener("pagehide", () => app.dispose(), { once: true });
-  if (stepped) {
-    (window as unknown as { step: () => Promise<void> }).step = async () => {
-      app.world.step(1 / 60);
+  // Keyboard focus may enter by Tab without a pointer-down outside the canvas.
+  form.addEventListener("focusin", () => blurCanvas(app.world));
+  if (form.contains(document.activeElement)) blurCanvas(app.world);
+  let disposed = false;
+  window.addEventListener(
+    "pagehide",
+    () => {
+      disposed = true;
+      app.dispose();
+    },
+    { once: true },
+  );
+  // One serialized loop owns BOTH submissions and replacements. No reset can run
+  // inside an open encoder. Inputs coalesce; the latest valid selection wins.
+  let serial = Promise.resolve();
+  function step(dt: number) {
+    serial = serial.then(async () => {
+      if (disposed) return;
       await app.world.frameFence;
+      if (pending) {
+        await app.world.gpu.device.queue.onSubmittedWorkDone();
+        if (disposed) return;
+        const selection = pending;
+        pending = undefined;
+        await live.update(selection);
+      }
+      if (disposed) return;
+      app.world.step(dt);
+      await app.world.frameFence;
+    });
+    return serial;
+  }
+  await step(0);
+  if (query.has("stepped")) {
+    Object.assign(window, {
+      step: () => step(1 / 60),
+      demo: {
+        app,
+        meshes: () =>
+          [...app.world.resource(Meshes)].map((mesh) => ({
+            name: mesh.name,
+            indexCount: mesh.indexCount,
+          })),
+        get camera() {
+          return app.world.resource(Scene).camera;
+        },
+        orbit: () => {
+          const o = app.world.storage(Orbit),
+            c = app.world.resource(Scene).camera;
+          return {
+            yaw: o.yaw.get(c),
+            pitch: o.pitch.get(c),
+            distance: o.distance.get(c),
+            pan: [...o.pan.read(c, new Float32Array(4))],
+          };
+        },
+      },
+    });
+  } else {
+    let last = performance.now();
+    const tick = async (now: number) => {
+      const dt = Math.max(0, Math.min((now - last) / 1000, 0.1));
+      last = now;
+      await step(dt);
+      if (!disposed) requestAnimationFrame(tick);
     };
-    app.world.step(0);
-    await app.world.frameFence;
+    requestAnimationFrame(tick);
   }
   document.body.dataset.ready = "true";
 } catch (error) {
