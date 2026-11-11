@@ -49,7 +49,25 @@ test("Pages build presents metric scene and responds to orbit and zoom", async (
     await page.locator('body[data-ready="true"]').waitFor();
     const before = await pixels(page);
     expectNonblank(before);
-    await page.screenshot({ path: "/tmp/open-coasters-reference.png" });
+    // Fixed production viewport: independently visible blue carrier and orange
+    // facing landmark on each side, not merely a nonblank grid.
+    for (const [left, right] of [
+        [480, 650],
+        [660, 850],
+    ]) {
+        let blue = 0,
+            orange = 0;
+        for (let y = 260; y < 470; y++)
+            for (let x = left; x < right; x++) {
+                const i = (y * 1280 + x) * 4;
+                const [r, g, b] = before.slice(i, i + 3);
+                if (b > r * 1.25 && b > g * 1.1 && b > 60) blue++;
+                if (r > g * 1.2 && g > b * 1.3 && r > 80) orange++;
+            }
+        expect(blue).toBeGreaterThan(100);
+        expect(orange).toBeGreaterThan(20);
+    }
+    await page.screenshot({ path: "/tmp/open-coasters-instance-candidate.png" });
     await page.mouse.move(800, 450);
     await page.mouse.down();
     await step();

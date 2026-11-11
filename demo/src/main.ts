@@ -1,9 +1,10 @@
 import { createApp, runApp } from "@dylanebert/shallot";
 import { attachCanvas } from "@dylanebert/shallot/rendering";
-import { Scene, scene } from "./scene";
+import { Scene, createScene } from "./scene";
 import "./style.css";
 
 try {
+    const scene = createScene(new URL("assets/wheel-carrier.gltf", document.baseURI));
     const stepped = new URLSearchParams(location.search).has("stepped");
     const app = await (stepped ? createApp : runApp)({
         plugins: [

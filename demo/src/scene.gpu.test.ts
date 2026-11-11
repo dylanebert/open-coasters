@@ -4,7 +4,8 @@ import { Grid } from "@dylanebert/shallot-grid";
 import { openGpuApp } from "@dylanebert/shallot/testing/gpu";
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { attachTexture, captureTexture } from "@dylanebert/shallot/rendering";
-import { Scene, scene } from "./scene";
+import { Scene, createScene } from "./scene";
+const scene = createScene(new URL("../public/assets/wheel-carrier.gltf", import.meta.url));
 function different(a: Uint8ClampedArray, b: Uint8ClampedArray) {
     let n = 0;
     for (let i = 0; i < a.length; i += 4)
@@ -12,7 +13,7 @@ function different(a: Uint8ClampedArray, b: Uint8ClampedArray) {
     return n;
 }
 test(
-    "Dawn: object and grid independently contribute visible pixels",
+    "Dawn: both instances and grid independently contribute visible pixels",
     async () => {
         const app = await openGpuApp({ plugins: [scene] });
         try {
@@ -27,9 +28,12 @@ test(
                 return image.rgba;
             };
             const composed = await frame();
-            w.remove(s.object, MeshInstance);
+            for (const eid of s.instances[0]) w.remove(eid, MeshInstance);
+            const second = await frame();
+            expect(different(composed, second)).toBeGreaterThan(100);
+            for (const eid of s.instances[1]) w.remove(eid, MeshInstance);
             const grid = await frame();
-            expect(different(composed, grid)).toBeGreaterThan(200);
+            expect(different(second, grid)).toBeGreaterThan(100);
             w.remove(s.grid, Grid);
             const clear = await frame();
             expect(different(grid, clear)).toBeGreaterThan(200);

@@ -3,10 +3,6 @@ import {
     DirectionalLight,
     GlobalAmbientLight,
     lookAtRotation,
-    Materials,
-    MeshInstance,
-    MeshMaterial,
-    StandardMaterial,
     StandardRenderer,
     Transform,
     type Plugin,
@@ -14,11 +10,14 @@ import {
 import { Orbit, OrbitPlugin } from "@dylanebert/shallot/extras";
 import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 
-export const Scene = { create: () => ({ camera: -1, grid: -1, object: -1 }) };
-export const scene: Plugin = {
+import { loadGltfScene, spawnGltfScene } from "@dylanebert/shallot/gltf";
+import { placements, requireStaticInstance } from "./instance";
+
+export const Scene = { create: () => ({ camera: -1, grid: -1, instances: [] as number[][] }) };
+export const createScene = (url: URL): Plugin => ({
     name: "ReferenceScene",
     dependencies: [OrbitPlugin, GridPlugin],
-    initialize(world) {
+    async initialize(world) {
         const refs = world.resource(Scene);
         Object.assign(world.resource(GlobalAmbientLight), { color: 0xd8e4ff, brightness: 380 });
         const sun = world.create();
@@ -32,18 +31,12 @@ export const scene: Plugin = {
         world.add(refs.camera, Orbit, { distance: 8, yaw: 0.7, pitch: 0.5 });
         refs.grid = world.create();
         world.add(refs.grid, Grid);
-        refs.object = world.create();
-        world.add(refs.object, MeshInstance);
-        world.add(
-            refs.object,
-            MeshMaterial,
-            world.resource(Materials).add(
-                StandardMaterial({
-                    baseColor: [0.72, 0.4, 0.05, 1],
-                    perceptualRoughness: 0.38,
-                }),
-            ),
-        );
-        world.add(refs.object, Transform, { translation: [1.5, 1, 0.5], scale: [3, 2, 1] });
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Instance load failed: ${response.status}`);
+        requireStaticInstance(await response.json());
+        const asset = await loadGltfScene(world, url);
+        if (asset.unsupported.length)
+            throw new Error(`Unsupported glTF: ${asset.unsupported.join(", ")}`);
+        refs.instances = placements.map((p) => spawnGltfScene(world, asset, p).entities);
     },
-};
+});
