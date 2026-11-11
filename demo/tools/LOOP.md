@@ -23,8 +23,8 @@ loop holds constant normal g.
 The force intent falls from high normal g on entry to near-zero at the crown
 and rises again on exit. A supported signed bank guide supplies roll rate;
 two bounded, condition-checked roll trims shoot the terminal yaw and bank.
-Entry speed is 17.2 m/s. These are inputs to KexEdit's force/free-roll policies,
-not a geometric fit or post-export deformation. The default force floor is unchanged.
+These are inputs to KexEdit's force/free-roll policies, not a geometric fit or
+post-export deformation. The default force floor is unchanged.
 
 ## Records and placement
 

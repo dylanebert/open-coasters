@@ -23,7 +23,7 @@ import { generate, ties, rotation, type Parameters } from "./track";
 export const Scene = {
   create: () => ({ camera: -1, grid: -1, instances: [] as number[][] }),
 };
-export function initializeView(world: World) {
+export function initializeView(world: World, configuration?: Parameters["configuration"]) {
   const refs = world.resource(Scene);
   Object.assign(world.resource(GlobalAmbientLight), {
     color: 0xd8e4ff,
@@ -39,7 +39,12 @@ export function initializeView(world: World) {
   world.add(refs.camera, Camera, { clearColor: 0x191816 });
   world.add(refs.camera, StandardRenderer);
   world.add(refs.camera, Transform);
-  world.add(refs.camera, Orbit, { distance: 8, yaw: 0.7, pitch: 0.5 });
+  world.add(refs.camera, Orbit, {
+    distance: configuration === "loop" ? 26 : configuration ? 19 : 8,
+    pan: [0, configuration === "loop" ? 8 : configuration ? 5 : 0, 0],
+    yaw: 0.7,
+    pitch: 0.5,
+  });
   refs.grid = world.create();
   world.add(refs.grid, Grid);
 }
@@ -47,11 +52,9 @@ export const createScene = (url: URL, parameters?: Parameters): Plugin => ({
   name: "ReferenceScene",
   dependencies: [OrbitPlugin, GridPlugin],
   async initialize(world) {
-    initializeView(world);
+    initializeView(world, parameters?.configuration);
     const refs = world.resource(Scene);
     if (parameters) {
-      world.storage(Orbit).distance.set(refs.camera, 19);
-      world.storage(Orbit).pan.set(refs.camera, 0, 5, 0);
       const eid = world.create();
       const mesh = world
         .resource(Meshes)

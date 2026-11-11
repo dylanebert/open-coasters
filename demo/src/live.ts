@@ -16,7 +16,7 @@ import {
   decomposeMat4,
   multiplyMat4,
 } from "@dylanebert/shallot/utils";
-import { Orbit, OrbitPlugin } from "@dylanebert/shallot/extras";
+import { OrbitPlugin } from "@dylanebert/shallot/extras";
 import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 import { initializeView, Scene } from "./scene";
 import { placements, staticInstanceSnapshot } from "./instance";
@@ -180,10 +180,8 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     dependencies: [OrbitPlugin, GridPlugin],
     async initialize(w) {
       world = w;
-      initializeView(world);
+      initializeView(world, initial.isolated ? undefined : initial.parameters.configuration);
       const refs = world.resource(Scene);
-      world.storage(Orbit).distance.set(refs.camera, initial.isolated ? 8 : 19);
-      world.storage(Orbit).pan.set(refs.camera, 0, initial.isolated ? 0 : 5, 0);
       world.storage(Grid).opacity.set(refs.grid, 0.12);
       for (const part of ["rails", "ties", "spine"] as const)
         paintHandles[part] = world.resource(Materials).add(StandardMaterial({

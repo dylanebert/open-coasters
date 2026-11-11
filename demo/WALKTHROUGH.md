@@ -75,14 +75,14 @@ bunx playwright test tests/track.e2e.ts tests/scene.e2e.ts --workers=1
 
 The loop was authored offline through KexEdit's force and free-roll policies, not
 fitted as a geometric curve. Gravity slows it toward the crown and accelerates it
-on exit; normal g falls from high to near-zero and rises again. A smooth roll pulse
-separates the lower branches. It is neither a circle nor a closed layout.
+on exit; normal g falls from high to near-zero and rises again. A signed bank pair
+separates the lower branches and returns the exit level and aligned with entry.
+It is neither a circle nor a closed layout.
 `tools/LOOP.md` owns reproduction and the verification boundary.
 
 The app reads only recorded positions/rotations and interpolates by recorded arc
 length. No physics engine or sibling checkout is needed to run, build or test it.
-A shared initial camera framing accommodates the larger loop; edits still never
-reframe the camera. Use side and front views to inspect its teardrop and lateral
+Initial framing fits the starting example; edits still never reframe the camera. Use side and front views to inspect its teardrop and lateral
 separation rather than judging clearance from a projected crossing.
 
 Construction in `src/track.ts` remains local demo code, not a shared profile, recipe
