@@ -58,7 +58,7 @@ test("Pages: edits immediately change geometry in one document/app/camera; examp
       const centers: Record<string, number[]> = {
         straight: [0, 1.24750003, -0.02749991],
         curve: [0.89461407, 1.40449849, -0.05211520],
-        loop: [3.52908933, 8.17340931, 1.08367634],
+        loop: [3.52908933 - 3.5319609173, 8.17340931, 1.08367634],
       };
       centers[kind].forEach((value, axis) => expect(nextOrbit.pan[axis]).toBeCloseTo(value, 5));
       expect(nextOrbit.distance).toBe(kind === 'loop' ? 26 : 19);

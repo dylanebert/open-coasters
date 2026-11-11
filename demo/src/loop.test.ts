@@ -7,7 +7,8 @@ const dot = (a: number[], b: number[]) =>
   a.reduce((s, x, i) => s + x * b[i], 0);
 const sub = (a: number[], b: number[]) => a.map((x, i) => x - b[i]);
 const norm = (a: number[]) => Math.hypot(...a);
-const world = (p: number[]) => [2.2 - p[1], 1.5 + p[2], -4.3 - p[3]];
+// Independently recorded crown source X; no production placement import.
+const world = (p: number[]) => [-1.3319609173 - p[1], 1.5 + p[2], -4.3 - p[3]];
 // Independent source quaternion matrix columns, rigidly placed in world space.
 const axes = (p: number[]) => {
   const [x, y, z, w] = p.slice(4);
@@ -74,10 +75,15 @@ const checkAxes = (f: ReturnType<typeof frame>, chord: number[]) => {
   expect(dot(f.z, chord) / norm(chord)).toBeGreaterThan(0.9998);
 };
 
+test("loop: highest recorded centerline point is at world X zero", () => {
+  const crown = path.reduce((highest, row) => row[2] > highest[2] ? row : highest);
+  expect(frame("loop", crown[0]).p[0]).toBeCloseTo(0, 10);
+});
+
 test("recorded geometry: metric arc stations, rigid landmarks, proper continuous tangent frames", () => {
   expect(path.length).toBe(state.samples.length);
   expect(length("loop")).toBeCloseTo(42.0726940244, 9);
-  expect(frame("loop", 0).p).toEqual([2.2, 1.5, -4.3]);
+  expect(frame("loop", 0).p).toEqual([-1.3319609173, 1.5, -4.3]);
   const apex = path.reduce(
     (best, p, i) => (p[2] > path[best][2] ? i : best),
     0,
@@ -584,7 +590,7 @@ test("noncircular spatial loop: independently measured chord curvature and nonpl
 
 test("loop: independent component dimensions, midpoint landmark, and parameter isolation", () => {
   // Independent matrix reconstruction at the new metric midpoint.
-  const origin = [3.527941183591029, 14.846686750720252, 1.112765669446995];
+  const origin = [3.527941183591029 - 3.5319609173, 14.846686750720252, 1.112765669446995];
   const across = [0.9546375921092585, 0.000945326610554788, 0.2977686586755503];
   const up = [0.0010066066297183312, -0.9999994919958399, -5.245145321893793e-05];
   const railVertices = 192 * 12 * 6,

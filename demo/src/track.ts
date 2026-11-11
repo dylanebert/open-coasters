@@ -4,6 +4,9 @@ import loopPath from "./loop-path.json";
 
 // Recorded KexEdit positions/rotations; no solver runs in the demo. See tools/LOOP.md.
 const loopLength = loopPath.at(-1)![0];
+const loopApexX = loopPath.reduce((highest, row) =>
+  row[2] > highest[2] ? row : highest,
+)[1];
 function loopFrame(s: number) {
   s = Math.max(0, Math.min(loopLength, s));
   let low = 0,
@@ -28,7 +31,7 @@ function loopFrame(s: number) {
   // World Y half-turn + translation, never scale. Reverse BOTH local X and Z
   // from KexEdit's -Z-forward frame so demo +Z tangent remains right-handed.
   return {
-    p: [-p[0] + 2.2, p[1] + 1.5, -p[2] - 4.3] as Vec,
+    p: [-p[0] + loopApexX, p[1] + 1.5, -p[2] - 4.3] as Vec,
     x: [right[0], -right[1], right[2]] as Vec,
     y: [-up[0], up[1], -up[2]] as Vec,
     z: [-forward[0], forward[1], -forward[2]] as Vec,

@@ -12,7 +12,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     await step();
     const initialOrbit = await page.evaluate(() => (window as any).demo.orbit());
     // Independently recorded default generated bounds; geometry stays in world space.
-    for (const [axis, value] of [3.52908933, 8.17340931, 1.08367634].entries())
+    for (const [axis, value] of [3.52908933 - 3.5319609173, 8.17340931, 1.08367634].entries())
       expect(initialOrbit.pan[axis]).toBeCloseTo(value, 5);
     expect(initialOrbit.distance).toBe(26);
     await expect(page.getByRole('button', { name: /Undo|Redo|Build/ })).toHaveCount(0);
