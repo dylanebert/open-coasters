@@ -29,7 +29,16 @@ export async function loadProfile(url: URL): Promise<Profile> {
     if (node.matrix || node.translation || node.rotation || node.scale)
       fail("authored transforms unsupported; export section in the root frame");
   }
+  let defaultMaterial: number | undefined;
   for (const mesh of json.meshes ?? []) for (const primitive of mesh.primitives) {
+    // An empty core material expresses glTF's default, in a distinct table slot.
+    if (primitive.material === undefined) {
+      if (defaultMaterial === undefined) {
+        json.materials ??= [];
+        defaultMaterial = json.materials.push({}) - 1;
+      }
+      primitive.material = defaultMaterial;
+    }
     if (Object.keys(primitive.attributes).some(key => key !== "POSITION" && key !== "NORMAL"))
       fail("only POSITION and NORMAL attributes supported");
     if (primitive.attributes.NORMAL === undefined) fail("authored NORMAL required");
@@ -138,7 +147,9 @@ export async function loadProfile(url: URL): Promise<Profile> {
     const adjacent = e.to === f.from || f.to === e.from;
     if (adjacent) {
       const p = e.to === f.from ? a : b, q = e.to === f.from ? d : c, joint = e.to === f.from ? b : a;
-      if (distance(p, joint, q) <= position || distance(q, p, joint) <= position) fail("overlapping adjacent edges");
+      if (cross(joint, p, q) === 0 &&
+        (p[0] - joint[0]) * (q[0] - joint[0]) + (p[1] - joint[1]) * (q[1] - joint[1]) > 0)
+        fail("overlapping adjacent edges");
     } else if ((cross(a, b, c) * cross(a, b, d) < 0 && cross(c, d, a) * cross(c, d, b) < 0) ||
       Math.min(distance(a, c, d), distance(b, c, d), distance(c, a, b), distance(d, a, b)) <= position) fail("intersecting contours");
   }

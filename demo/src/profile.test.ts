@@ -82,6 +82,40 @@ describe("restricted matching-end profile", () => {
     expect(p.contours[0].map(e => e.from)).toEqual([0, 1, 2, 3, 4, 5]);
     await reject(fixture([[...rectangle].reverse()]), "CCW");
   });
+  test("omitted materials use a returned standard default slot", async () => {
+    const p = await loadProfile(url(fixture(), j => {
+      delete j.meshes[0].primitives[0].material;
+      delete j.materials;
+    }));
+    expect(p.contours[0].map(e => e.material)).toEqual([0, 0, 0, 0]);
+    expect(p.materials).toHaveLength(1);
+    expect(p.materials[0].color).toEqual([1, 1, 1, 1]);
+    expect(p.materials[0].metallic).toBe(1);
+    expect(p.materials[0].roughness).toBe(1);
+  });
+  test("implicit default stays distinct from an authored default-valued slot", async () => {
+    const p = await loadProfile(url(fixture(), j => {
+      j.materials = [{ pbrMetallicRoughness: { baseColorFactor: [1, 1, 1, 1], metallicFactor: 1, roughnessFactor: 1 } }];
+      j.accessors[2].count = 6;
+      j.accessors.push({ ...j.accessors[2], byteOffset: 24, count: 18 });
+      j.meshes[0].primitives.push({ attributes: { POSITION: 0, NORMAL: 1 }, indices: 3 });
+    }));
+    expect(p.contours[0].map(e => e.material)).toEqual([0, 1, 1, 1]);
+    expect(p.materials).toHaveLength(2);
+    expect(p.materials[0]).toEqual(p.materials[1]);
+  });
+  test("thin adjacent edges are not overlapping; exact backtracking is", async () => {
+    const thin: Point[] = [[0, 0], [1, 0], [0.5, 0.5e-6]];
+    const p = await loadProfile(url(fixture([thin])));
+    expect(p.points).toEqual([[0, 0], [1, 0], [0.5, Math.fround(0.5e-6)]]);
+    expect(p.contours[0].map(e => [e.from, e.to])).toEqual([[0, 1], [1, 2], [2, 0]]);
+    await reject(fixture([[[0, 0], [2, 0], [1, 0], [2, 2], [0, 2]]]), "overlapping adjacent edges");
+  });
+  test("nonadjacent near-contact still uses position tolerance", async () => {
+    const shifted = (gap: number) => rectangle.map(([x, y]) => [x + 2 + gap, y + 0.5] as Point);
+    await reject(fixture([rectangle, shifted(0.5e-6)]), "intersecting contours");
+    expect((await loadProfile(url(fixture([rectangle, shifted(2e-6)])))).contours).toHaveLength(2);
+  });
   test("altered end and intermediate longitudinal detail", async () => {
     const end = fixture(); end.positions[6] += 0.01;
     await reject(end, "side-wall triangle");
