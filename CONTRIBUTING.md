@@ -13,15 +13,14 @@ Open `/open-coasters/`. WebGPU is required. Drag to orbit; scroll to zoom.
 Checks, narrow to wide:
 
 ```sh
-bun test src/contract.gpu.test.ts
-bun test src/scene.gpu.test.ts
-bunx playwright test
 bun check
+bun run test
+bunx playwright test
 ```
 
-`bun test` runs both scene tests. Dawn checks require a GPU adapter; absence is a failure, not a skip. Playwright uses Shallot's headless browser configuration and builds the Pages-path subject itself. Its `?stepped` host advances frames explicitly while sending real pointer events. Verification opens no desktop windows unless the person asks.
+Dawn checks require a GPU adapter; absence fails rather than skips. Playwright builds and serves `/open-coasters/` headlessly. Verification opens no desktop windows unless the person asks.
 
-Use `bun check` for type checking. The Bun preload supplies the required shader transform; Vite uses the public Shallot plugin. Local engine links are iteration aids, not committed dependencies; verify the release pin with `bun install --frozen-lockfile`.
+The Bun preload supplies the required shader transform; Vite uses the public Shallot plugin. Local engine links are iteration aids, not committed dependencies; verify the release pin with `bun install --frozen-lockfile`.
 
 To inspect the production build:
 
