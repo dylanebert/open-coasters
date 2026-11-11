@@ -23,11 +23,12 @@ the meaning above. A consumer may use a different internal frame, but conversion
 must preserve these units and placement semantics.
 
 This candidate's demo accepts JSON `.gltf` with external/data buffers, an explicit
-`scene` index selecting a nonempty scene, triangle meshes and opaque core
-metallic-roughness materials without textures. Only that scene's roots are
-instantiated, with their authored hierarchy and transforms retained. Standard glTF
-matrix/TRS encoding is retained; compositions that Shallot cannot represent as
-TRS are refused rather than approximated. Placements in this example are rigid
+`scene` index, triangle meshes and opaque core metallic-roughness materials without
+textures. The selected subtree must contain mesh geometry; intermediate empty
+grouping nodes are allowed. Only that scene's roots are instantiated, with their
+authored hierarchy and transforms retained. Standard glTF matrix/TRS encoding is
+retained; compositions that Shallot cannot represent as TRS are refused rather
+than approximated. Placements in this example are rigid
 translations and unit XYZW quaternions, without placement scale.
 
 The contribution subset refuses animation, skins, morph targets **and weights**
@@ -38,10 +39,11 @@ silently flattened into a claim of full support. Names and extras carry no
 placement semantics. No additional metadata is required.
 
 Contributions must be valid glTF; Khronos glTF-Validator establishes the fixture's
-format validity. The demo's subset gate is not a full glTF validator. Shallot's
-public loader owns geometry decoding and scene spawning; decoder errors and
-reported unsupported content fail loading. The example is not an upload service
-or a new general-purpose importer.
+format validity. The demo's subset gate is not a full glTF validator. The demo
+decodes the JSON document it checked; relative buffer URIs resolve against the
+fetched document's response URL. Shallot's public loader owns geometry decoding
+and scene spawning; decoder errors and reported unsupported content fail loading.
+The example is not an upload service or a new general-purpose importer.
 
 ## Inspectable example
 
