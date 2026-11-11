@@ -1,11 +1,10 @@
-import { createApp, Meshes } from "@dylanebert/shallot";
+import { createApp, Meshes, shallotDark } from "@dylanebert/shallot";
 import { blurCanvas } from "@dylanebert/shallot/input";
 import { attachCanvas } from "@dylanebert/shallot/rendering";
 import { Orbit } from "@dylanebert/shallot/extras";
 import { Scene } from "./scene";
 import { liveScene, type Selection } from "./live";
 import { defaults, type Parameters } from "./track";
-import "./style.css";
 import { attachFieldScrubbing } from "./field-scrub";
 
 try {
@@ -79,6 +78,10 @@ try {
   });
   attachFieldScrubbing(form);
   const app = await createApp({
+    loading: shallotDark({
+      container: document.body,
+      bootstrap: document.querySelector<HTMLElement>("[data-shallot-bootstrap]")!,
+    }),
     plugins: [
       live.plugin,
       {
@@ -165,6 +168,11 @@ try {
   }
   document.body.dataset.ready = "true";
 } catch (error) {
-  document.body.textContent = "WebGPU initialization failed. See console.";
+  const bootstrap = document.querySelector<HTMLElement>("[data-shallot-bootstrap]");
+  if (bootstrap) {
+    bootstrap.dataset.state = "error";
+    bootstrap.setAttribute("role", "alert");
+    bootstrap.textContent = "Unable to start this application. Check the console and reload.";
+  }
   console.error(error);
 }

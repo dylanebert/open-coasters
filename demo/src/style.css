@@ -49,6 +49,18 @@ body {
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr);
 }
+body:not([data-ready="true"]) > :is(aside, main) {
+  visibility: hidden;
+}
+[data-shallot-bootstrap] {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg2);
+  color: var(--ink);
+  font: 400 13px/20px var(--sans);
+}
 aside,
 main {
   min-width: 0;
