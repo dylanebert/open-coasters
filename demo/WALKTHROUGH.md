@@ -50,9 +50,6 @@ GPU tests compare both isolated live renders with that path pixel-for-pixel.
 Edits repack the bounded scene and may wait for the GPU; this is not a large-editor
 streaming mechanism.
 
-Generated vertices use Shallot's `px,py,pz,u,nx,ny,nz,v` layout. The view uses
-Shallot's standard sun and ambient setup without additional lights.
-
 ## Checks
 
 Focused commands, from `demo/`:
