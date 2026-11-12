@@ -20,7 +20,8 @@ import { OrbitPlugin } from "@dylanebert/shallot/extras";
 import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 import { frameTrack, initializeView, Scene } from "./scene";
 import { placements, staticInstanceSnapshot } from "./instance";
-import { generate, ties, rotation, type Parameters } from "./track";
+import { ties, rotation, type Parameters } from "./track";
+import { trackGeometry, modernTies } from './modern-track';
 import { linearColor, initialConfiguration, type Paint } from "./configuration";
 
 export type Selection = {
@@ -38,6 +39,7 @@ type Placement = {
  * and material registrations outlive the public whole-mesh-plugin reset. */
 export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
   let world: World;
+  const geometryFor = trackGeometry(assetUrl);
   const assets = new Map<string, Awaited<ReturnType<typeof cacheAsset>>>();
   const paintHandles = {} as Record<keyof Paint, MaterialHandle>;
   let previous: Selection | undefined;
@@ -149,7 +151,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     await MeshPlugin.initialize!(world);
     const { parameters, isolated, asset } = selection;
     if (!isolated) {
-      const mesh = generate(parameters);
+      const mesh = await geometryFor(parameters);
       if (newSubject) frameTrack(world, parameters, mesh.vertices);
       for (const part of mesh.parts) {
         if (part.index === part.endIndex) continue;
@@ -164,9 +166,9 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
         refs.instances.push([eid]);
       }
     }
-    if (isolated || parameters.fixed)
+    for (const name of isolated ? [asset] : parameters.fixed ? modernTies(parameters) : [])
       place(
-        isolated ? asset : "blitz-tie",
+        name,
         isolated
           ? placements
           : ties(parameters).map((f) => ({
@@ -191,7 +193,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
           metallic: 0.4,
           perceptualRoughness: 0.35,
         }));
-      for (const name of ["blitz-tie", "wheel-carrier"])
+      for (const name of ["blitz-tie", "wheel-carrier", 'ModernTie_Med', 'ModernTie_Dense'])
         assets.set(name, await cacheAsset(name));
       await update(initial);
     },

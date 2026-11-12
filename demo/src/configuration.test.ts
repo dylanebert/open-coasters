@@ -11,7 +11,7 @@ test('snapshot gestures, no-ops, undo/redo and branching', () => {
   expect(h.past).toHaveLength(0);
   h = commit(h);
   expect(h.past).toEqual([a]);
-  expect(effective(h.present).parameters.separation).toBe(1);
+  expect(effective(h.present).parameters.separation).toBe(1.2);
   expect(h.present.parameters.separation).toBe(1.4);
   h = undo(h);
   expect(h.present).toEqual(a);

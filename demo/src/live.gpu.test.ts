@@ -56,19 +56,20 @@ test(
       const orbit = w.storage(Orbit);
       w.gpu.device.pushErrorScope("validation");
       for (let cycle = 0; cycle < 2; cycle++)
-        for (let mode = 0; mode < 8; mode++) {
+        for (let mode = 0; mode < 14; mode++) {
           const previous = currentBuffers();
           for (const buffer of previous) families.add(buffer);
           const next: Selection = {
             parameters: {
               ...defaults,
               configuration:
-                mode === 0 ? "straight" : mode === 1 ? "curve" : "loop",
+                mode >= 8 ? (['straight', 'curve', 'loop'] as const)[(mode - 8) % 3] : mode === 0 ? "straight" : mode === 1 ? "curve" : "loop",
               spacing: mode % 2 ? 0.3 : 1.5,
               separation: mode === 7 ? 1.6 : 1,
               width: mode % 2 ? 0.6 : 0.15,
               depth: mode === 7 ? 0.8 : 0.35,
-              fixed: mode === 3,
+              fixed: mode === 3 || mode >= 8,
+              secondSpine: mode >= 11,
             },
             isolated: mode === 4 || mode === 5,
             asset: mode === 4 ? "blitz-tie" : "wheel-carrier",

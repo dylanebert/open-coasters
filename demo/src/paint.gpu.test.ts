@@ -23,9 +23,9 @@ test('paint uses stable material updates without mesh allocation, registration o
     materials.add = (...args) => { registrations++; return add(...args); };
     materials.update = (...args) => { updates.push(args); return update(...args); };
     const orbit = w.storage(Orbit); orbit.yaw.set(camera, .7);
-    for (const fixed of [false, true]) {
-      await scene.update({ ...initialConfiguration, parameters: { ...initialConfiguration.parameters, fixed } });
-      await capture();
+    for (const [fixed, secondSpine] of [[false, false], [true, false], [true, true]]) {
+      await scene.update({ ...initialConfiguration, parameters: { ...initialConfiguration.parameters, fixed, secondSpine } });
+      const unpainted = await capture();
       const priorMeshes = [...w.resource(Meshes)];
       const entities = refs.instances.map(g => [...g]);
       updates.length = 0;
@@ -33,7 +33,7 @@ test('paint uses stable material updates without mesh allocation, registration o
       let allocations = 0;
       const createBuffer = w.gpu.device.createBuffer.bind(w.gpu.device);
       w.gpu.device.createBuffer = (...args) => { allocations++; return createBuffer(...args); };
-      await scene.update({ ...initialConfiguration, parameters: { ...initialConfiguration.parameters, fixed }, paint: { rails: '#ff0000', ties: '#00ff00', spine: '#0000ff' } });
+      await scene.update({ ...initialConfiguration, parameters: { ...initialConfiguration.parameters, fixed, secondSpine }, paint: { rails: '#ff0000', ties: '#00ff00', spine: '#0000ff' } });
       const after = await capture();
       expect([...w.resource(Meshes)]).toEqual(priorMeshes);
       expect([...w.resource(Meshes)].flatMap(m => [m.vertices, m.indices, m.position, m.quant])).toEqual(buffers);
@@ -46,6 +46,8 @@ test('paint uses stable material updates without mesh allocation, registration o
       expect(refs.camera).toBe(camera);
       expect(orbit.yaw.get(camera)).toBeCloseTo(.7);
       expect(after).not.toEqual(before);
+      await scene.update({ ...initialConfiguration, parameters: { ...initialConfiguration.parameters, fixed, secondSpine } });
+      expect(await capture()).toEqual(unpainted);
     }
     expect(meshes.length).toBeGreaterThan(1);
     // The standalone source has no authored red (indeed no materials at all).

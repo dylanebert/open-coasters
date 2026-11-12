@@ -47,13 +47,19 @@
       {#if section === 'ties'}
         <label>Type<select name="component" value={c.parameters.fixed ? 'fixed' : 'local'} disabled={c.isolated} onchange={event => change({ ...c, parameters: { ...c.parameters, fixed: event.currentTarget.value === 'fixed' } }, true)}><option value="local">Adjustable</option><option value="fixed">Blitz</option></select></label>
       {/if}
+      {#if section === 'spine' && c.parameters.fixed}
+        <label>Assembly<select name="spineAssembly" value={c.parameters.secondSpine ? 'double' : 'single'} onchange={event => change({ ...c, parameters: { ...c.parameters, secondSpine: event.currentTarget.value === 'double' } }, true)}><option value="single">Spine 1 + medium tie</option><option value="double">Spines 1 + 2, medium + dense ties</option></select></label>
+      {/if}
       {#each fields.filter(f => section === 'ties' ? ['spacing', 'separation'].includes(f.key) : ['width', 'depth'].includes(f.key)) as field}
         <label use:scrub={{ value: () => c.parameters[field.key], preview: value => number(field.key, value), commit: finish }}>
-          {field.label}<input name={field.key} aria-label={field.key === 'separation' ? 'Gauge, rail center-to-center · m' : undefined} title={field.key === 'separation' ? 'Rail center-to-center · m' : undefined} type="number" min={field.min} max={field.max} step={field.step} required disabled={c.isolated || (field.key === 'separation' && c.parameters.fixed)} value={rendered.parameters[field.key]} oninput={event => { if (event.currentTarget.validity.valid) number(field.key, event.currentTarget.valueAsNumber); }} onblur={event => { finish(); event.currentTarget.value = String(rendered.parameters[field.key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} />
+          {field.label}<input name={field.key} aria-label={field.key === 'separation' ? 'Gauge, rail center-to-center · m' : undefined} title={field.key === 'separation' ? 'Rail center-to-center · m' : undefined} type="number" min={field.min} max={field.max} step={field.step} required disabled={c.isolated || (field.key !== 'spacing' && c.parameters.fixed)} value={rendered.parameters[field.key]} oninput={event => { if (event.currentTarget.validity.valid) number(field.key, event.currentTarget.valueAsNumber); }} onblur={event => { finish(); event.currentTarget.value = String(rendered.parameters[field.key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} />
         </label>
       {/each}
     </section>
   {/each}
+  {#if !c.isolated && c.parameters.fixed}
+    <p>Fixed source meters · rail centers ≈1.2 m; spine Ø0.533333 m. Uncapped, untextured qualification only. App-local assembly and spacing; no source Step/Offset or automatic style rules.</p>
+  {/if}
   <section hidden={c.isolated}>
     <h2>Paint</h2>
     {#each (['rails', 'ties', 'spine'] as const) as part}

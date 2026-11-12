@@ -13,10 +13,13 @@ The production Pages route is `/open-coasters/`.
 4. With **Adjustable**, **Gauge · m** (rail center-to-center) changes the provisional tie span.
    Rail radius remains 65 mm. Spine width and depth change only the rectangular
    spine, whose top is 220 mm below the path. The initial width is 0.28 m.
-5. Choose **Blitz**. The authored 1.2 m-wide tie stays rigid and unscaled;
-   Gauge becomes disabled at 1 m immediately. Spacing and spine remain editable.
-   Switching back restores the remembered adjustable separation. MIT notices,
-   dimensions and reuse limits are in `assets/blitz-tie/PROVENANCE.md` at the repo root.
+5. Choose **Blitz** for source rails, spine 1 and rigid medium ties, unscaled.
+   Gauge (approximately 1.2 m) and spine width/depth (0.533333 m) are fixed.
+   The app-local **Assembly** choice adds spine 2 and dense connecting parts;
+   it does not select source styles automatically. Spacing remains app-local,
+   not source Step/Offset behavior. Switching back restores adjustable dimensions.
+   Ends remain uncapped; only untextured contributions are qualified. Source
+   dimensions, notices and limits: `assets/blitz-profile/PROVENANCE.md`.
 6. Use native **Rails**, **Ties** and **Spine** color inputs to paint independently.
    Ctrl/Cmd+Z undoes; Ctrl+Y or Cmd+Shift+Z redoes configuration and paint.
    A label drag, typed session (blur or Enter), or color acceptance is one edit.
@@ -46,8 +49,10 @@ registry: each geometry edit destroys scene-owned entities, invokes that lifecyc
 frames and re-stages/rebinds scene meshes. Camera, lights, grid and materials survive.
 Do not add another mesh producer without revisiting this ownership boundary.
 
-Both static contributions are validated and decoded once at startup with public
-`loadGltf`. The live path keeps immutable CPU meshes/transforms and registers only
+The isolated witnesses and both Modern rigid parts are validated and decoded once
+at startup with public `loadGltf`. Profiles are validated and cached on first Blitz
+use, then swept without refetching on edits. The live path keeps immutable CPU
+meshes/transforms and registers only
 used opaque material variants once, then uses public mesh/transform/material APIs.
 It supports only the existing validated static subset, not general animated glTF.
 The independent `createScene(url)` witness path still uses `loadGltfScene` unchanged;
@@ -63,6 +68,7 @@ streaming mechanism.
 Focused commands, from `demo/`:
 
 ```sh
+bun test ./src/profile.test.ts ./src/modern-profile.test.ts ./src/modern-track.test.ts
 bun test ./src/configuration.test.ts ./src/paint.gpu.test.ts
 bun run typecheck
 bun test ./src/reset.gpu.test.ts ./src/live.gpu.test.ts
@@ -85,8 +91,9 @@ length. No physics engine or sibling checkout is needed to run, build or test it
 Use side and front views to inspect its teardrop and lateral
 separation rather than judging clearance from a projected crossing.
 
-Construction in `src/track.ts` remains local demo code, not a shared profile, recipe
-or asset contract. Sweeps use finite rings, flat triangle normals and open ends.
-The bounded geometry checks cover this track's supported controls, not train
-clearance. There are no supports, runtime dynamics, structural or ride-safety
+Construction in `src/track.ts` and `src/modern-track.ts` is app-local, not a shared
+recipe or sweep contract. Adjustable sweeps use flat normals. Blitz uses the
+qualified source contours and transported authored shading through 192 intervals;
+all sweeps have open ends. The adjustable track's clearance checks do not qualify
+Blitz clearance, engineering attachments or train clearance. There are no supports, runtime dynamics, structural or ride-safety
 claims.

@@ -6,10 +6,11 @@ import { attachTexture, captureTexture } from "@dylanebert/shallot/rendering";
 import { Scene, createScene } from "./scene";
 import { defaults, generate, type Configuration } from "./track";
 for (const configuration of ["straight", "curve", "loop"] as Configuration[])
+ for (const secondSpine of [undefined, false, true])
   test(
-    `Dawn: generated ${configuration} mesh is actually drawn`,
+    `Dawn: ${configuration}, ${secondSpine === undefined ? 'adjustable' : `Blitz second spine ${secondSpine}`} mesh is actually drawn`,
     async () => {
-      const p = { ...defaults, configuration };
+      const p = { ...defaults, configuration, fixed: secondSpine !== undefined, secondSpine };
       const app = await openGpuApp({
         plugins: [
           createScene(
@@ -32,8 +33,16 @@ for (const configuration of ["straight", "curve", "loop"] as Configuration[])
         const a = await frame();
         const handle = w.storage(MeshInstance).mesh.get(eid);
         expect(w.resource(Meshes).get(handle as MeshHandle)!.indexCount).toBe(
-          generate(p).indices.length,
+          p.fixed ? (secondSpine ? 80 : 56) * 192 * 6 : generate(p).indices.length,
         );
+        if (p.fixed) {
+          const count = Math.ceil((configuration === 'straight' ? 12 : configuration === 'curve' ? 4 * Math.PI : 42.0726940244) / p.spacing);
+          expect(s.instances.length).toBe(1 + count * (secondSpine ? 2 : 1));
+          for (const [i, group] of s.instances.slice(1).entries()) {
+            const handle = w.storage(MeshInstance).mesh.get(group[0]);
+            expect(w.resource(Meshes).get(handle as MeshHandle)!.indexCount).toBe(secondSpine && i >= count ? 76 * 3 : 896 * 3);
+          }
+        }
         w.remove(eid, MeshInstance);
         const b = await frame();
         let pixels = 0;

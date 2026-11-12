@@ -215,9 +215,7 @@ test("generated dimensions are independently bounded and all controls affect act
       mesh.vertices,
     );
   expect(ties({ ...p, spacing: 1 }).length).toBe(12);
-  expect(generate({ ...p, fixed: true }).vertices.length).toBeLessThan(
-    mesh.vertices.length,
-  );
+  expect(() => generate({ ...p, fixed: true })).toThrow('qualified profiles');
   near(point(frame("straight", 6), 0, 0.2), [0, 1.7, 0]);
 });
 

@@ -30,7 +30,7 @@ test('native sessions, grouped drag/color, shortcuts, gauge memory and render un
   const gauge = page.locator('[name=separation]');
   await gauge.fill('1.4'); await gauge.blur();
   await page.locator('[name=component]').selectOption('fixed');
-  await expect(gauge).toBeDisabled(); await expect(gauge).toHaveValue('1');
+  await expect(gauge).toBeDisabled(); await expect(gauge).toHaveValue('1.2');
   await page.keyboard.press('ControlOrMeta+z');
   await expect(gauge).toBeEnabled(); await expect(gauge).toHaveValue('1.4');
   await step();

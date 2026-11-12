@@ -46,6 +46,7 @@ export interface Parameters {
   width: number;
   depth: number;
   fixed: boolean;
+  secondSpine?: boolean;
 }
 export const defaults: Parameters = {
   configuration: "curve",
@@ -103,6 +104,7 @@ export function ties(p: Parameters) {
   );
 }
 export function generate(p: Parameters) {
+  if (p.fixed) throw new Error('Blitz requires qualified profiles; use trackGeometry');
   const vertices: number[] = [],
     indices: number[] = [];
   function quad(a: Vec, b: Vec, c: Vec, d: Vec) {
@@ -170,8 +172,7 @@ export function generate(p: Parameters) {
     [p.width / 2, -0.22],
   ]);
   const spineEnd = { vertex: vertices.length / 8, index: indices.length };
-  if (!p.fixed)
-    for (const f of ties(p)) {
+  for (const f of ties(p)) {
       const w = p.separation / 2 + 0.15,
         h = 0.055;
       const pts = [

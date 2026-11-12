@@ -75,7 +75,7 @@ test("scrub bounds, cleanup, disabled labels and native editing", async ({ page 
   const disabled = page.locator('label:has([name=separation])');
   expect(await disabled.evaluate(e => getComputedStyle(e).cursor)).not.toBe("ew-resize");
   p = await down(page, "separation"); await page.mouse.move(p.x + 40, p.y); await page.mouse.up();
-  await expect(page.locator('[name=separation]')).toHaveValue("1");
+  await expect(page.locator('[name=separation]')).toHaveValue("1.2");
 });
 test("all field columns align on desktop and phone", async ({ page }) => {
   await start(page);

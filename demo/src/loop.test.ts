@@ -306,7 +306,8 @@ test("nonlocal emitted envelope: whole-interval ball separation", () => {
     });
   }
   // Every actual triangle is a convex combination of its corner vertices.
-  // Max supported spine/rail radii; variable AND fixed source tie box corners.
+  // Adjustable spine/rail radii and tie corners; also encloses the isolated
+  // light-tie witness. This envelope does NOT qualify the Modern assembly.
   const spineRadius = Math.hypot(0.6 / 2, 0.22 + 0.8);
   const railRadius = 1.6 / 2 + 0.065;
   const variableTieRadius = Math.hypot(1.6 / 2 + 0.15, 0.055, 0.055);
@@ -479,7 +480,7 @@ test("local emitted pieces: chord hulls and thick ties separate except their joi
   });
   const prototype = [...new Map(body.map(p => [p.join(","), p])).values()];
   const bodyBounds = [0, 1, 2].map(k => [Math.min(...body.map(p => p[k])), Math.max(...body.map(p => p[k]))]);
-  // This maximal variable tie also encloses the unchanged fixed asset's source
+  // This maximal variable tie also encloses the isolated light-tie witness's source
   // box. Smaller separations only shrink X; no spine or width control affects it.
   for (const [k, extent] of [[0, 0.6], [1, 0.05], [2, 0.050001]]) {
     expect(bodyBounds[k][0]).toBeLessThanOrEqual(-extent);
@@ -681,10 +682,7 @@ test("loop: independent component dimensions, midpoint landmark, and parameter i
     expect(c.spine).toEqual(base.spine);
     expect(c.ties.length / (36 * 8)).toBe(Math.ceil(42.0726940244 / spacing));
   }
-  const fixed = components({ fixed: true });
-  expect(fixed.rails).toEqual(base.rails);
-  expect(fixed.spine).toEqual(base.spine);
-  expect(fixed.ties.length).toBe(0);
+  expect(() => components({ fixed: true })).toThrow('qualified profiles');
 });
 
 test("localized level terminal: complete frames, fixed-rate records, whole-tick negative control", () => {

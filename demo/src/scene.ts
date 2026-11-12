@@ -19,6 +19,7 @@ import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 import { loadGltfScene, spawnGltfScene } from "@dylanebert/shallot/gltf";
 import { placements, staticInstanceSnapshot } from "./instance";
 import { generate, ties, rotation, type Parameters } from "./track";
+import { trackGeometry, modernTies } from './modern-track';
 
 export const Scene = {
   create: () => ({ camera: -1, grid: -1, instances: [] as number[][] }),
@@ -62,7 +63,7 @@ export function initializeView(world: World, parameters?: Parameters) {
     yaw: 0.7,
     pitch: 0.5,
   });
-  if (parameters) frameTrack(world, parameters, generate(parameters).vertices);
+  if (parameters && !parameters.fixed) frameTrack(world, parameters, generate(parameters).vertices);
   refs.grid = world.create();
   world.add(refs.grid, Grid);
 }
@@ -74,9 +75,11 @@ export const createScene = (url: URL, parameters?: Parameters): Plugin => ({
     const refs = world.resource(Scene);
     if (parameters) {
       const eid = world.create();
+      const geometry = await trackGeometry(name => new URL(`${name}.gltf`, url))(parameters);
+      frameTrack(world, parameters, geometry.vertices);
       const mesh = world
         .resource(Meshes)
-        .add({ name: "Provisional track", ...generate(parameters) });
+        .add({ name: "Provisional track", ...geometry });
       world.add(eid, Transform);
       world.add(eid, MeshInstance, { mesh });
       world.add(
@@ -93,20 +96,22 @@ export const createScene = (url: URL, parameters?: Parameters): Plugin => ({
       refs.instances = [[eid]];
       if (!parameters.fixed) return;
     }
-    const asset = await loadGltfScene(world, await staticInstanceSnapshot(url));
-    if (asset.unsupported.length)
-      throw new Error(`Unsupported glTF: ${asset.unsupported.join(", ")}`);
-    if (parameters) {
-      for (const f of ties(parameters))
-        refs.instances.push(
-          spawnGltfScene(world, asset, {
-            translation: f.p,
-            rotation: rotation(f),
-          }).entities,
+    for (const assetUrl of parameters ? modernTies(parameters).map(name => new URL(`${name}.gltf`, url)) : [url]) {
+      const asset = await loadGltfScene(world, await staticInstanceSnapshot(assetUrl));
+      if (asset.unsupported.length)
+        throw new Error(`Unsupported glTF: ${asset.unsupported.join(", ")}`);
+      if (parameters) {
+        for (const f of ties(parameters))
+          refs.instances.push(
+            spawnGltfScene(world, asset, {
+              translation: f.p,
+              rotation: rotation(f),
+            }).entities,
+          );
+      } else
+        refs.instances = placements.map(
+          (p) => spawnGltfScene(world, asset, p).entities,
         );
-    } else
-      refs.instances = placements.map(
-        (p) => spawnGltfScene(world, asset, p).entities,
-      );
+    }
   },
 });

@@ -49,5 +49,5 @@ export function linearColor(hex: string): [number, number, number, number] {
   return [...channels.map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4), 1] as [number, number, number, number];
 }
 export function effective(c: Configuration) {
-  return { ...c, parameters: { ...c.parameters, separation: c.parameters.fixed ? 1 : c.parameters.separation } };
+  return { ...c, parameters: { ...c.parameters, ...(c.parameters.fixed ? { separation: 1.2, width: .533333, depth: .533333 } : {}) } };
 }

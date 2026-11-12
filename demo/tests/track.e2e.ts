@@ -115,7 +115,7 @@ test("Pages: edits immediately change geometry in one document/app/camera; examp
   prior = await pixels(page);
   await page.locator("[name=component]").selectOption("fixed");
   await edited();
-  await expect(page.locator("[name=separation]")).toHaveValue("1");
+  await expect(page.locator("[name=separation]")).toHaveValue("1.2");
   await expect(page.locator("[name=separation]")).toBeDisabled();
   await expect(page.locator("#meaning, .hint")).toHaveCount(0);
   await page.locator("[name=component]").selectOption("local");
@@ -123,7 +123,7 @@ test("Pages: edits immediately change geometry in one document/app/camera; examp
   await expect(page.locator("[name=separation]")).toBeEnabled();
   await expect(page.locator("[name=separation]")).toHaveValue("1.5");
   await expect(page.locator("[name=asset]")).toBeHidden();
-  expect(requests.length).toBe(requestCount);
+  expect(requests.length).toBe(requestCount + 6); // three profiles, loaded once on first Blitz selection
   expect(
     await page.evaluate(async () => {
       await document.fonts.ready;
@@ -236,3 +236,65 @@ for (const asset of ["wheel-carrier", "blitz-tie"]) {
     expect(errors).toEqual([]);
   });
 }
+
+
+test('Blitz assemblies: fixed source controls, retained dimensions, history, paint and cached assets across tracks', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', r => { if (/\.(gltf|bin)$/.test(r.url())) requests.push(r.url()); });
+  await page.goto('./?stepped');
+  await page.locator('body[data-ready="true"]').waitFor();
+  await step(page);
+  for (const [name,value] of [['separation','1.4'],['width','0.4'],['depth','0.7']]) {
+    await page.locator(`[name=${name}]`).fill(value); await page.locator(`[name=${name}]`).blur();
+  }
+  await page.locator('[name=component]').selectOption('fixed');
+  await step(page);
+  const requestCount = requests.length;
+  const world = await page.evaluate(() => { const w=window as any; w.blitzWitness=[w.demo.app,w.demo.app.world,w.demo.camera]; return w.demo.orbit(); });
+  await expect(page.getByText('Fixed source meters', { exact: false })).toBeVisible();
+  for (const [name,value] of [['separation','1.2'],['width','0.533333'],['depth','0.533333']]) {
+    await expect(page.locator(`[name=${name}]`)).toBeDisabled();
+    await expect(page.locator(`[name=${name}]`)).toHaveValue(value);
+  }
+  for (const track of ['straight','curve','loop']) {
+    await page.locator('[name=configuration]').selectOption(track); await step(page);
+    const view=await page.evaluate(()=>(window as any).demo.orbit());
+    expect(view.yaw).toBe(world.yaw); expect(view.pitch).toBe(world.pitch);
+    expect(view.distance).toBe(track === 'loop' ? 26 : 19);
+    for (const assembly of ['single','double']) {
+      await page.locator('[name=spineAssembly]').selectOption(assembly); await step(page);
+      expect(await page.evaluate(()=>(window as any).demo.orbit())).toEqual(view);
+      const meshes=await page.evaluate(()=>(window as any).demo.meshes());
+      expect(meshes.find((m:any)=>m.name==='Track rails').indexCount).toBe(32*192*6);
+      expect(meshes.find((m:any)=>m.name==='Track spine').indexCount).toBe((assembly==='single'?24:48)*192*6);
+    }
+  }
+  // Orbit's public distance target eases from 19 to 26 after the track change.
+  for (let i=0;i<60;i++) await step(page);
+  const beforeView=await page.evaluate(()=>(window as any).demo.orbit());
+  const beforeMeshes=await page.evaluate(()=>(window as any).demo.meshes());
+  const paintedBefore=await pixels(page);
+  for (const part of ['rails','ties','spine']) {
+    await page.locator(`[name=${part}Color]`).evaluate(input=>{
+      const e=input as HTMLInputElement; e.value='#ff0000'; e.dispatchEvent(new Event('input',{bubbles:true})); e.dispatchEvent(new Event('change',{bubbles:true}));
+    });
+  }
+  await step(page);
+  const painted=await pixels(page); expect(await changedPixels(painted,paintedBefore)).toBeGreaterThan(30);
+  for(let i=0;i<3;i++) await page.keyboard.press('ControlOrMeta+z');
+  await step(page);
+  expect(await page.evaluate(()=>(window as any).demo.orbit())).toEqual(beforeView);
+  expect(await page.evaluate(()=>(window as any).demo.meshes())).toEqual(beforeMeshes);
+  const restored=await pixels(page); expect(await changedPixels(restored,paintedBefore)).toBe(0);
+  await page.keyboard.press('ControlOrMeta+z'); await step(page);
+  await expect(page.locator('[name=spineAssembly]')).toHaveValue('single');
+  await page.keyboard.press('ControlOrMeta+Shift+z'); await step(page);
+  await expect(page.locator('[name=spineAssembly]')).toHaveValue('double');
+  await page.locator('[name=component]').selectOption('local'); await step(page);
+  for (const [name,value] of [['separation','1.4'],['width','0.4'],['depth','0.7']]) await expect(page.locator(`[name=${name}]`)).toHaveValue(value);
+  await page.locator('[name=component]').selectOption('fixed'); await step(page);
+  await expect(page.locator('[name=spineAssembly]')).toHaveValue('double');
+  expect(requests.length).toBe(requestCount);
+  expect(await page.evaluate(()=>{ const w=window as any; return w.blitzWitness.every((v:any,i:number)=>v===[w.demo.app,w.demo.app.world,w.demo.camera][i]); })).toBe(true);
+  await paintedBefore.dispose(); await painted.dispose(); await restored.dispose();
+});
