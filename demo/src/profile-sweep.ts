@@ -1,4 +1,4 @@
-// Local demo experiment, not a shared sweep/recipe contract. No live UI integration.
+// Local demo consumer, not a shared sweep/recipe contract.
 import type { Profile } from "./profile";
 import { frame, length, point, type Configuration } from "./track";
 

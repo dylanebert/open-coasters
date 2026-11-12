@@ -30,11 +30,11 @@ loader on the checked JSON document, resolves buffers against the response URL,
 and refuses decoder-reported unsupported content. Contributions must be valid
 glTF independently; this boundary is not a complete format validator.
 
-This first binding inherits the static contribution subset's explicit selected
-scene, triangle-only opaque untextured core materials and document-wide refusals
+This first binding inherits the [static candidate's](instance-contract.md) explicit
+selected scene, triangle-only opaque untextured core materials and document-wide refusals
 of animation, morph targets/weights, skinning, cameras and extensions. It adds:
 
-- Only POSITION and authored NORMAL attributes. No lost UV/color/tangent data
+- Only POSITION and authored NORMAL attributes; other attributes are refused
 - No authored matrix/TRS properties, even identity-valued ones. Identity-frame
   grouping and mesh reuse are allowed, but overlapping instances fail. This is
   a provisional exporter restriction, not alternate transform semantics
@@ -49,9 +49,8 @@ of animation, morph targets/weights, skinning, cameras and extensions. It adds:
   endpoint's Z line. Hard seams may use separate glTF vertices. There is no
   requirement for a particular vertex index layout or primitive per contour
 
-The uncapped/identity-frame policies deliberately limit the first witness. They
-are not evidence that capped or transformed sections are inherently impossible.
-Supporting those requires explicit additional semantics and tests, not fallback.
+The uncapped/identity-frame restrictions are provisional. Broader support must
+be defined and tested; unsupported content is not silently approximated.
 
 ## Numerical policy
 
@@ -72,8 +71,5 @@ as export noise, not as supported longitudinal features.
 independent expected points, contour adjacency, hard/smooth normals and material
 values. Mutations exercise end mismatch, longitudinal geometry/shading,
 connectivity/winding, intersections, nesting and subset refusals, including both
-sides of positional and normal matching tolerances. The separate Modern archive
-and focused source tests qualify the untextured rails and both round spines;
-medium/dense ties retain rigid instance meaning. The standalone Blender consumer
-and local TS sweep experiment are not a sweep standard. No live demo integration,
-cap support, automatic style machinery or general import framework is included.
+sides of positional and normal matching tolerances. The Modern contribution's
+provenance owns its separate source and consumer qualification limits.
