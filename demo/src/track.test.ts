@@ -10,6 +10,7 @@ import {
   type Configuration,
 } from "./track";
 import { qRotate } from "@dylanebert/shallot";
+import { groups, localBounds } from "./yoke-oracle";
 const near = (a: number[], b: number[]) =>
   a.forEach((v, i) => expect(v).toBeCloseTo(b[i], 5));
 for (const kind of ["straight", "curve"] as Configuration[]) {
@@ -77,8 +78,6 @@ for (const configuration of ["straight", "curve"] as Configuration[]) {
     };
     const position = (data: Float32Array, vertex: number) =>
       Array.from(data.slice(vertex * 8, vertex * 8 + 3));
-    const distance = (a: number[], b: number[]) =>
-      Math.hypot(...a.map((v, i) => v - b[i]));
     const center = (data: Float32Array, vertices: number[]) =>
       [0, 1, 2].map(
         (axis) =>
@@ -131,31 +130,33 @@ for (const configuration of ["straight", "curve"] as Configuration[]) {
         near(range(data, ring, up), [-0.065, 0.065]);
       }
     };
-    const checkTie = (data: Float32Array, span: number) => {
-      expect(distance(position(data, 1), position(data, 2))).toBeCloseTo(
-        span,
-        5,
-      );
-      expect(distance(position(data, 0), position(data, 1))).toBeCloseTo(
-        0.11,
-        5,
-      );
-      expect(distance(position(data, 0), position(data, 4))).toBeCloseTo(
-        0.11,
-        5,
-      );
+    const checkTie = (overrides: Partial<typeof defaults> = {}) => {
+      const p = { ...defaults, configuration, ...overrides };
+      const bodies = groups(generate(p), p);
+      expect(bodies.length).toBe(Math.ceil((configuration === "straight" ? 12 : 4*Math.PI) / p.spacing));
+      for (let i=0;i<bodies.length;i++) {
+        expect(bodies[i].length).toBeGreaterThan(0);
+        const bounds=localBounds(bodies[i],p,i);
+        expect(bounds[0][0]).toBeLessThan(-p.separation/2-.032);
+        expect(bounds[0][1]).toBeGreaterThan(p.separation/2+.032);
+        expect(bounds[0][0]).toBeGreaterThan(-p.separation/2-.066);
+        expect(bounds[0][1]).toBeLessThan(p.separation/2+.066);
+        expect(bounds[2][0]).toBeGreaterThan(-.065);
+        expect(bounds[2][1]).toBeLessThan(.065);
+        expect(bounds[2][1]-bounds[2][0]).toBeGreaterThan(.09);
+        // The first cap extends along the terminal tangent, while its other
+        // cap follows the finite sweep. Only interior ties are symmetric.
+        if (i>0) expect(Math.abs(bounds[2][0]+bounds[2][1])).toBeLessThan(.002);
+      }
+      return bodies;
     };
     const base = components();
     const separated = components({ separation: 1.4 });
     checkRails(separated.rails, 0.7);
-    checkTie(separated.ties, 1.7);
+    checkTie({ separation: 1.4 });
     expect(separated.spine).toEqual(base.spine);
-    // Separation changes tie span, not their centers/stations or number.
-    expect(separated.ties.length).toBe(base.ties.length);
-    for (let i = 0; i < base.ties.length / (24 * 8); i++) {
-      const vertices = Array.from({ length: 24 }, (_, j) => i * 24 + j);
-      near(center(separated.ties, vertices), center(base.ties, vertices));
-    }
+    // Separation changes seat span, not the independently counted stations.
+    checkTie();
     const wider = components({ width: 0.5 });
     checkSpine(wider.spine, 0.25, -0.57); // 0.50 wide, still 0.35 deep
     expect(wider.rails).toEqual(base.rails);
@@ -167,23 +168,17 @@ for (const configuration of ["straight", "curve"] as Configuration[]) {
     const spaced = components({ spacing: 1.2 });
     expect(spaced.rails).toEqual(base.rails);
     expect(spaced.spine).toEqual(base.spine);
-    expect(spaced.ties.length / (24 * 8)).toBe(
-      configuration === "straight" ? 10 : 11,
-    );
-    checkTie(spaced.ties, 1.3);
+    const spacedBodies = checkTie({ spacing: 1.2 });
+    expect(spacedBodies.length).toBe(configuration === "straight" ? 10 : 11);
     // Independent 1.2 m station landmarks: 1.2/8 = 0.15 rad on
     // the horizontal radius-8 arc.
     const secondStation =
       configuration === "straight"
         ? [0, 1.5, -4.8]
         : [0.438683608715, 1.5, -4.747984139278];
-    near(
-      center(
-        spaced.ties,
-        Array.from({ length: 24 }, (_, i) => 24 + i),
-      ),
-      secondStation,
-    );
+    const tangent = configuration === "straight" ? [0,0,1] : [0.59349801741,0,0.80483545109];
+    const projected=spacedBodies[1].flatMap(t=>t.map(v=>v.reduce((sum,x,k)=>sum+(x-secondStation[k])*tangent[k],0)));
+    expect(Math.abs(Math.min(...projected)+Math.max(...projected))).toBeLessThan(.002);
   });
 }
 test("independent orientation landmarks: straight and 30 degree bank", () => {
@@ -197,7 +192,7 @@ test("generated dimensions are independently bounded and all controls affect act
   const mesh = generate(p);
   const coords = (data: Float32Array, axis: number) =>
     Array.from({ length: data.length / 8 }, (_, i) => data[i * 8 + axis]);
-  expect(Math.max(...coords(mesh.vertices, 0))).toBeCloseTo(0.65, 5);
+  expect(Math.max(...coords(mesh.vertices, 0))).toBeCloseTo(0.565, 5);
   expect(Math.min(...coords(mesh.vertices, 1))).toBeCloseTo(
     1.5 - 0.22 - 0.35,
     5,

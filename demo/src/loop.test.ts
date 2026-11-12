@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import path from "./loop-path.json";
 import state from "../fixtures/loop-state.json";
 import { defaults, frame, generate, length, rotation, ties } from "./track";
+import { groups, localBounds } from "./yoke-oracle";
 
 const dot = (a: number[], b: number[]) =>
   a.reduce((s, x, i) => s + x * b[i], 0);
@@ -310,7 +311,7 @@ test("nonlocal emitted envelope: whole-interval ball separation", () => {
   // light-tie witness. This envelope does NOT qualify the Modern assembly.
   const spineRadius = Math.hypot(0.6 / 2, 0.22 + 0.8);
   const railRadius = 1.6 / 2 + 0.065;
-  const variableTieRadius = Math.hypot(1.6 / 2 + 0.15, 0.055, 0.055);
+  const variableTieRadius = Math.hypot(1.6 / 2 + 0.15, 0.24, 0.055);
   const fixedTieRadius = Math.hypot(0.6, 0.05, 0.050001);
   const meshStep = total / 192;
   const roundoff = 1e-5; // Includes Float32 mesh coordinates and rounded JSON quaternions.
@@ -347,7 +348,8 @@ test("nonlocal emitted envelope: whole-interval ball separation", () => {
   };
   for (const separation of [0.6, 1.6]) {
     const width = 0.6, depth = 0.8, spacing = 0.3;
-    const { vertices: v } = clearanceMesh({ separation, width, depth, spacing });
+    const mesh = clearanceMesh({ separation, width, depth, spacing });
+    const { vertices: v } = mesh;
     const parameters = `${separation}/${width}/${depth}/${spacing}`;
     let offset = 0;
     for (const sides of [12, 12, 4]) {
@@ -361,13 +363,11 @@ test("nonlocal emitted envelope: whole-interval ball separation", () => {
         offset += sides * 6;
       }
     }
-    let station = 0;
-    for (; offset < v.length / 8; offset += 36, station++) {
+    const p = { ...defaults, configuration: "loop" as const, separation, width, depth, spacing };
+    for (const [station, body] of groups(mesh,p).entries()) {
       const center = reference(station * spacing);
-      for (let vertex = 0; vertex < 36; vertex++) {
-        const p = Array.from(v.subarray((offset + vertex) * 8, (offset + vertex) * 8 + 3));
-        audit(norm(sub(p, center)), offset + vertex, parameters);
-      }
+      for (const triangle of body) for (const corner of triangle)
+        audit(norm(sub(corner, center)), station, parameters);
     }
   }
 
@@ -402,10 +402,22 @@ test("nonlocal emitted envelope: whole-interval ball separation", () => {
   expect(clearance).toBeGreaterThan(0);
 });
 
-test("local emitted pieces: chord hulls and thick ties separate except their joints", () => {
-  const total = path.at(-1)![0], step = total / 192, epsilon = 1e-5;
-  const small = clearanceMesh({ separation: 0.6, width: 0.15, depth: 0.15, spacing: 0.3 }).vertices;
-  const large = clearanceMesh({ separation: 1.6, width: 0.6, depth: 0.8, spacing: 0.3 }).vertices;
+test("straight and curve: independent nonlocal envelope separation", () => {
+  // Sweep corners have radius <= hypot(.3,1.02); a full tie (including its
+  // terminal extension) fits .95 m. Convex triangles add at most the circular
+  // chord sagitta, step²/(8*8), below the unchanged 1.08 m envelope.
+  expect(Math.hypot(.3,1.02)+(4*Math.PI/192)**2/64).toBeLessThan(1.08);
+  expect(Math.hypot(.8325,.24)+.055).toBeLessThan(.95);
+  expect(2.6-2*1.08).toBeGreaterThan(0);
+  expect(16*Math.sin(2.6/16)-2*1.08).toBeGreaterThan(0);
+});
+
+for (const configuration of ["straight", "curve", "loop"] as const)
+ test(`${configuration}: local emitted pieces separate except bounded seats and web`, () => {
+  const total = configuration === "straight" ? 12 : configuration === "curve" ? 4*Math.PI : path.at(-1)![0];
+  const step = total / 192, epsilon = 1e-5;
+  const small = generate({...defaults,configuration,separation:.6,width:.15,depth:.15,spacing:.3});
+  const large = generate({...defaults,configuration,separation:1.6,width:.6,depth:.8,spacing:.3});
   const vertex = (v: Float32Array, i: number) => Array.from(v.subarray(i * 8, i * 8 + 3));
   type Piece = { lo: number; hi: number; points: number[][]; f: ReturnType<typeof frame>; guard: number; name: string };
   // Positions are affine in each profile control. The convex hull of actual
@@ -419,9 +431,9 @@ test("local emitted pieces: chord hulls and thick ties separate except their joi
       for (const v of [small, large])
         for (let side = 0; side < sides; side++)
           for (const corner of [0, 5])
-            points.push(vertex(v, starts[kind] + segment * sides * 6 + side * 6 + corner));
+            points.push(vertex(v.vertices, v.indices[starts[kind] + segment * sides * 6 + side * 6 + corner]));
       sweeps.push({ lo: segment * step, hi: (segment + 1) * step, points,
-        f: frame("loop", (segment + 0.5) * step), guard: epsilon,
+        f: frame(configuration, (segment + 0.5) * step), guard: epsilon,
         kind, segment, name: `${["left rail", "right rail", "spine"][kind]}:${segment}` });
     }
   const project = (points: number[][], axis: number[]) => {
@@ -451,7 +463,7 @@ test("local emitted pieces: chord hulls and thick ties separate except their joi
   for (let segment = 0; segment < 191; segment++)
     for (let kind = 0; kind < 3; kind++) {
       const a = sweeps[segment * 3 + kind], b = sweeps[(segment + 1) * 3 + kind];
-      const seam = frame("loop", a.hi);
+      const seam = frame(configuration, a.hi);
       // Adjacent sections share only the ring-plane slab at mesh roundoff.
       // Every other ring corner must strictly advance, excluding folded-back
       // chord faces rather than exempting entire neighboring sections.
@@ -473,31 +485,14 @@ test("local emitted pieces: chord hulls and thick ties separate except their joi
       if (d < sweepGap) { sweepGap = d; sweepPair = `${a.name}/${b.name}`; }
     }
 
-  const tieStart = 192 * (12 + 12 + 4) * 6, first = frame("loop", 0);
-  const body = Array.from({ length: 36 }, (_, i) => {
-    const p = sub(vertex(large, tieStart + i), first.p);
-    return [dot(p, first.x), dot(p, first.y), dot(p, first.z)];
-  });
-  const prototype = [...new Map(body.map(p => [p.join(","), p])).values()];
-  const bodyBounds = [0, 1, 2].map(k => [Math.min(...body.map(p => p[k])), Math.max(...body.map(p => p[k]))]);
-  // This maximal variable tie also encloses the isolated light-tie witness's source
-  // box. Smaller separations only shrink X; no spine or width control affects it.
-  for (const [k, extent] of [[0, 0.6], [1, 0.05], [2, 0.050001]]) {
-    expect(bodyBounds[k][0]).toBeLessThanOrEqual(-extent);
-    expect(bodyBounds[k][1]).toBeGreaterThanOrEqual(extent);
-  }
+  // Two independently bounded pieces, not one exempt tie box. Arms (and the
+  // isolated light-tie witness) stay above the spine; only the narrow web can
+  // join it. These envelopes cover every gauge, independent of tessellation.
+  const box = (x: number, bottom: number, top: number) =>
+    [-x,x].flatMap(a => [bottom,top].flatMap(b => [-.055,.055].map(c => [a,b,c])));
+  const arms = box(.95,-.18,.055), web = box(.05,-.24,-.12);
+  const prototype = [...arms,...web];
   let tieBodyLeak = 0;
-  for (const v of [small, large])
-    for (let station = 0, offset = tieStart; offset < v.length / 8; offset += 36, station++) {
-      const f = frame("loop", station * 0.3);
-      for (let i = 0; i < 36; i++) {
-        const p = sub(vertex(v, offset + i), f.p);
-        for (const [k, axis] of [f.x, f.y, f.z].entries()) {
-          const n = dot(p, axis);
-          tieBodyLeak = Math.max(tieBodyLeak, bodyBounds[k][0] - n, n - bodyBounds[k][1]);
-        }
-      }
-    }
   // Bound every arbitrary tie station, not just .3 and 1.5 spacing snapshots.
   // The consumer is piecewise linear in position and normalized-lerp in rotation.
   let speedBound = 0, angularBound = 0;
@@ -508,16 +503,83 @@ test("local emitted pieces: chord hulls and thick ties separate except their joi
     const cosine = Math.min(1, Math.abs(dot(a, b)) / (norm(a) * norm(b)));
     angularBound = Math.max(angularBound, 4 * Math.tan(Math.acos(cosine) / 2) / h + 1e-6);
   }
+  if (configuration !== "loop") { speedBound=1; angularBound=configuration === "curve" ? 1/8 : 0; }
   const radius = Math.max(...prototype.map(norm));
-  const cells = Math.ceil(total / 0.025), ties: Piece[] = [];
+  // A normalized quaternion chord rotates about a fixed axis. With D=|q_raw'|
+  // and eta=max|norm(q_raw)'|/D, |R''| <= 4(1+eta)D²/min|q_raw|².
+  // Linear interpolation error also includes derivative jumps at source knots:
+  // h² M/8 + h sum(jump)/4. This bounds finite 192-ring chords at ALL phases,
+  // rather than estimating conformance from a few generated ties.
+  const derivatives = path.slice(0,-1).map((a,i) => {
+    const b=path[i+1], h=b[0]-a[0], qa=a.slice(4), qb=b.slice(4);
+    if (dot(qa,qb)<0) for (let k=0;k<4;k++) qb[k]*=-1;
+    const d=sub(qb,qa).map(x=>x/h);
+    const derivative=(q:number[]) => {
+      const n=norm(q), u=q.map(x=>x/n);
+      return d.map((x,k)=>(x-u[k]*dot(u,d))/n);
+    };
+    const cosine=Math.abs(dot(qa,qb))/(norm(qa)*norm(qb));
+    const minimum=Math.min(norm(qa),norm(qb))*Math.sqrt((1+cosine)/2);
+    const eta=Math.max(Math.abs(dot(qa,d))/norm(qa),Math.abs(dot(qb,d))/norm(qb))/norm(d);
+    return { velocity:scale(sub(world(b),world(a)),1/h), start:derivative(qa), end:derivative(qb), second:4*(1+eta)*norm(d)**2/minimum**2 };
+  });
+  let chordError=0;
+  for (let segment=0;segment<192;segment++) {
+    const lo=segment*step, hi=(segment+1)*step;
+    let second=0, jumps=0;
+    for (let i=0;i<derivatives.length;i++) {
+      if (path[i+1][0]<lo || path[i][0]>hi) continue;
+      second=Math.max(second,derivatives[i].second);
+      if (i>0 && path[i][0]>lo && path[i][0]<hi)
+        jumps+=norm(sub(derivatives[i].velocity,derivatives[i-1].velocity))+
+          4*radius*norm(sub(derivatives[i].start,derivatives[i-1].end));
+    }
+    chordError=Math.max(chordError,radius*second*step**2/8+step*jumps/4);
+  }
+  // Triangulated facets differ from bilinear interpolation by at most a
+  // quarter of the endpoint edge-vector change. The rail facet has length
+  // below 34 mm; the separate spine bound uses its full 600 mm top edge.
+  // Straight has no chord error. For the radius-eight circular path,
+  // |(p+Rx)''| <= 1/8 + |x|/64 in metric arc coordinates.
+  if (configuration !== "loop") chordError=configuration === "straight" ? 0 : (1/8+radius/64)*step**2/8;
+  const facetError=step*angularBound*.034/4;
+  const conformance=chordError+facetError+epsilon;
+  let tangentError=0, sourceStep=0, acrossChange=0;
+  for (let i=0;i<derivatives.length;i++) {
+    sourceStep=Math.max(sourceStep,path[i+1][0]-path[i][0]);
+    for (const j of [i,i+1]) tangentError=Math.max(tangentError,norm(sub(derivatives[i].velocity,axes(path[j]).tangent)));
+  }
+  tangentError=configuration === "loop" ? tangentError+angularBound*sourceStep/2 : 0;
+  for (let i=0;i<192;i++) acrossChange=Math.max(acrossChange,norm(sub(frame(configuration,i*step).x,frame(configuration,(i+1)*step).x)));
+  const positionFollowing=tangentError*.055+angularBound*.055**2/2;
+  const following=(r:number) => conformance + angularBound*r*.055+positionFollowing;
+  const bodyGuard=following(radius), webGuard=following(Math.hypot(.05,.24,.055));
+  // Even the finite triangulation discrepancy leaves the 100 mm web inside
+  // the minimum 150 mm spine and its 20 mm penetration below the 30 mm limit.
+  const spineFacetError=acrossChange*.6/4;
+  expect(.05+spineFacetError+conformance).toBeLessThan(.075);
+  expect(.02+spineFacetError+conformance).toBeLessThan(.03);
+  for (const separation of [.6,1.6]) {
+    const p={...defaults,configuration,separation,spacing:.3};
+    const bodies=groups(generate(p),p);
+    for (let i=0;i<bodies.length;i++) {
+      const b=localBounds(bodies[i],p,i);
+      const expected=[[-.95,.95],[-.24,.055],[-.055,.055]];
+      for (let k=0;k<3;k++) tieBodyLeak=Math.max(tieBodyLeak,expected[k][0]-b[k][0],b[k][1]-expected[k][1]);
+    }
+  }
+  const cells = Math.ceil(total / 0.008), ties: (Piece & { arms: Piece; web: Piece })[] = [];
   for (let i = 0; i < cells; i++) {
-    const lo = total * i / cells, hi = total * (i + 1) / cells, f = frame("loop", (lo + hi) / 2);
-    const points = prototype.map(p => f.p.map((x, k) => x + f.x[k] * p[0] + f.y[k] * p[1] + f.z[k] * p[2]));
-    ties.push({ lo, hi, f, points, guard: (speedBound + angularBound * radius) * (hi - lo) / 2 + epsilon,
-      name: `tie station:[${lo.toFixed(3)},${hi.toFixed(3)}]` });
+    const lo = total * i / cells, hi = total * (i + 1) / cells, f = frame(configuration, (lo + hi) / 2);
+    const piece=(body:number[][],r:number,extra:number):Piece => ({lo,hi,f,
+      points:body.map(p => f.p.map((x,k)=>x+f.x[k]*p[0]+f.y[k]*p[1]+f.z[k]*p[2])),
+      guard:(speedBound+angularBound*r)*(hi-lo)/2+extra+epsilon,
+      name:`tie station:[${lo.toFixed(3)},${hi.toFixed(3)}]`});
+    ties.push({...piece(prototype,radius,bodyGuard),arms:piece(arms,radius,bodyGuard),
+      web:piece(web,Math.hypot(.05,.24,.055),webGuard)});
   }
   const extended = (s: number) => {
-    const clamped = Math.max(0, Math.min(total, s)), f = frame("loop", clamped);
+    const clamped = Math.max(0, Math.min(total, s)), f = frame(configuration, clamped);
     return { ...f, p: add(f.p, scale(f.z, s - clamped)) };
   };
   let tieGap = Infinity, tiePair = "", spineGap = Infinity, railGap = Infinity, attachmentMargin = Infinity;
@@ -527,8 +589,8 @@ test("local emitted pieces: chord hulls and thick ties separate except their joi
   expect(total / cells + 2 * attachmentHalf).toBeLessThan(0.3);
   for (let i = 0; i < ties.length; i++) {
     const a = ties[i];
-    // A tie can touch rails only in this station's attachment strip. Its full
-    // thick box is strictly between these planes; no tie/spine joint is exempt.
+    // Both rail seats and the narrow spine web are confined to this strip.
+    // Arms are NEVER exempted from spine separation, including inside it.
     for (const [s, sign] of [[a.lo - attachmentHalf, 1], [a.hi + attachmentHalf, -1]]) {
       const plane = extended(s);
       for (const p of a.points)
@@ -543,17 +605,18 @@ test("local emitted pieces: chord hulls and thick ties separate except their joi
     }
     for (const b of sweeps) {
       if (b.lo - a.hi > 2.6 || a.lo - b.hi > 2.6) continue;
-      if (b.kind !== 2 && b.lo <= a.hi + attachmentHalf && b.hi >= a.lo - attachmentHalf) continue;
-      const d = gap(a, b);
-      if (b.kind === 2) spineGap = Math.min(spineGap, d);
-      else railGap = Math.min(railGap, d);
+      const joint=b.lo<=a.hi+attachmentHalf && b.hi>=a.lo-attachmentHalf;
+      if (b.kind===2) {
+        spineGap=Math.min(spineGap,gap(a.arms,b));
+        if (!joint) spineGap=Math.min(spineGap,gap(a.web,b));
+      } else if (!joint) railGap=Math.min(railGap,gap(a,b));
     }
   }
-  console.info({ seamLeak, seamAdvance, sweepGap, sweepPair, tieBodyLeak, tieGap, tiePair, spineGap, railGap, attachmentMargin });
+  console.info({ configuration, conformance, seamLeak, seamAdvance, sweepGap, sweepPair, tieBodyLeak, tieGap, tiePair, spineGap, railGap, attachmentMargin });
   expect(seamLeak).toBeLessThan(epsilon);
   expect(seamAdvance).toBeGreaterThan(epsilon);
   expect(sweepGap, sweepPair).toBeGreaterThan(0);
-  expect(tieBodyLeak).toBeLessThan(epsilon);
+  expect(tieBodyLeak).toBeLessThan(bodyGuard);
   expect(tieGap, tiePair).toBeGreaterThan(0);
   expect(spineGap).toBeGreaterThan(0);
   expect(railGap).toBeGreaterThan(0);
@@ -643,25 +706,29 @@ test("loop: independent component dimensions, midpoint landmark, and parameter i
     near(range(v, ids, across), [-width / 2, width / 2]);
     near(range(v, ids, up), [-0.22 - depth, -0.22]);
   };
-  const tie = (v: Float32Array, separation: number) => {
-    expect(norm(sub(position(v, 0), position(v, 5)))).toBeCloseTo(
-      separation + 0.3,
-      5,
-    );
-    expect(norm(sub(position(v, 0), position(v, 1)))).toBeCloseTo(0.11, 5);
-    expect(norm(sub(position(v, 0), position(v, 6)))).toBeCloseTo(0.11, 5);
+  const tie = (overrides: Partial<typeof defaults>) => {
+    const p={...defaults,configuration:"loop" as const,...overrides};
+    const bodies=groups(generate(p),p);
+    expect(bodies.length).toBe(Math.ceil(42.0726940244/p.spacing));
+    for (let i=0;i<bodies.length;i++) {
+      expect(bodies[i].length).toBeGreaterThan(0);
+      const b=localBounds(bodies[i],p,i);
+      expect(b[0][0]).toBeLessThan(-p.separation/2-.03);
+      expect(b[0][1]).toBeGreaterThan(p.separation/2+.03);
+      expect(b[0][0]).toBeGreaterThan(-p.separation/2-.066);
+      expect(b[0][1]).toBeLessThan(p.separation/2+.066);
+      expect(b[2][0]).toBeGreaterThan(-.065);
+      expect(b[2][1]).toBeLessThan(.065);
+      expect(b[2][1]-b[2][0]).toBeGreaterThan(.09);
+      expect(Math.abs(b[2][0]+b[2][1])).toBeLessThan(.002);
+    }
   };
   const base = components();
   for (const separation of [0.6, 1.4, 1.6]) {
     const c = components({ separation });
     rails(c.rails, separation);
-    tie(c.ties, separation);
+    tie({ separation });
     expect(c.spine).toEqual(base.spine);
-    expect(c.ties.length).toBe(base.ties.length);
-    for (let i = 0; i < c.ties.length / (36 * 8); i++) {
-      const ids = Array.from({ length: 36 }, (_, j) => i * 36 + j);
-      near(center(c.ties, ids), center(base.ties, ids));
-    }
   }
   for (const width of [0.15, 0.5, 0.6]) {
     const c = components({ width });
@@ -677,10 +744,9 @@ test("loop: independent component dimensions, midpoint landmark, and parameter i
   }
   for (const spacing of [0.3, 1.2, 1.5]) {
     const c = components({ spacing });
-    tie(c.ties, 1);
+    tie({ spacing });
     expect(c.rails).toEqual(base.rails);
     expect(c.spine).toEqual(base.spine);
-    expect(c.ties.length / (36 * 8)).toBe(Math.ceil(42.0726940244 / spacing));
   }
   expect(() => components({ fixed: true })).toThrow('qualified profiles');
 });
