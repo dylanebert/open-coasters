@@ -353,6 +353,7 @@ test("nonlocal emitted envelope: whole-interval ball separation", () => {
     const parameters = `${separation}/${width}/${depth}/${spacing}`;
     let offset = 0;
     for (const sides of [12, 12, 4]) {
+      if (sides===4) offset=mesh.parts.find(p=>p.name==='spine')!.vertex;
       for (let segment = 0; segment < 192; segment++) {
         const centers = [reference(segment * meshStep), reference((segment + 1) * meshStep)];
         for (let vertex = 0; vertex < sides * 6; vertex++) {
@@ -361,6 +362,16 @@ test("nonlocal emitted envelope: whole-interval ball separation", () => {
           audit(norm(sub(p, centers[ring])), offset + vertex, parameters);
         }
         offset += sides * 6;
+      }
+    }
+    // Closure vertices are terminal ring corners too; audit each against its
+    // own endpoint reference, not the next strip's old open-geometry offset.
+    for (const part of mesh.parts.filter(p=>p.name!=='ties')) {
+      const sides=part.name==='rails'?12:4, shells=part.name==='rails'?2:1;
+      const start=part.vertex+shells*192*sides*6;
+      for(let shell=0;shell<shells;shell++) for(let end=0;end<2;end++) for(let j=0;j<sides;j++) {
+        const vertex=start+(shell*2+end)*sides+j;
+        audit(norm(sub(Array.from(v.slice(vertex*8,vertex*8+3)),reference(end*total))),vertex,parameters);
       }
     }
     const p = { ...defaults, configuration: "loop" as const, separation, width, depth, spacing };
@@ -424,7 +435,7 @@ for (const configuration of ["straight", "curve", "loop"] as const)
   // min/max-control ring corners therefore contains every supported chord face.
   // Rail/spine pieces are solids enclosing one section, not auxiliary normal disks.
   const sweeps: (Piece & { kind: number; segment: number })[] = [];
-  const starts = [0, 192 * 72, 2 * 192 * 72];
+  const starts = [0, 192 * 72, small.parts.find(p=>p.name==='spine')!.index];
   for (let segment = 0; segment < 192; segment++)
     for (let kind = 0; kind < 3; kind++) {
       const sides = kind === 2 ? 4 : 12, points: number[][] = [];
@@ -657,20 +668,11 @@ test("loop: independent component dimensions, midpoint landmark, and parameter i
   const origin = [3.527941183591029 - 3.5319609173, 14.846686750720252, 1.112765669446995];
   const across = [0.9546375921092585, 0.000945326610554788, 0.2977686586755503];
   const up = [0.0010066066297183312, -0.9999994919958399, -5.245145321893793e-05];
-  const railVertices = 192 * 12 * 6,
-    spineStart = railVertices * 2,
-    tieStart = spineStart + 192 * 4 * 6;
+  const railVertices = 192 * 12 * 6;
   const components = (overrides: Partial<typeof defaults> = {}) => {
-    const v = generate({
-      ...defaults,
-      configuration: "loop",
-      ...overrides,
-    }).vertices;
-    return {
-      rails: v.slice(0, spineStart * 8),
-      spine: v.slice(spineStart * 8, tieStart * 8),
-      ties: v.slice(tieStart * 8),
-    };
+    const mesh = generate({ ...defaults, configuration: 'loop', ...overrides });
+    const part=(name:string)=>{const p=mesh.parts.find(p=>p.name===name)!;return mesh.vertices.slice(p.vertex*8,p.endVertex*8);};
+    return {rails:part('rails'),spine:part('spine'),ties:part('ties')};
   };
   const position = (v: Float32Array, i: number) =>
     Array.from(v.slice(i * 8, i * 8 + 3));

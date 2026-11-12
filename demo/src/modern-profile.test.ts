@@ -89,9 +89,11 @@ for (const [i, name] of names.entries()) {
       expect(() => qualify(changed, s, i === 0 ? 32 : 24)).toThrow();
     }
     for (const kind of ["straight", "curve", "loop"] as const) {
-      const mesh = sweepProfile(p, kind);
-      expect(mesh.positions).toHaveLength((i === 0 ? 32 : 24) * 386);
-      expect(mesh.indices).toHaveLength((i === 0 ? 32 : 24) * 192 * 6);
+      const mesh = sweepProfile(p, kind, 0);
+      // Qualification examines the unchanged authored wall prefix; closure
+      // layout is independently challenged by endcaps.test.ts.
+      expect(mesh.positions.length).toBeGreaterThanOrEqual((i === 0 ? 32 : 24) * 386);
+      expect(mesh.indices.length).toBeGreaterThanOrEqual((i === 0 ? 32 : 24) * 192 * 6);
       expect(mesh.normals.every(n => Math.abs(Math.hypot(...n) - 1) < 1e-5)).toBe(true);
     }
   });

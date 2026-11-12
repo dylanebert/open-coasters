@@ -275,8 +275,8 @@ test('Blitz assemblies: fixed source controls, retained dimensions, history, pai
       await page.locator('[name=spineAssembly]').selectOption(assembly); await step(page);
       expect(await page.evaluate(()=>(window as any).demo.orbit())).toEqual(view);
       const meshes=await page.evaluate(()=>(window as any).demo.meshes());
-      expect(meshes.find((m:any)=>m.name==='Track rails').indexCount).toBe(32*192*6);
-      expect(meshes.find((m:any)=>m.name==='Track spine').indexCount).toBe((assembly==='single'?24:48)*192*6);
+      expect(meshes.find((m:any)=>m.name==='Track rails').indexCount).toBe(32*192*6+168);
+      expect(meshes.find((m:any)=>m.name==='Track spine').indexCount).toBe((assembly==='single'?24:48)*192*6+(assembly==='single'?132:264));
     }
   }
   // Orbit's public distance target eases from 19 to 26 after the track change.

@@ -13,7 +13,9 @@ export function assembleModern(p: Parameters, profiles: Profile[]) {
   for (const [name, sections] of [['rails', [profiles[0]]], ['spine', p.secondSpine ? profiles.slice(1) : [profiles[1]]]] as const) {
     const vertex = vertices.length / 8, index = indices.length;
     for (const profile of sections) {
-      const mesh = sweepProfile(profile, p.configuration);
+      // Qualified Blitz sections have one default-material slot. Both that
+      // slot and the generated caps are painted by this rail/spine part owner.
+      const mesh = sweepProfile(profile, p.configuration, 0);
       const offset = vertices.length / 8;
       mesh.positions.forEach((position, i) => vertices.push(...position, 0, ...mesh.normals[i], 0));
       indices.push(...mesh.indices.map(i => i + offset));

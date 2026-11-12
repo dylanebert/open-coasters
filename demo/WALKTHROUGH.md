@@ -19,7 +19,8 @@ The production Pages route is `/open-coasters/`.
    The app-local **Assembly** choice adds spine 2 and dense rigid parts;
    it does not select source styles automatically. Spacing remains app-local,
    not source Step/Offset behavior. Switching back restores Parametric dimensions.
-   Ends remain uncapped; only untextured contributions are qualified. Source
+   Exposed rail and spine ends have flat generated caps, painted with their
+   respective part. Only untextured contributions are qualified. Source
    dimensions, notices and limits are in the [contribution provenance](../assets/blitz-profile/PROVENANCE.md)
 6. Use native **Rails**, **Ties** and **Spine** color inputs to paint independently.
    Ctrl/Cmd+Z undoes; Ctrl+Y or Cmd+Shift+Z redoes configuration and paint.
@@ -95,6 +96,9 @@ separation rather than judging clearance from a projected crossing.
 Construction in `src/track.ts` and `src/modern-track.ts` is app-local, not a shared
 recipe or sweep contract. Parametric sweeps use flat normals. Blitz uses the
 qualified source contours and transported authored shading through 192 intervals;
-all sweeps have open ends. The Parametric track's clearance checks do not qualify
+both constructions close only their exposed rail/spine endpoint contours on all
+three paths. Intermediate rings remain uncapped; Parametric yoke caps are retained.
+These consumer closures do not change the uncapped profile contribution requirement.
+The Parametric track's clearance checks do not qualify
 Blitz clearance, engineering attachments or train clearance. There are no supports,
 runtime dynamics, structural or ride-safety claims.

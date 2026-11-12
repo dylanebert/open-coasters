@@ -104,8 +104,9 @@ test(
       app.dispose();
     }
   },
-  // Every mode establishes its bound, then repeats it; release is checked on every replacement.
-  TIMEOUT.gpu,
+  // 28 GPU replacements, not one draw. Every mode establishes its bound,
+  // then repeats it; release is checked on every replacement.
+  TIMEOUT.gpu * 4,
 );
 
 for (const asset of ["wheel-carrier", "blitz-tie"] as const)

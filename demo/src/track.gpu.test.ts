@@ -33,7 +33,7 @@ for (const configuration of ["straight", "curve", "loop"] as Configuration[])
         const a = await frame();
         const handle = w.storage(MeshInstance).mesh.get(eid);
         expect(w.resource(Meshes).get(handle as MeshHandle)!.indexCount).toBe(
-          p.fixed ? (secondSpine ? 80 : 56) * 192 * 6 : generate(p).indices.length,
+          p.fixed ? (secondSpine ? 80 : 56) * 192 * 6 + (secondSpine ? 432 : 300) : generate(p).indices.length,
         );
         if (p.fixed) {
           const count = Math.ceil((configuration === 'straight' ? 12 : configuration === 'curve' ? 4 * Math.PI : 42.0726940244) / p.spacing);

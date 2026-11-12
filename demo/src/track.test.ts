@@ -41,7 +41,7 @@ for (const kind of ["straight", "curve"] as Configuration[]) {
       );
     // First rail begins at -separation/2 + radius; spine begins at -width/2, -0.22.
     expect(local(0, across)).toBeCloseTo(-0.5 + 0.065, 5);
-    const start = 2 * 192 * 12 * 4;
+    const start = base.parts.find(p=>p.name==='spine')!.vertex;
     expect(local(start, across)).toBeCloseTo(-0.14, 5);
     expect(local(start, up)).toBeCloseTo(-0.22, 5);
     expect(local(start + 1, up)).toBeCloseTo(-0.57, 5);
@@ -66,15 +66,10 @@ for (const kind of ["straight", "curve"] as Configuration[]) {
 for (const configuration of ["straight", "curve"] as Configuration[]) {
   test(`${configuration}: non-default dimensions and parameter isolation`, () => {
     const railVertices = 192 * 12 * 4;
-    const spineStart = 2 * railVertices;
-    const tieStart = spineStart + 192 * 4 * 4;
     const components = (overrides: Partial<typeof defaults> = {}) => {
       const mesh = generate({ ...defaults, configuration, ...overrides });
-      return {
-        rails: mesh.vertices.slice(0, spineStart * 8),
-        spine: mesh.vertices.slice(spineStart * 8, tieStart * 8),
-        ties: mesh.vertices.slice(tieStart * 8),
-      };
+      const part=(name:string)=>{const p=mesh.parts.find(p=>p.name===name)!;return mesh.vertices.slice(p.vertex*8,p.endVertex*8);};
+      return { rails:part('rails'), spine:part('spine'), ties:part('ties') };
     };
     const position = (data: Float32Array, vertex: number) =>
       Array.from(data.slice(vertex * 8, vertex * 8 + 3));
@@ -197,11 +192,8 @@ test("generated dimensions are independently bounded and all controls affect act
     1.5 - 0.22 - 0.35,
     5,
   );
-  // Spine starts after two 192-segment, twelve-sided rails, four vertices per quad.
-  const spine = mesh.vertices.slice(
-    2 * 192 * 12 * 4 * 8,
-    (2 * 192 * 12 * 4 + 192 * 4 * 4) * 8,
-  );
+  const part = mesh.parts.find(p=>p.name==='spine')!;
+  const spine = mesh.vertices.slice(part.vertex*8,part.endVertex*8);
   expect(
     Math.max(...coords(spine, 0)) - Math.min(...coords(spine, 0)),
   ).toBeCloseTo(0.28, 5);

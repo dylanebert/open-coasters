@@ -42,20 +42,21 @@ for (const configuration of ['straight','curve','loop'] as const) for (const sec
   expect(modernTies(p)).toEqual(secondSpine ? ['ModernTie_Med','ModernTie_Dense'] : ['ModernTie_Med']);
   const names=['ModernRail','ModernSpine_1',...(secondSpine?['ModernSpine_2']:[])];
   const edges=(await Promise.all(names.map(sourceEdges))).flat();
-  expect(mesh.vertices.length/8).toBe(edges.length*386);
-  expect(mesh.indices.length).toBe(edges.length*192*6);
-  // Independent open-wall topology: no caps, shared edge-station pairs only.
-  for(let edge=0;edge<edges.length;edge++) for(let station=0;station<192;station++) {
-    const a=edge*386+station*2;
-    expect(Array.from(mesh.indices.slice((edge*192+station)*6,(edge*192+station+1)*6))).toEqual([a,a+1,a+3,a,a+3,a+2]);
-  }
-  const starts = Array.from({length:edges.length},(_,i)=>i*386*8);
+  // Locate authored wall strips by endpoint position AND normal, not by cap
+  // offsets. Each strip still has its original shared edge-station topology.
+  const starts=Array.from({length:mesh.vertices.length/8},(_,i)=>i*8);
+  const triangles=new Set(Array.from({length:mesh.indices.length/3},(_,i)=>Array.from(mesh.indices.slice(i*3,i*3+3)).join(',')));
   for(const edge of edges){
-    const start=starts.find(start=> {
-      const [pos]=expected(configuration,0,edge[0].p[0],edge[0].p[1],0,0);
-      return pos.every((v,k)=>Math.abs(v-mesh.vertices[start+k])<3e-6);
-    });
+    const start=starts.find(start=> [0,1].every(end=>{
+      const e=edge[end], [pos,n]=expected(configuration,0,e.p[0],e.p[1],e.n[0],e.n[1]);
+      return pos.every((v,k)=>Math.abs(v-mesh.vertices[start+end*8+k])<3e-6) && n.every((v,k)=>Math.abs(v-mesh.vertices[start+end*8+4+k])<1e-4);
+    }));
     expect(start).toBeDefined();
+    for(let station=0;station<192;station++) {
+      const a=start!/8+station*2;
+      expect(triangles.has([a,a+1,a+3].join(','))).toBe(true);
+      expect(triangles.has([a,a+3,a+2].join(','))).toBe(true);
+    }
     for(let station=0;station<=192;station++) for(let end=0;end<2;end++){
       const e=edge[end]; const [pos,normal]=expected(configuration,station,e.p[0],e.p[1],e.n[0],e.n[1]);
       const offset=start!+(station*2+end)*8;

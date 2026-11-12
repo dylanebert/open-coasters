@@ -1,6 +1,7 @@
 // Provisional demo construction, not an asset or track specification. Meters throughout.
 import { qRotate } from "@dylanebert/shallot";
 import loopPath from "./loop-path.json";
+import { sectionTriangles } from "./section-cap";
 
 // Recorded KexEdit positions/rotations; no solver runs in the demo. See tools/LOOP.md.
 const loopLength = loopPath.at(-1)![0];
@@ -145,7 +146,20 @@ export function generate(p: Parameters) {
       vertices.push(...pt, 0, ...n.map((v) => v / size), 0);
     indices.push(start, start + 1, start + 2);
   }
+  const pendingCaps: [number, number][][] = [];
+  function closePart() {
+    // Called within each rail/spine part so closures inherit its paint owner.
+    for (const section of pendingCaps) for (const end of [0, 1]) {
+      const f = frame(p.configuration, end * length(p.configuration));
+      const start = vertices.length / 8;
+      for (const xy of section) vertices.push(...point(f, ...xy), 0, ...f.z.map(v => v * (end ? 1 : -1)), 0);
+      for (const [a,b,c] of sectionTriangles(section))
+        indices.push(start+a, start+(end ? b : c), start+(end ? c : b));
+    }
+    pendingCaps.length = 0;
+  }
   function sweep(section: [number, number][]) {
+    pendingCaps.push(section);
     for (let i = 0; i < 192; i++) {
       const a = frame(p.configuration, (length(p.configuration) * i) / 192),
         b = frame(p.configuration, (length(p.configuration) * (i + 1)) / 192);
@@ -167,6 +181,7 @@ export function generate(p: Parameters) {
         0.065 * Math.sin((i * Math.PI) / 6),
       ]),
     );
+  closePart();
   const railEnd = { vertex: vertices.length / 8, index: indices.length };
   sweep([
     [-p.width / 2, -0.22],
@@ -174,6 +189,7 @@ export function generate(p: Parameters) {
     [p.width / 2, -0.22 - p.depth],
     [p.width / 2, -0.22],
   ]);
+  closePart();
   const spineEnd = { vertex: vertices.length / 8, index: indices.length };
   // One app-local yoke section: two lower-facet seats, tapered arms and a
   // 100 mm web penetrating the spine top by 20 mm. Width/depth do not change
