@@ -73,6 +73,13 @@ function planeCut(t: Triangle, n: V, origin: V) {
 export function crossing(a: Triangle, b: Triangle) {
   const na=normal(a), nb=normal(b), axis=cross(na,nb), size=norm(axis);
   if (size<1e-6) return null;
+  // Float32 clipping of the same plane can tilt a small triangle's normal.
+  // Require an actual two-sided crossing beyond the existing 2 micrometer
+  // positional contact tolerance, not merely nonparallel computed normals.
+  for (const [t,n,origin] of [[a,nb,b[0]],[b,na,a[0]]] as const) {
+    const d=t.map(v=>dot(sub(v,origin),n));
+    if (Math.min(...d)>=-2e-6 || Math.max(...d)<=2e-6) return null;
+  }
   const aa=planeCut(a,nb,b[0]), bb=planeCut(b,na,a[0]);
   if (aa.length<2 || bb.length<2) return null;
   const direction=axis.map(x=>x/size);
