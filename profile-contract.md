@@ -3,8 +3,10 @@
 A profile is an authored metric XY section with origin (0,0) and +Z normal.
 Coordinates are not recentered or normalized. It is separate from the static
 instance candidate: paths, placement, banking, spacing, caps and sweep algorithms
-belong to consumers. This draft has only a synthetic extraction witness; neither
-Modern source fidelity nor independent consumer interoperability is qualified.
+belong to consumers. Synthetic extraction tests and the bounded untextured Modern
+contribution exercise this draft. `assets/blitz-profile/PROVENANCE.md` records
+source fidelity and independent Blender construction evidence, tolerances and
+limits; it does not qualify arbitrary source attributes or sweep consumers.
 
 Sections contain closed, disjoint, nonintersecting polygonal contours, CCW when
 viewed from +Z. Holes, nested loops and open contours are unsupported. Concave
@@ -70,5 +72,8 @@ as export noise, not as supported longitudinal features.
 independent expected points, contour adjacency, hard/smooth normals and material
 values. Mutations exercise end mismatch, longitudinal geometry/shading,
 connectivity/winding, intersections, nesting and subset refusals, including both
-sides of positional and normal matching tolerances. No live demo integration,
-production profile archive, mesh bending or general import framework is included.
+sides of positional and normal matching tolerances. The separate Modern archive
+and focused source tests qualify the untextured rails and both round spines;
+medium/dense ties retain rigid instance meaning. The standalone Blender consumer
+and local TS sweep experiment are not a sweep standard. No live demo integration,
+cap support, automatic style machinery or general import framework is included.
