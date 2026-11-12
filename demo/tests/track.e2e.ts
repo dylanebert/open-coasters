@@ -248,7 +248,7 @@ for (const asset of ["wheel-carrier", "blitz-tie"]) {
 }
 
 
-test('Blitz assemblies: fixed source controls, retained dimensions, history, paint and cached assets across tracks', async ({ page }) => {
+test('Blitz assemblies: fixed source controls, retained dimensions, history, color and cached assets across tracks', async ({ page }) => {
   const requests: string[] = [];
   page.on('request', r => { if (/\.(gltf|bin)$/.test(r.url())) requests.push(r.url()); });
   await page.goto('./?stepped&component=local');
@@ -261,7 +261,8 @@ test('Blitz assemblies: fixed source controls, retained dimensions, history, pai
   await step(page);
   const requestCount = requests.length;
   const world = await page.evaluate(() => { const w=window as any; w.blitzWitness=[w.demo.app,w.demo.app.world,w.demo.camera]; return w.demo.orbit(); });
-  await expect(page.getByText('Fixed source meters', { exact: false })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Color', exact: true })).toBeVisible();
+  await expect(page.locator('form p')).toHaveCount(0);
   for (const [name,value] of [['separation','1.2'],['width','0.533333'],['depth','0.533333']]) {
     await expect(page.locator(`[name=${name}]`)).toBeDisabled();
     await expect(page.locator(`[name=${name}]`)).toHaveValue(value);

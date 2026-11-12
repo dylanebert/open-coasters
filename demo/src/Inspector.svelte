@@ -48,7 +48,7 @@
         <label>Type<select name="component" value={c.parameters.fixed ? 'fixed' : 'local'} disabled={c.isolated} onchange={event => change({ ...c, parameters: { ...c.parameters, fixed: event.currentTarget.value === 'fixed' } }, true)}><option value="local">Parametric</option><option value="fixed">Blitz</option></select></label>
       {/if}
       {#if section === 'spine' && c.parameters.fixed}
-        <label>Assembly<select name="spineAssembly" value={c.parameters.secondSpine ? 'double' : 'single'} onchange={event => change({ ...c, parameters: { ...c.parameters, secondSpine: event.currentTarget.value === 'double' } }, true)}><option value="single">Spine 1 + medium tie</option><option value="double">Spines 1 + 2, medium + dense ties</option></select></label>
+        <label>Assembly<select name="spineAssembly" value={c.parameters.secondSpine ? 'double' : 'single'} onchange={event => change({ ...c, parameters: { ...c.parameters, secondSpine: event.currentTarget.value === 'double' } }, true)}><option value="single">Spine 1</option><option value="double">Spines 1 + 2</option></select></label>
       {/if}
       {#each fields.filter(f => section === 'ties' ? ['spacing', 'separation'].includes(f.key) : ['width', 'depth'].includes(f.key)) as field}
         <label use:scrub={{ value: () => c.parameters[field.key], preview: value => number(field.key, value), commit: finish }}>
@@ -57,11 +57,8 @@
       {/each}
     </section>
   {/each}
-  {#if !c.isolated && c.parameters.fixed}
-    <p>Fixed source meters · rail centers ≈1.2 m; spine Ø0.533333 m. Uncapped, untextured qualification only. App-local assembly and spacing; no source Step/Offset or automatic style rules.</p>
-  {/if}
   <section hidden={c.isolated}>
-    <h2>Paint</h2>
+    <h2>Color</h2>
     {#each (['rails', 'ties', 'spine'] as const) as part}
       <label>{part[0].toUpperCase() + part.slice(1)}<input type="color" name={part + 'Color'} value={c.paint[part]} oninput={event => change({ ...c, paint: { ...c.paint, [part]: event.currentTarget.value } })} onchange={finish} onblur={finish} /></label>
     {/each}
