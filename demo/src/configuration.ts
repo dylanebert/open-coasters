@@ -15,7 +15,7 @@ export type Configuration = {
   asset: "blitz-tie" | "wheel-carrier";
 };
 export const initialConfiguration: Configuration = {
-  parameters: { ...defaults },
+  parameters: { ...defaults, fixed: true },
   paint: { rails: "#50d3dd", ties: "#389faa", spine: "#339da5" },
   isolated: false,
   asset: "wheel-carrier",

@@ -18,7 +18,7 @@ try {
   initial.isolated = query.has("asset");
   if (["blitz-tie", "wheel-carrier"].includes(query.get("asset")!)) initial.asset = query.get("asset") as Configuration['asset'];
   if (["straight", "curve", "loop"].includes(query.get("configuration")!)) initial.parameters.configuration = query.get("configuration") as Configuration['parameters']['configuration'];
-  initial.parameters.fixed = query.get("component") === "fixed";
+  if (["local", "fixed"].includes(query.get("component")!)) initial.parameters.fixed = query.get("component") === "fixed";
   for (const key of Object.keys(numericRanges) as (keyof typeof numericRanges)[]) {
     const { min, max, step } = numericRanges[key];
     const value = Number(query.get(key));

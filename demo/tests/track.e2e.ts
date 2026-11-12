@@ -14,7 +14,7 @@ test("Pages: edits immediately change geometry in one document/app/camera; examp
   page.on("request", (request) => {
     if (/\.(gltf|bin)(\?|$)/.test(request.url())) requests.push(request.url());
   });
-  await page.goto("./?stepped");
+  await page.goto("./?stepped&component=local");
   await page.locator('body[data-ready="true"]').waitFor();
   await step(page);
   const originalUrl = page.url();
@@ -151,7 +151,7 @@ test("Pages: edits immediately change geometry in one document/app/camera; examp
 test("desktop and phone fields are aligned, keyboard editable, locally fonted and contained", async ({
   page,
 }) => {
-  await page.goto("./?stepped");
+  await page.goto("./?stepped&component=local");
   await page.locator('body[data-ready="true"]').waitFor();
   await expect(page.locator("[name=width]")).toHaveValue("0.28");
   await page.locator("canvas").click();
@@ -170,7 +170,7 @@ test("desktop and phone fields are aligned, keyboard editable, locally fonted an
   );
   await step(page);
   await page.keyboard.press("Enter");
-  expect(new URL(page.url()).search).toBe("?stepped");
+  expect(new URL(page.url()).search).toBe("?stepped&component=local");
   for (const width of [1280, 390, 320]) {
     await page.setViewportSize({ width, height: 844 });
     await step(page);
@@ -251,7 +251,7 @@ for (const asset of ["wheel-carrier", "blitz-tie"]) {
 test('Blitz assemblies: fixed source controls, retained dimensions, history, paint and cached assets across tracks', async ({ page }) => {
   const requests: string[] = [];
   page.on('request', r => { if (/\.(gltf|bin)$/.test(r.url())) requests.push(r.url()); });
-  await page.goto('./?stepped');
+  await page.goto('./?stepped&component=local');
   await page.locator('body[data-ready="true"]').waitFor();
   await step(page);
   for (const [name,value] of [['separation','1.4'],['width','0.4'],['depth','0.7']]) {

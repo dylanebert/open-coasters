@@ -1,9 +1,14 @@
 import { expect, test } from 'bun:test';
 import { history, preview, commit, undo, redo, initialConfiguration, effective, linearColor } from './configuration';
-import { generate } from './track';
+import { defaults, generate } from './track';
+
+test('Blitz app selection preserves procedural numeric defaults', () => {
+  expect(defaults.fixed).toBe(false);
+  expect(initialConfiguration.parameters).toEqual({ ...defaults, fixed: true });
+});
 
 test('snapshot gestures, no-ops, undo/redo and branching', () => {
-  const a = structuredClone(initialConfiguration);
+  const a = { ...structuredClone(initialConfiguration), parameters: { ...defaults } };
   const b = { ...a, parameters: { ...a.parameters, separation: 1.4 } };
   const c = { ...b, parameters: { ...b.parameters, fixed: true } };
   let h = history(a);
@@ -39,7 +44,7 @@ test('sRGB color conversion uses independent standard values', () => {
 
 test('part views reconstruct original typed arrays without changing indices or vertex bytes', () => {
   for (const configuration of ['straight', 'curve', 'loop'] as const) {
-    const mesh = generate({ ...initialConfiguration.parameters, configuration });
+    const mesh = generate({ ...defaults, configuration });
     const vertices: number[] = [], indices: number[] = [];
     for (const part of mesh.parts) {
       vertices.push(...mesh.vertices.subarray(part.vertex * 8, part.endVertex * 8));

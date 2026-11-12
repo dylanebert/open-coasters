@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { pixels, changedPixels } from './pixels';
 const step = (page: Page) => page.evaluate(() => (window as any).step());
 async function start(page: Page) {
-  await page.goto("./?stepped");
+  await page.goto("./?stepped&component=local");
   await page.locator('body[data-ready="true"]').waitFor();
   await step(page);
 }

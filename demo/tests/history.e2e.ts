@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { pixels, changedPixels } from './pixels';
 
 test('native sessions, grouped drag/color, shortcuts, gauge memory and render undo', async ({ page }) => {
-  await page.goto('./?stepped');
+  await page.goto('./?stepped&component=local');
   await page.locator('body[data-ready="true"]').waitFor();
   const step = () => page.evaluate(() => (window as any).step());
   await step();

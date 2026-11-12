@@ -2,9 +2,9 @@ import { expect, test } from '@playwright/test';
 import { pixels } from './pixels';
 
 for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
-  test(`default to loop centered without crop ${viewport.width}`, async ({ page }, info) => {
+  test(`Parametric loop centered without crop ${viewport.width}`, async ({ page }, info) => {
     await page.setViewportSize(viewport);
-    await page.goto('./?stepped');
+    await page.goto('./?stepped&component=local');
     await page.locator('body[data-ready="true"]').waitFor();
     const step = () => page.evaluate(() => (window as any).step());
     await step();

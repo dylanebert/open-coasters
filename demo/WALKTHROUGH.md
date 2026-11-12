@@ -3,21 +3,22 @@
 From `demo/`, run `bun run dev` and open the printed URL (WebGPU required).
 The production Pages route is `/open-coasters/`.
 
-1. Start with **Banked curve**: a quarter circle of radius 8 m, banked 30°.
+1. Start with **Blitz**, **Banked curve**: a quarter circle of radius 8 m, banked 30°.
    Drag the view to orbit; scroll to zoom
 2. Choose **Straight** (12 m) or the force-shaped **Vertical loop**.
    Changing Track centers the new example without restarting the app or changing
    your viewing direction. Other edits keep your view
 3. Edit **Spacing · m**. Ties follow metric centerline distance, not equal chords.
    The loop has separate entry/exit ends and a shorter final spacing remainder
-4. With **Adjustable**, **Gauge · m** (rail center-to-center) changes the provisional tie span.
-   Rail radius remains 65 mm. Spine width and depth change only the rectangular
-   spine, whose top is 220 mm below the path. The initial width is 0.28 m
+4. Choose **Parametric** to edit **Gauge · m** (rail center-to-center).
+   Rail radius remains 65 mm. Yoke seats meet the rails; a bounded web meets the
+   rectangular spine, whose top is 220 mm below the path. Spine width and depth
+   also change the web's spine contact. The remembered initial width is 0.28 m
 5. Choose **Blitz** for source rails, spine 1 and rigid medium ties, unscaled.
    Gauge (approximately 1.2 m) and spine width/depth (0.533333 m) are fixed.
    The app-local **Assembly** choice adds spine 2 and dense rigid parts;
    it does not select source styles automatically. Spacing remains app-local,
-   not source Step/Offset behavior. Switching back restores adjustable dimensions.
+   not source Step/Offset behavior. Switching back restores Parametric dimensions.
    Ends remain uncapped; only untextured contributions are qualified. Source
    dimensions, notices and limits are in the [contribution provenance](../assets/blitz-profile/PROVENANCE.md)
 6. Use native **Rails**, **Ties** and **Spine** color inputs to paint independently.
@@ -92,8 +93,8 @@ Use side and front views to inspect its teardrop and lateral
 separation rather than judging clearance from a projected crossing.
 
 Construction in `src/track.ts` and `src/modern-track.ts` is app-local, not a shared
-recipe or sweep contract. Adjustable sweeps use flat normals. Blitz uses the
+recipe or sweep contract. Parametric sweeps use flat normals. Blitz uses the
 qualified source contours and transported authored shading through 192 intervals;
-all sweeps have open ends. The adjustable track's clearance checks do not qualify
+all sweeps have open ends. The Parametric track's clearance checks do not qualify
 Blitz clearance, engineering attachments or train clearance. There are no supports,
 runtime dynamics, structural or ride-safety claims.

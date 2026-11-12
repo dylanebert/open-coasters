@@ -10,7 +10,8 @@ Spacing groups related rows and separates independent sections.
 
 History stays keyboard-only.
 Asset inspection is a separate task with its own entry; `WALKTHROUGH.md` owns the URLs.
-Fixed ties disable Gauge without discarding the remembered adjustable value.
+Blitz is the initial selection. Its source dimensions disable Gauge and spine
+width/depth without discarding the remembered Parametric values.
 Keep secondary guidance off the default view; add no help control without a concrete need.
 No submit action, decorative card or status badge.
 Native fields retain keyboard focus and

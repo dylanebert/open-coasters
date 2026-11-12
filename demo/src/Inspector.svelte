@@ -45,7 +45,7 @@
     <section id={section} hidden={c.isolated}>
       <h2>{section === 'ties' ? 'Ties' : 'Spine'}</h2>
       {#if section === 'ties'}
-        <label>Type<select name="component" value={c.parameters.fixed ? 'fixed' : 'local'} disabled={c.isolated} onchange={event => change({ ...c, parameters: { ...c.parameters, fixed: event.currentTarget.value === 'fixed' } }, true)}><option value="local">Adjustable</option><option value="fixed">Blitz</option></select></label>
+        <label>Type<select name="component" value={c.parameters.fixed ? 'fixed' : 'local'} disabled={c.isolated} onchange={event => change({ ...c, parameters: { ...c.parameters, fixed: event.currentTarget.value === 'fixed' } }, true)}><option value="local">Parametric</option><option value="fixed">Blitz</option></select></label>
       {/if}
       {#if section === 'spine' && c.parameters.fixed}
         <label>Assembly<select name="spineAssembly" value={c.parameters.secondSpine ? 'double' : 'single'} onchange={event => change({ ...c, parameters: { ...c.parameters, secondSpine: event.currentTarget.value === 'double' } }, true)}><option value="single">Spine 1 + medium tie</option><option value="double">Spines 1 + 2, medium + dense ties</option></select></label>
