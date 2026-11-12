@@ -3,7 +3,7 @@ import { qRotate } from "@dylanebert/shallot";
 import loopPath from "./loop-path.json";
 import { sectionTriangles } from "./section-cap";
 
-// Recorded KexEdit positions/rotations; no solver runs in the demo. See tools/LOOP.md.
+// Recorded KexEdit positions/rotations; no solver runs in the demo. See tools/AGENTS.md.
 const loopLength = loopPath.at(-1)![0];
 const loopApexX = loopPath.reduce((highest, row) =>
   row[2] > highest[2] ? row : highest,

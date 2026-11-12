@@ -50,7 +50,6 @@ Caps are separate source assets: rail/spine start and end caps, `Modern_StartTie
 and `Modern_EndTie.obj`. None is included or flattened into a section.
 Thresholds, duplication Step/Offset/Spacing, automatic style selection and cap
 placement are unqualified. This is not a complete Modern reconstruction.
-`demo/WALKTHROUGH.md` owns live app behavior.
 
 ## Rebuild and independent adoption
 
@@ -76,8 +75,9 @@ The Blender file contains all three sections in straight, 30-degree banked curve
 and recorded loop configurations. Objects overlap in one world frame; hide them
 to inspect one construction. This example is not a general importer or profile gate.
 
-Both this consumer and `demo/src/profile-sweep.ts` use 192 equal-length intervals,
-open ends and frame-transported authored normals. The loop uses linear position
+Both this consumer and `demo/src/profile-sweep.ts` use 192 equal-length intervals
+and frame-transported authored wall normals. The construction comparison covers
+side walls, not the demo's generated endcaps. The loop uses linear position
 and shortest-path normalized quaternion interpolation over `demo/src/loop-path.json`.
 These are consumer policies, not an inner contract or shared sweep standard.
 Transported normals are not recomputed curved-surface normals.
