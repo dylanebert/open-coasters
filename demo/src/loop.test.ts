@@ -590,7 +590,7 @@ for (const configuration of ["straight", "curve", "loop"] as const)
   for (let i = 0; i < ties.length; i++) {
     const a = ties[i];
     // Both rail seats and the narrow spine web are confined to this strip.
-    // Arms are NEVER exempted from spine separation, including inside it.
+    // Arms must remain separate from the spine, including inside it.
     for (const [s, sign] of [[a.lo - attachmentHalf, 1], [a.hi + attachmentHalf, -1]]) {
       const plane = extended(s);
       for (const p of a.points)

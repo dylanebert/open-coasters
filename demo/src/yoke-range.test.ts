@@ -4,7 +4,7 @@ import { defaults, generate, type Configuration } from "./track";
 // Width/depth affect only affine sweep sections, whose full control box is
 // enclosed by the separate interval-clearance proof. Gauge and station phase
 // affect yoke triangulation. Exercise their entire UI lattices, not a diagonal
-// selection through that Cartesian product. No GPU/runtime budget is changed.
+// selection through that Cartesian product.
 for (const configuration of ["straight","curve","loop"] as Configuration[])
   for (let spacingTick=0;spacingTick<=24;spacingTick++)
     test(`${configuration}: all gauges at spacing tick ${spacingTick}`,()=>{
