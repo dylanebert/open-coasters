@@ -129,6 +129,9 @@ export function generate(p: Parameters) {
     indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
   }
   function triangle(a: Vec, b: Vec, c: Vec) {
+    // Normals describe the emitted Float32 triangle, including small clipped
+    // seat corners, rather than its higher-precision construction surrogate.
+    [a, b, c] = [a, b, c].map(p => p.map(Math.fround) as Vec);
     const u = b.map((v, i) => v - a[i]),
       v = c.map((v, i) => v - a[i]);
     const n = [
@@ -172,29 +175,106 @@ export function generate(p: Parameters) {
     [p.width / 2, -0.22],
   ]);
   const spineEnd = { vertex: vertices.length / 8, index: indices.length };
-  for (const f of ties(p)) {
-      const w = p.separation / 2 + 0.15,
-        h = 0.055;
-      const pts = [
-        [-w, -h, -h],
-        [w, -h, -h],
-        [w, h, -h],
-        [-w, h, -h],
-        [-w, -h, h],
-        [w, -h, h],
-        [w, h, h],
-        [-w, h, h],
-      ].map(([x, y, z]) => point(f, x, y, z));
-      for (const [a, b, c, d] of [
-        [0, 3, 2, 1],
-        [4, 5, 6, 7],
-        [0, 1, 5, 4],
-        [3, 7, 6, 2],
-        [0, 4, 7, 3],
-        [1, 2, 6, 5],
-      ])
-        quad(pts[a], pts[b], pts[c], pts[d]);
+  // One app-local yoke section: two lower-facet seats, tapered arms and a
+  // 100 mm web penetrating the spine top by 20 mm. Width/depth do not change
+  // this joint; the smallest supported spine already encloses the web.
+  const c = p.separation / 2, r = 0.0325, seatY = -0.065 * Math.sqrt(3) / 2;
+  const profile: [number, number][] = [
+    [-c-r, seatY], [-c, -0.065], [-c+r, seatY], [-0.05, -0.12],
+    [0.05, -0.12], [c-r, seatY], [c, -0.065], [c+r, seatY],
+    [c+r, -0.11], [0.05, -0.18], [0.05, -0.24],
+    [-0.05, -0.24], [-0.05, -0.18], [-c-r, -0.11],
+  ];
+  const seats = new Set([0, 1, 5, 6]);
+  const step = length(p.configuration) / 192;
+  const interpolate = (a: Vec, b: Vec, t: number) => a.map((v, i) => v + t * (b[i] - v)) as Vec;
+  function strip(s: number) {
+    const cell = Math.max(0, Math.min(191, Math.floor(s / step)));
+    const a = frame(p.configuration, cell * step), b = frame(p.configuration, (cell + 1) * step);
+    return { a, b, t: (s - cell * step) / step };
+  }
+  function at(s: number, xy: [number, number]) {
+    const end = Math.max(0, Math.min(length(p.configuration), s));
+    if (end !== s) return point(frame(p.configuration, end), ...xy, s - end);
+    const { a, b, t } = strip(s);
+    return interpolate(point(a, ...xy), point(b, ...xy), t);
+  }
+  // A seat follows the emitted triangles, NOT a circular tube or bilinear
+  // quad. Clip each of the two existing facet triangles to the tie's depth.
+  // The same diagonal kink is included in the end-cap boundary.
+  function cap(s: number, reverse: boolean) {
+    const { a, b, t } = strip(Math.max(0, Math.min(length(p.configuration), s)));
+    const ring: { xy: [number, number]; p: Vec }[] = [];
+    profile.forEach((xy, i) => {
+      ring.push({ xy, p: at(s, xy) });
+      if (s < 0 || s > length(p.configuration) || !seats.has(i) || t < 1e-7 || t > 1 - 1e-7) return;
+      const next = profile[(i + 1) % profile.length];
+      ring.push({ xy: [xy[0] + t * (next[0] - xy[0]), xy[1] + t * (next[1] - xy[1])],
+        p: interpolate(point(a, ...xy), point(b, ...next), t) });
+    });
+    const turn = (a: number[], b: number[], c: number[]) =>
+      (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]);
+    // Ear clipping only this small, clockwise app section (no mesh Boolean).
+    const remaining = ring.map((_, i) => i);
+    while (remaining.length > 2) {
+      let found = false;
+      for (let j = 0; j < remaining.length; j++) {
+        const ids = [remaining[(j + remaining.length - 1) % remaining.length], remaining[j], remaining[(j + 1) % remaining.length]];
+        const [a, b, c] = ids.map(i => ring[i].xy);
+        if (turn(a, b, c) >= -1e-12) continue;
+        if (remaining.some(i => !ids.includes(i) && turn(a,b,ring[i].xy) <= 1e-12 && turn(b,c,ring[i].xy) <= 1e-12 && turn(c,a,ring[i].xy) <= 1e-12)) continue;
+        const pts = ids.map(i => ring[i].p);
+        triangle(pts[0], pts[reverse ? 2 : 1], pts[reverse ? 1 : 2]);
+        remaining.splice(j, 1);
+        found = true;
+        break;
+      }
+      if (!found) throw new Error("Invalid yoke cap");
     }
+  }
+  for (const { s } of ties(p)) {
+    const lo = s - 0.055, hi = s + 0.055;
+    const cuts = [lo, hi];
+    for (let i = 0; i <= 192; i++) if (i * step > lo && i * step < hi) cuts.push(i * step);
+    cuts.sort((a, b) => a - b);
+    cap(lo, false);
+    cap(hi, true);
+    for (let k = 0; k < cuts.length - 1; k++) {
+      const low = cuts[k], high = cuts[k + 1];
+      profile.forEach((xy, i) => {
+        const next = profile[(i + 1) % profile.length];
+        if (!seats.has(i) || high <= 0 || low >= length(p.configuration)) {
+          // Geometric normals are required on every nonplanar strip, even on
+          // the banked curve. Seat clipping also makes strips variable-sized.
+          const a = at(low, xy), b = at(high, xy), c = at(high, next), d = at(low, next);
+          triangle(a, b, c); triangle(a, c, d);
+          return;
+        }
+        const { a, b } = strip((low + high) / 2);
+        const cell = Math.floor((low + high) / 2 / step), t0 = (low - cell * step) / step, t1 = (high - cell * step) / step;
+        const corners = [point(a, ...xy), point(a, ...next), point(b, ...next), point(b, ...xy)];
+        for (const ids of [[0,1,2],[0,2,3]]) {
+          let polygon = ids.map(j => ({ p: corners[j], t: j < 2 ? 0 : 1 }));
+          for (const [bound, sign] of [[t0,1],[t1,-1]]) {
+            const clipped: typeof polygon = [];
+            polygon.forEach((a, j) => {
+              const b = polygon[(j + 1) % polygon.length], inside = sign * (a.t - bound) >= -1e-12;
+              if (inside) clipped.push(a);
+              if (inside !== (sign * (b.t - bound) >= -1e-12)) {
+                const t = (bound - a.t) / (b.t - a.t);
+                clipped.push({ p: interpolate(a.p, b.p, t), t: bound });
+              }
+            });
+            polygon = clipped;
+          }
+          // Clipping at an existing ring can repeat a corner. Drop those
+          // repetitions rather than emitting zero-area triangles.
+          polygon = polygon.filter((v,j) => Math.hypot(...v.p.map((x,k) => x-polygon[(j+polygon.length-1)%polygon.length].p[k])) > 1e-10);
+          for (let j = 1; j + 1 < polygon.length; j++) triangle(polygon[0].p, polygon[j+1].p, polygon[j].p);
+        }
+      });
+    }
+  }
   return {
     vertices: new Float32Array(vertices),
     indices: new Uint32Array(indices),
