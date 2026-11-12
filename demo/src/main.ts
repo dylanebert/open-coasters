@@ -66,7 +66,7 @@ try {
   }
   await step(0);
   if (query.has("stepped")) {
-    // Test-only evidence from subsequent track registrations, before packing.
+    // Test-only positions from subsequent track registration inputs.
     // Keep only the current assembly's raw positions, not a computed target.
     const trackPositions: { name: string; positions: number[] }[] = [];
     const meshes = app.world.resource(Meshes), add = meshes.add.bind(meshes);
