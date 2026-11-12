@@ -1,4 +1,5 @@
 import { createApp, Meshes, shallotDark } from "@dylanebert/shallot";
+import type { Mesh, MeshData } from "@dylanebert/shallot/mesh";
 import { blurCanvas } from "@dylanebert/shallot/input";
 import { attachCanvas } from "@dylanebert/shallot/rendering";
 import { Orbit } from "@dylanebert/shallot/extras";
@@ -65,8 +66,21 @@ try {
   }
   await step(0);
   if (query.has("stepped")) {
+    // Test-only evidence from subsequent track registrations, before packing.
+    // Keep only the current assembly's raw positions, not a computed target.
+    const trackPositions: { name: string; positions: number[] }[] = [];
+    const meshes = app.world.resource(Meshes), add = meshes.add.bind(meshes);
+    meshes.add = (mesh: MeshData | Mesh) => {
+      const handle = mesh.vertices instanceof Float32Array ? add(mesh as MeshData) : add(mesh as Mesh);
+      if (mesh.vertices instanceof Float32Array && mesh.name.startsWith("Track ")) {
+        if (mesh.name === "Track rails") trackPositions.length = 0;
+        trackPositions.push({ name: mesh.name, positions: Array.from(mesh.vertices).filter((_, i) => i % 8 < 3) });
+      }
+      return handle;
+    };
     Object.assign(window, { step: () => step(1 / 60), demo: {
       app,
+      trackPositions: () => trackPositions,
       meshes: () => [...app.world.resource(Meshes)].map(mesh => ({ name: mesh.name, indexCount: mesh.indexCount })),
       get camera() { return app.world.resource(Scene).camera; },
       orbit: () => {

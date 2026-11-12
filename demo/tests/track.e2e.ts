@@ -55,12 +55,22 @@ test("Pages: edits immediately change geometry in one document/app/camera; examp
       const nextOrbit = await page.evaluate(() => (window as any).demo.orbit());
       expect(nextOrbit.yaw).toBe(orbit.yaw);
       expect(nextOrbit.pitch).toBe(orbit.pitch);
-      const centers: Record<string, number[]> = {
-        straight: [0, 1.24750003, -0.02749991],
-        curve: [0.89461407, 1.40449849, -0.05211520],
-        loop: [3.52908933 - 3.5319609173, 8.17340931, 1.08367634],
-      };
-      centers[kind].forEach((value, axis) => expect(nextOrbit.pan[axis]).toBeCloseTo(value, 5));
+      const inputs: { name: string; positions: number[] }[] = await page.evaluate(() => (window as any).demo.trackPositions());
+      expect(inputs.map(input => input.name)).toEqual(["Track rails", "Track spine", "Track ties"]);
+      // Independently reduce the actual mesh inputs. No camera value or
+      // production centering helper contributes to the expected target.
+      const low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
+      for (const { positions } of inputs) {
+        expect(positions.length).toBeGreaterThan(0);
+        expect(positions.length % 3).toBe(0);
+        expect(positions.every(Number.isFinite)).toBe(true);
+        for (let i = 0; i < positions.length; i++) {
+          const axis = i % 3;
+          low[axis] = Math.min(low[axis], positions[i]);
+          high[axis] = Math.max(high[axis], positions[i]);
+        }
+      }
+      low.forEach((value, axis) => expect(nextOrbit.pan[axis]).toBeCloseTo((value + high[axis]) / 2, 5));
       expect(nextOrbit.distance).toBe(kind === 'loop' ? 26 : 19);
       orbit = nextOrbit;
     }
