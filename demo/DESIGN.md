@@ -12,7 +12,8 @@ History stays keyboard-only.
 Asset inspection is a separate task with its own entry; `WALKTHROUGH.md` owns the URLs.
 Blitz is the initial selection. Its source dimensions disable Gauge and spine
 width/depth without discarding the remembered Parametric values.
-Keep secondary guidance off the default view; add no help control without a concrete need.
+Limit default-view guidance to the active assembly's dimensions and qualification limits.
+Add no help control without a concrete need.
 No submit action, decorative card or status badge.
 Native fields retain keyboard focus and
 text editing/selection; visible focus uses the gold border role. Raised resting

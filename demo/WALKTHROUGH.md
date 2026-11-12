@@ -11,9 +11,9 @@ The production Pages route is `/open-coasters/`.
 3. Edit **Spacing · m**. Ties follow metric centerline distance, not equal chords.
    The loop has separate entry/exit ends and a shorter final spacing remainder
 4. Choose **Parametric** to edit **Gauge · m** (rail center-to-center).
-   Rail radius remains 65 mm. Yoke seats meet the rails; a bounded web meets the
-   rectangular spine, whose top is 220 mm below the path. Spine width and depth
-   also change the web's spine contact. The remembered initial width is 0.28 m
+   Rail radius remains 65 mm. Each yoke has shaped rail seats and a central web
+   reaching the rectangular spine. Width and depth change only the spine; its
+   top stays 220 mm below the path. Its initial width is 0.28 m
 5. Choose **Blitz** for source rails, spine 1 and rigid medium ties, unscaled.
    Gauge (approximately 1.2 m) and spine width/depth (0.533333 m) are fixed.
    The app-local **Assembly** choice adds spine 2 and dense rigid parts;
