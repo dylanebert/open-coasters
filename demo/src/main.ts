@@ -1,7 +1,7 @@
 import { createApp, Meshes, Transform, shallotDark } from "@dylanebert/shallot";
 import type { Mesh, MeshData } from "@dylanebert/shallot/mesh";
 import { blurCanvas } from "@dylanebert/shallot/input";
-import { attachCanvas } from "@dylanebert/shallot/rendering";
+import { worldToViewport, attachCanvas } from "@dylanebert/shallot/rendering";
 import { Orbit } from "@dylanebert/shallot/extras";
 import { mount, unmount } from "svelte";
 import Inspector from "./Inspector.svelte";
@@ -25,7 +25,8 @@ try {
     if (query.has(key) && Number.isFinite(value) && value >= min && value <= max && Math.abs((value - min) / step - Math.round((value - min) / step)) < 1e-7) initial.parameters[key] = value;
   }
   let pending: Selection | undefined = effective(initial);
-  const live = liveScene(pending, name => new URL(`assets/${name}.gltf`, document.baseURI));
+  const canvas = document.querySelector('canvas')!;
+  const live = liveScene(pending, name => new URL(`assets/${name}.gltf`, document.baseURI), () => canvas.clientWidth / canvas.clientHeight);
   // Mount before async startup: the model, not the DOM, owns pending edits.
   inspector = mount(Inspector, { target: document.querySelector("aside")!, props: { initial, changed: (value: Configuration) => { pending = value; } } });
   const app = await createApp({
@@ -82,6 +83,7 @@ try {
       app,
       trackPositions: () => trackPositions,
       meshes: () => [...app.world.resource(Meshes)].map(mesh => ({ name: mesh.name, indexCount: mesh.indexCount })),
+      project: (point: [number, number, number]) => worldToViewport(app.world, app.world.resource(Scene).camera, point),
       instances: () => {
         const transforms = app.world.storage(Transform);
         return app.world.resource(Scene).instances.map(group => group.map(entity => ({

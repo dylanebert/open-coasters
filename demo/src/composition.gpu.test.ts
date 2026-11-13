@@ -20,6 +20,8 @@ test('authored live replacements preserve source landmarks, native scales and ca
     // Nose source landmark (.25,.6,.45), body center (.25,.45,-.2).
     position(refs.instances[0][1]).forEach((v,k) => expect(v).toBeCloseTo([2.45,3.6,3.75][k]));
     position(refs.instances[0][0]).forEach((v,k) => expect(v).toBeCloseTo([1.8,3.45,3.75][k]));
+    // Rotated source envelope center, not the untransformed source origin.
+    Array.from(orbit.pan.read(camera, new Float32Array(4))).slice(0,3).forEach((v,a) => expect(v).toBeCloseTo([2.05,3.6,3.75][a], 5));
     const source = await loadGltf(new URL('../public/assets/wheel-carrier.gltf', import.meta.url));
     const pointsFor = (group: number[]) => group.flatMap((eid, index) => {
       const m = composeMat4(...position(eid) as [number,number,number], t.rotation.x.get(eid), t.rotation.y.get(eid), t.rotation.z.get(eid), t.rotation.w.get(eid), t.scale.x.get(eid), t.scale.y.get(eid), t.scale.z.get(eid));
@@ -71,5 +73,42 @@ test('authored live replacements preserve source landmarks, native scales and ca
       }
     }
     expect(await w.gpu.device.popErrorScope()).toBeNull();
+  } finally { app.dispose(); }
+}, TIMEOUT.gpu);
+
+for (const aspect of [920 / 800, 390 / 338, .6]) test(`authored entry and switches fit retained geometry at aspect ${aspect}`, async () => {
+  const placed = { ...initialConfiguration, example: 'placed' as const, composition: { ...compositionDefaults, x: 10, y: 10, z: 10 } };
+  const repeated = { ...placed, example: 'repeated' as const, composition: { ...compositionDefaults, count: 12, spacing: 5, offset: -10 } };
+  const live = liveScene(placed, name => new URL(`../public/assets/${name}.gltf`, import.meta.url), () => aspect);
+  const app = await openGpuApp({ plugins: [live.plugin] });
+  try {
+    const w = app.world, camera = w.resource(Scene).camera, orbit = w.storage(Orbit);
+    const pan = () => Array.from(orbit.pan.read(camera, new Float32Array(4))).slice(0, 3);
+    const expectPan = (expected: number[]) => pan().forEach((v, a) => expect(v).toBeCloseTo(expected[a], 5));
+    // Independent authored bounds: [-.7,.3,-.6] to [1.2,.9,.7].
+    expectPan([10.25, 10.6, 10.05]);
+    const initialDistance = orbit.distance.get(camera);
+    orbit.yaw.set(camera, 1.1); orbit.pitch.set(camera, -.3);
+    await live.update({ ...placed, composition: { ...placed.composition, x: -10 } });
+    expectPan([10.25, 10.6, 10.05]);
+    expect(orbit.distance.get(camera)).toBe(initialDistance);
+    await live.update(initialConfiguration);
+    await live.update(placed);
+    expectPan([10.25, 10.6, 10.05]);
+    await live.update(repeated);
+    // Full repeated envelope: [-10.7,.3,-.6] to [46.2,.9,.7].
+    expectPan([17.75, .6, .05]);
+    // Independent numeric ranges for a 56.9 x .6 x 1.3 envelope and 60° vertical FOV.
+    expect(orbit.distance.get(camera)).toBeGreaterThan(aspect < 1 ? 95 : 62);
+    expect(orbit.distance.get(camera)).toBeLessThan(aspect < 1 ? 97 : 64);
+    await live.update({ ...repeated, asset: 'blitz-tie' });
+    await live.update(repeated);
+    expectPan([17.75, .6, .05]);
+    expect(w.resource(Scene).camera).toBe(camera);
+    expect(orbit.yaw.get(camera)).toBeCloseTo(1.1);
+    expect(orbit.pitch.get(camera)).toBeCloseTo(-.3);
+    await live.update({ ...placed, isolated: true, example: undefined });
+    expectPan([0, 0, 0]);
+    expect(orbit.distance.get(camera)).toBe(8);
   } finally { app.dispose(); }
 }, TIMEOUT.gpu);

@@ -1,4 +1,5 @@
 import {
+  Camera,
   Materials,
   Meshes,
   MeshInstance,
@@ -40,7 +41,7 @@ type Placement = {
 
 /** The caller serializes updates BETWEEN completed frames. Static validated CPU data
  * and material registrations outlive the public whole-mesh-plugin reset. */
-export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
+export function liveScene(initial: Selection, assetUrl: (name: string) => URL, aspect = () => 1) {
   let world: World;
   const geometryFor = trackGeometry(assetUrl);
   const assets = new Map<string, Awaited<ReturnType<typeof cacheAsset>>>();
@@ -88,7 +89,8 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     });
     return { data, primitives };
   }
-  function place(name: string, positions: readonly Placement[], override?: MaterialHandle) {
+  function place(name: string, positions: readonly Placement[], override?: MaterialHandle, frame = false) {
+    const low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
     const cached = assets.get(name)!;
     const handles = cached.data.meshes.map((mesh) =>
       world.resource(Meshes).add(mesh),
@@ -103,6 +105,15 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
       );
       const entities = cached.primitives.map((primitive) => {
         const composed = multiplyMat4(matrix, primitive.matrix);
+        if (frame) {
+          const vertices = cached.data.meshes[primitive.mesh].vertices;
+          for (let i = 0; i < vertices.length; i += 8)
+            for (let a = 0; a < 3; a++) {
+              const value = composed[a] * vertices[i] + composed[a + 4] * vertices[i + 1] + composed[a + 8] * vertices[i + 2] + composed[a + 12];
+              low[a] = Math.min(low[a], value);
+              high[a] = Math.max(high[a], value);
+            }
+        }
         const t = decomposeMat4(composed);
         const rebuilt = composeMat4(
           t[0],
@@ -139,6 +150,17 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
       });
       world.resource(Scene).instances.push(entities);
     }
+    if (frame) {
+      const camera = world.resource(Scene).camera, orbit = world.storage(Orbit);
+      const center = low.map((value, a) => (value + high[a]) / 2);
+      const radius = Math.hypot(...high.map((value, a) => (value - low[a]) / 2));
+      const vertical = world.storage(Camera).fov.get(camera) * Math.PI / 360;
+      const halfAngle = Math.atan(Math.tan(vertical) * Math.min(1, aspect()));
+      // Enclose the transformed geometry's bounding sphere, with 10% breathing room.
+      // Only the orbit target/distance change, never source data or view direction.
+      orbit.pan.set(camera, center[0], center[1], center[2]);
+      orbit.distance.set(camera, Math.max(orbit.minDistance.get(camera), radius * 1.1 / Math.sin(halfAngle)));
+    }
   }
   async function update(selection: Selection) {
     const authored = selection.example === 'placed' || selection.example === 'repeated';
@@ -156,7 +178,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     await MeshPlugin.initialize!(world);
     const { parameters, asset } = selection;
     const isolated = isolatedView;
-    if (isolated && newSubject) {
+    if (isolated && !authored && newSubject) {
       world.storage(Orbit).pan.set(refs.camera, 0, 0, 0);
       world.storage(Orbit).distance.set(refs.camera, 8);
     }
@@ -186,6 +208,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
               rotation: rotation(f),
             })),
         isolated ? undefined : paintHandles.ties,
+        authored && newSubject,
       );
     previous = selection;
   }

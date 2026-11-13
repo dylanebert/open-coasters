@@ -1,5 +1,62 @@
 import { expect, test } from '@playwright/test';
 
+for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) test(`retained far and wide subjects are projected inside the view at ${viewport.width}`, async ({ page }) => {
+  await page.setViewportSize(viewport);
+  await page.goto('./?stepped');
+  await page.locator('body[data-ready="true"]').waitFor();
+  const step = () => page.evaluate(() => (window as any).step());
+  const example = page.getByRole('combobox', { name: 'Example', exact: true });
+  const orbit = () => page.evaluate(() => (window as any).demo.orbit());
+  const camera = await page.evaluate(() => (window as any).demo.camera);
+  const fitInside = async (low: number[], high: number[]) => {
+    // Orbit follows distance with its existing damping; project the settled view.
+    await page.evaluate(async () => { for (let i = 0; i < 40; i++) await (window as any).step(); });
+    const points = Array.from({ length: 8 }, (_, i) => low.map((v, a) => i & (1 << a) ? high[a] : v));
+    const projected = await page.evaluate(points => points.map(p => (window as any).demo.project(p)), points);
+    const box = (await page.locator('canvas').boundingBox())!;
+    for (const point of projected) {
+      expect(point).not.toBeNull();
+      expect(point[0]).toBeGreaterThan(box.width * .02);
+      expect(point[0]).toBeLessThan(box.width * .98);
+      expect(point[1]).toBeGreaterThan(box.height * .02);
+      expect(point[1]).toBeLessThan(box.height * .98);
+    }
+  };
+  await example.selectOption('placed'); await step();
+  const before = await orbit();
+  for (const key of ['x', 'y', 'z']) {
+    await page.locator(`[name=placement-${key}]`).fill('10');
+    await page.locator(`[name=placement-${key}]`).blur(); await step();
+  }
+  expect(await orbit()).toEqual(before);
+  await example.selectOption('track'); await step();
+  await example.selectOption('placed'); await step();
+  const far = await orbit();
+  far.pan.slice(0,3).forEach((v: number,a: number) => expect(v).toBeCloseTo([10.25,10.6,10.05][a], 5));
+  expect(far.yaw).toBe(before.yaw); expect(far.pitch).toBe(before.pitch);
+  // Independently measured source bounds, translated without changing dimensions.
+  await fitInside([9.3,10.3,9.4], [11.2,10.9,10.7]);
+  const groups = await page.evaluate(() => (window as any).demo.instances());
+  groups[0][1].translation.forEach((v: number,a: number) => expect(v).toBeCloseTo([10.25,10.6,10.45][a], 5));
+  await page.getByRole('combobox', { name: 'Asset', exact: true }).selectOption('blitz-tie'); await step();
+  await page.getByRole('combobox', { name: 'Asset', exact: true }).selectOption('wheel-carrier'); await step();
+  await fitInside([9.3,10.3,9.4], [11.2,10.9,10.7]);
+  await example.selectOption('repeated'); await step();
+  const beforeWide = await orbit();
+  for (const [key,value] of Object.entries({ count: '12', spacing: '5', offset: '-10' })) {
+    await page.locator(`[name=placement-${key}]`).fill(value);
+    await page.locator(`[name=placement-${key}]`).blur(); await step();
+  }
+  expect(await orbit()).toEqual(beforeWide);
+  await example.selectOption('track'); await step();
+  await example.selectOption('repeated'); await step();
+  const wide = await orbit();
+  wide.pan.slice(0,3).forEach((v: number,a: number) => expect(v).toBeCloseTo([17.75,.6,.05][a], 5));
+  expect(wide.yaw).toBe(before.yaw); expect(wide.pitch).toBe(before.pitch);
+  await fitInside([-10.7,.3,-.6], [46.2,.9,.7]);
+  expect(await page.evaluate(() => (window as any).demo.camera)).toBe(camera);
+});
+
 for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) test(`authored controls and history retain camera at ${viewport.width}`, async ({ page }) => {
   await page.setViewportSize(viewport);
   await page.goto('./?stepped');
