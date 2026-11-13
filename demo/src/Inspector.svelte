@@ -1,12 +1,15 @@
 <script lang="ts">
   import { history, preview, commit, undo, redo, effective, numericRanges, compositionDefaults, compositionRanges, type Configuration } from './configuration';
   import { scrub } from './field-scrub';
+  import { assemblyDefaults } from './assembly';
   import { untrack } from 'svelte';
   let { initial, changed }: { initial: Configuration; changed: (value: Configuration) => void } = $props();
   let h = $state(history(untrack(() => initial)));
   const c = $derived(h.present);
   const assetView = $derived(c.isolated || c.example === 'placed' || c.example === 'repeated');
   const composition = $derived(c.composition ?? compositionDefaults);
+  const assembly = $derived(c.assembly ?? assemblyDefaults);
+  const assemblyView = $derived(c.example === 'assembly');
   const compositionLabels = { x: 'X · m', y: 'Y · m', z: 'Z · m', yaw: 'Yaw · °', pitch: 'Pitch · °', roll: 'Roll · °', count: 'Count', spacing: 'Spacing · m', offset: 'Starting offset · m' };
   const rendered = $derived(effective(c));
   const fields = [
@@ -40,13 +43,22 @@
 <form onsubmit={event => event.preventDefault()}>
   <section>
     <label>Example<select name="example" value={c.isolated ? 'witness' : c.example ?? 'track'} onchange={event => change({ ...c, isolated: event.currentTarget.value === 'witness', example: event.currentTarget.value === 'witness' ? undefined : event.currentTarget.value as Configuration['example'] }, true)}>
-      <option value="track">Track</option><option value="placed">Placed asset</option><option value="repeated">Repeated assets</option>{#if c.isolated}<option value="witness">Source witness</option>{/if}
+      <option value="assembly">Asset assembly</option><option value="track">Track</option><option value="placed">Placed asset</option><option value="repeated">Repeated assets</option>{#if c.isolated}<option value="witness">Source witness</option>{/if}
     </select></label>
-    <label id="configuration-row" hidden={assetView}>Track<select name="configuration" value={c.parameters.configuration} onchange={event => change({ ...c, parameters: { ...c.parameters, configuration: event.currentTarget.value as Configuration['parameters']['configuration'] } }, true)}>
+    <label id="configuration-row" hidden={assetView || assemblyView}>Track<select name="configuration" value={c.parameters.configuration} onchange={event => change({ ...c, parameters: { ...c.parameters, configuration: event.currentTarget.value as Configuration['parameters']['configuration'] } }, true)}>
       <option value="straight">Straight</option><option value="curve">Banked curve</option><option value="loop">Vertical loop</option>
     </select></label>
     <label id="asset-row" hidden={!assetView}>Asset<select name="asset" value={c.asset} onchange={event => change({ ...c, asset: event.currentTarget.value as Configuration['asset'] }, true)}><option value="wheel-carrier">Wheel carrier</option><option value="blitz-tie">Blitz tie</option></select></label>
   </section>
+  {#if assemblyView}
+    <section>
+      <label>Path<select name="assembly-path" value={assembly.path} onchange={event => change({ ...c, assembly: { ...assembly, path: event.currentTarget.value as typeof assembly.path } }, true)}><option value="straight">Straight</option><option value="curve">Banked curve</option></select></label>
+      <label>Tie<select name="assembly-tie" value={assembly.tie} onchange={event => change({ ...c, assembly: { ...assembly, tie: event.currentTarget.value as typeof assembly.tie } }, true)}><option value="assembly-tie-bar">Bar</option><option value="assembly-tie-fork">Fork</option></select></label>
+      {#each (['separation', 'spacing'] as const) as key}
+        <label>{key === 'separation' ? 'Rail separation · m' : 'Tie spacing · m'}<input name={'assembly-' + key} type="number" min={numericRanges[key].min} max={numericRanges[key].max} step={numericRanges[key].step} required value={assembly[key]} oninput={event => { if (event.currentTarget.validity.valid) change({ ...c, assembly: { ...assembly, [key]: event.currentTarget.valueAsNumber } }); }} onblur={event => { finish(); event.currentTarget.value = String(assembly[key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} /></label>
+      {/each}
+    </section>
+  {/if}
   {#if !c.isolated && assetView}
     <section>
       {#each (Object.keys(compositionRanges) as (keyof typeof compositionRanges)[]).filter(key => c.example === 'repeated' ? !['x', 'y', 'z'].includes(key) : !['count', 'spacing', 'offset'].includes(key)) as key}
@@ -55,7 +67,7 @@
     </section>
   {/if}
   {#each ['ties', 'spine'] as section}
-    <section id={section} hidden={assetView}>
+    <section id={section} hidden={assetView || assemblyView}>
       <h2>{section === 'ties' ? 'Ties' : 'Spine'}</h2>
       {#if section === 'ties'}
         <label>Type<select name="component" value={c.parameters.fixed ? 'fixed' : 'local'} disabled={c.isolated} onchange={event => change({ ...c, parameters: { ...c.parameters, fixed: event.currentTarget.value === 'fixed' } }, true)}><option value="local">Parametric</option><option value="fixed">Blitz</option></select></label>
@@ -70,7 +82,7 @@
       {/each}
     </section>
   {/each}
-  <section hidden={assetView}>
+  <section hidden={assetView || assemblyView}>
     <h2>Color</h2>
     {#each (['rails', 'ties', 'spine'] as const) as part}
       <label>{part[0].toUpperCase() + part.slice(1)}<input type="color" name={part + 'Color'} value={c.paint[part]} oninput={event => change({ ...c, paint: { ...c.paint, [part]: event.currentTarget.value } })} onchange={finish} onblur={finish} /></label>

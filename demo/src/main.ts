@@ -16,6 +16,7 @@ try {
   const query = new URLSearchParams(location.search);
   const initial: Configuration = structuredClone(initialConfiguration);
   initial.isolated = query.has("asset");
+  if (!initial.isolated && query.get('example') === 'assembly') initial.example = 'assembly';
   if (["blitz-tie", "wheel-carrier"].includes(query.get("asset")!)) initial.asset = query.get("asset") as Configuration['asset'];
   if (["straight", "curve", "loop"].includes(query.get("configuration")!)) initial.parameters.configuration = query.get("configuration") as Configuration['parameters']['configuration'];
   if (["local", "fixed"].includes(query.get("component")!)) initial.parameters.fixed = query.get("component") === "fixed";

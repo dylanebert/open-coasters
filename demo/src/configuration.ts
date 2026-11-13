@@ -19,7 +19,8 @@ export type Configuration = {
   parameters: Parameters;
   paint: Paint;
   isolated: boolean;
-  example?: 'track' | 'placed' | 'repeated';
+  example?: 'track' | 'placed' | 'repeated' | 'assembly';
+  assembly?: import('./assembly').Assembly;
   composition?: Composition;
   asset: "blitz-tie" | "wheel-carrier";
 };

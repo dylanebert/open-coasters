@@ -21,6 +21,8 @@ import { Orbit, OrbitPlugin } from "@dylanebert/shallot/extras";
 import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 import { frameTrack, initializeView, Scene } from "./scene";
 import { authoredPlacements } from './composition';
+import { assemblyDefaults, assemblyRails, resolveAssembly } from './assembly';
+import { loadSampledSection, type SampledSection } from './sampled-section';
 import { placements, staticInstanceSnapshot } from "./instance";
 import { ties, rotation, type Parameters } from "./track";
 import { trackGeometry, modernTies } from './modern-track';
@@ -29,7 +31,8 @@ import { linearColor, initialConfiguration, type Paint } from "./configuration";
 export type Selection = {
   parameters: Parameters;
   isolated: boolean;
-  example?: 'track' | 'placed' | 'repeated';
+  example?: 'track' | 'placed' | 'repeated' | 'assembly';
+  assembly?: import('./assembly').Assembly;
   composition?: import('./configuration').Composition;
   asset: "blitz-tie" | "wheel-carrier";
   paint?: Paint;
@@ -47,6 +50,18 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
   const assets = new Map<string, Awaited<ReturnType<typeof cacheAsset>>>();
   const paintHandles = {} as Record<keyof Paint, MaterialHandle>;
   let previous: Selection | undefined;
+  let section: SampledSection;
+  let railMaterial: MaterialHandle;
+  type Bounds = { low: number[]; high: number[] };
+  function frameBounds({low, high}: Bounds) {
+    const camera = world.resource(Scene).camera, orbit = world.storage(Orbit);
+    const center = low.map((value, a) => (value + high[a]) / 2);
+    const radius = Math.hypot(...high.map((value, a) => (value - low[a]) / 2));
+    const vertical = world.storage(Camera).fov.get(camera) * Math.PI / 360;
+    const halfAngle = Math.atan(Math.tan(vertical) * Math.min(1, aspect()));
+    orbit.pan.set(camera, center[0], center[1], center[2]);
+    orbit.distance.set(camera, Math.max(orbit.minDistance.get(camera), radius * 1.1 / Math.sin(halfAngle)));
+  }
   function paint(colors: Paint) {
     for (const part of ["rails", "ties", "spine"] as const)
       world.resource(Materials).update(paintHandles[part], { baseColor: linearColor(colors[part]) });
@@ -89,8 +104,8 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
     });
     return { data, primitives };
   }
-  function place(name: string, positions: readonly Placement[], override?: MaterialHandle, frame = false) {
-    const low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
+  function place(name: string, positions: readonly Placement[], override?: MaterialHandle, frame = false, bounds?: Bounds) {
+    const {low, high} = bounds ?? {low: [Infinity, Infinity, Infinity], high: [-Infinity, -Infinity, -Infinity]};
     const cached = assets.get(name)!;
     const handles = cached.data.meshes.map((mesh) =>
       world.resource(Meshes).add(mesh),
@@ -150,25 +165,16 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
       });
       world.resource(Scene).instances.push(entities);
     }
-    if (frame) {
-      const camera = world.resource(Scene).camera, orbit = world.storage(Orbit);
-      const center = low.map((value, a) => (value + high[a]) / 2);
-      const radius = Math.hypot(...high.map((value, a) => (value - low[a]) / 2));
-      const vertical = world.storage(Camera).fov.get(camera) * Math.PI / 360;
-      const halfAngle = Math.atan(Math.tan(vertical) * Math.min(1, aspect()));
-      // Enclose the transformed geometry's bounding sphere, with 10% breathing room.
-      // Only the orbit target/distance change, never source data or view direction.
-      orbit.pan.set(camera, center[0], center[1], center[2]);
-      orbit.distance.set(camera, Math.max(orbit.minDistance.get(camera), radius * 1.1 / Math.sin(halfAngle)));
-    }
+    if (frame && !bounds) frameBounds({low, high});
   }
   async function update(selection: Selection) {
+    const assembly = selection.example === 'assembly';
     const authored = selection.example === 'placed' || selection.example === 'repeated';
     const isolatedView = selection.isolated || authored;
     if (!isolatedView) paint(selection.paint ?? initialConfiguration.paint);
-    const geometry = (s: Selection) => JSON.stringify([s.parameters, s.isolated, s.asset, s.example, s.composition]);
+    const geometry = (s: Selection) => JSON.stringify([s.parameters, s.isolated, s.asset, s.example, s.composition, s.assembly]);
     if (previous && geometry(previous) === geometry(selection)) { previous = selection; return; }
-    const newSubject = !previous || previous.isolated !== selection.isolated || previous.example !== selection.example || previous.asset !== selection.asset || previous.parameters.configuration !== selection.parameters.configuration;
+    const newSubject = !previous || previous.isolated !== selection.isolated || previous.example !== selection.example || previous.asset !== selection.asset || previous.parameters.configuration !== selection.parameters.configuration || (previous.assembly ?? assemblyDefaults).path !== (selection.assembly ?? assemblyDefaults).path;
     const refs = world.resource(Scene);
     for (const group of refs.instances)
       for (const entity of group) world.destroy(entity);
@@ -181,6 +187,25 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
     if (isolated && !authored && newSubject) {
       world.storage(Orbit).pan.set(refs.camera, 0, 0, 0);
       world.storage(Orbit).distance.set(refs.camera, 8);
+    }
+    if (assembly) {
+      const resolved = resolveAssembly(selection.assembly ?? assemblyDefaults);
+      const mesh = assemblyRails(section, resolved.railFrames);
+      const eid = world.create();
+      world.add(eid, Transform);
+      world.add(eid, MeshInstance, {mesh: world.resource(Meshes).add(mesh)});
+      world.add(eid, MeshMaterial, railMaterial);
+      refs.instances.push([eid]);
+      const bounds = {low: [Infinity, Infinity, Infinity], high: [-Infinity, -Infinity, -Infinity]};
+      if (newSubject) for (let i = 0; i < mesh.vertices.length; i += 8) for (let a = 0; a < 3; a++) {
+        bounds.low[a] = Math.min(bounds.low[a], mesh.vertices[i+a]);
+        bounds.high[a] = Math.max(bounds.high[a], mesh.vertices[i+a]);
+      }
+      place(resolved.tie, resolved.ties, undefined, newSubject, bounds);
+      place('assembly-fitting', resolved.fitting, undefined, newSubject, bounds);
+      if (newSubject) frameBounds(bounds);
+      previous = selection;
+      return;
     }
     if (!isolated) {
       const mesh = await geometryFor(parameters);
@@ -226,7 +251,9 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
           metallic: 0.4,
           perceptualRoughness: 0.35,
         }));
-      for (const name of ["blitz-tie", "wheel-carrier", 'ModernTie_Med', 'ModernTie_Dense'])
+      section = await loadSampledSection(assetUrl('assembly-section'));
+      railMaterial = world.resource(Materials).add(StandardMaterial({baseColor: [.06, .7, .78, 1], metallic: .7, perceptualRoughness: .25}));
+      for (const name of ["blitz-tie", "wheel-carrier", 'ModernTie_Med', 'ModernTie_Dense', 'assembly-tie-bar', 'assembly-tie-fork', 'assembly-fitting'])
         assets.set(name, await cacheAsset(name));
       await update(initial);
     },
