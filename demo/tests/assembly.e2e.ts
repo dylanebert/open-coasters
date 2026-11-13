@@ -14,7 +14,8 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`a
   // Entry includes both rails, static ties and asymmetric fitting. Independent
   // conservative envelope of the banked quarter circle (including native meshes).
   const fits = async (low: number[],high: number[]) => {
-    await page.evaluate(async () => { for(let i=0;i<40;i++) await (window as any).step(); });
+    // Same 2/3 s of Orbit's time-based damping; four 60 Hz ticks per draw.
+    await page.evaluate(async () => { for(let i=0;i<10;i++) await (window as any).step(1 / 15); });
     const points = Array.from({length:8},(_,i) => low.map((v,a) => i&(1<<a) ? high[a] : v));
     const projected = await page.evaluate(points => points.map(p => (window as any).demo.project(p)),points);
     const canvas = (await page.locator('canvas').boundingBox())!;

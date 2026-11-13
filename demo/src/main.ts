@@ -80,7 +80,7 @@ try {
       }
       return handle;
     };
-    Object.assign(window, { step: () => step(1 / 60), demo: {
+    Object.assign(window, { step: (dt = 1 / 60) => step(dt), demo: {
       app,
       trackPositions: () => trackPositions,
       meshes: () => [...app.world.resource(Meshes)].map(mesh => ({ name: mesh.name, indexCount: mesh.indexCount })),
