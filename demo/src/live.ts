@@ -16,9 +16,10 @@ import {
   decomposeMat4,
   multiplyMat4,
 } from "@dylanebert/shallot/utils";
-import { OrbitPlugin } from "@dylanebert/shallot/extras";
+import { Orbit, OrbitPlugin } from "@dylanebert/shallot/extras";
 import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 import { frameTrack, initializeView, Scene } from "./scene";
+import { authoredPlacements } from './composition';
 import { placements, staticInstanceSnapshot } from "./instance";
 import { ties, rotation, type Parameters } from "./track";
 import { trackGeometry, modernTies } from './modern-track';
@@ -27,6 +28,8 @@ import { linearColor, initialConfiguration, type Paint } from "./configuration";
 export type Selection = {
   parameters: Parameters;
   isolated: boolean;
+  example?: 'track' | 'placed' | 'repeated';
+  composition?: import('./configuration').Composition;
   asset: "blitz-tie" | "wheel-carrier";
   paint?: Paint;
 };
@@ -138,10 +141,12 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     }
   }
   async function update(selection: Selection) {
-    if (!selection.isolated) paint(selection.paint ?? initialConfiguration.paint);
-    const geometry = (s: Selection) => JSON.stringify([s.parameters, s.isolated, s.asset]);
+    const authored = selection.example === 'placed' || selection.example === 'repeated';
+    const isolatedView = selection.isolated || authored;
+    if (!isolatedView) paint(selection.paint ?? initialConfiguration.paint);
+    const geometry = (s: Selection) => JSON.stringify([s.parameters, s.isolated, s.asset, s.example, s.composition]);
     if (previous && geometry(previous) === geometry(selection)) { previous = selection; return; }
-    const newSubject = !previous || previous.isolated || previous.parameters.configuration !== selection.parameters.configuration;
+    const newSubject = !previous || previous.isolated !== selection.isolated || previous.example !== selection.example || previous.asset !== selection.asset || previous.parameters.configuration !== selection.parameters.configuration;
     const refs = world.resource(Scene);
     for (const group of refs.instances)
       for (const entity of group) world.destroy(entity);
@@ -149,7 +154,12 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     // Public lifecycle resets packed families AND re-stages the default cube.
     // The demo owns the entire registry; no other mesh producer is installed.
     await MeshPlugin.initialize!(world);
-    const { parameters, isolated, asset } = selection;
+    const { parameters, asset } = selection;
+    const isolated = isolatedView;
+    if (isolated && newSubject) {
+      world.storage(Orbit).pan.set(refs.camera, 0, 0, 0);
+      world.storage(Orbit).distance.set(refs.camera, 8);
+    }
     if (!isolated) {
       const mesh = await geometryFor(parameters);
       if (newSubject) frameTrack(world, parameters, mesh.vertices);
@@ -170,7 +180,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
       place(
         name,
         isolated
-          ? placements
+          ? authored ? authoredPlacements(selection.example === 'repeated', selection.composition) : placements
           : ties(parameters).map((f) => ({
               translation: f.p,
               rotation: rotation(f),
@@ -184,7 +194,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL) {
     dependencies: [OrbitPlugin, GridPlugin],
     async initialize(w) {
       world = w;
-      initializeView(world, initial.isolated ? undefined : initial.parameters);
+      initializeView(world, initial.isolated || initial.example === 'placed' || initial.example === 'repeated' ? undefined : initial.parameters);
       const refs = world.resource(Scene);
       world.storage(Grid).opacity.set(refs.grid, 0.12);
       for (const part of ["rails", "ties", "spine"] as const)

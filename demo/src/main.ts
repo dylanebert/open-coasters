@@ -1,4 +1,4 @@
-import { createApp, Meshes, shallotDark } from "@dylanebert/shallot";
+import { createApp, Meshes, Transform, shallotDark } from "@dylanebert/shallot";
 import type { Mesh, MeshData } from "@dylanebert/shallot/mesh";
 import { blurCanvas } from "@dylanebert/shallot/input";
 import { attachCanvas } from "@dylanebert/shallot/rendering";
@@ -82,6 +82,13 @@ try {
       app,
       trackPositions: () => trackPositions,
       meshes: () => [...app.world.resource(Meshes)].map(mesh => ({ name: mesh.name, indexCount: mesh.indexCount })),
+      instances: () => {
+        const transforms = app.world.storage(Transform);
+        return app.world.resource(Scene).instances.map(group => group.map(entity => ({
+          translation: [transforms.translation.x.get(entity), transforms.translation.y.get(entity), transforms.translation.z.get(entity)],
+          scale: [transforms.scale.x.get(entity), transforms.scale.y.get(entity), transforms.scale.z.get(entity)],
+        })));
+      },
       get camera() { return app.world.resource(Scene).camera; },
       orbit: () => {
         const o = app.world.storage(Orbit), c = app.world.resource(Scene).camera;

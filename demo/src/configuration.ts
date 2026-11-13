@@ -7,11 +7,20 @@ export const numericRanges = {
   depth: { min: .15, max: .8, step: .05 },
 } as const;
 
+export const compositionDefaults = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, count: 3, spacing: 2, offset: -2 };
+export type Composition = typeof compositionDefaults;
+export const compositionRanges = {
+  x: [-10, 10, .1], y: [-10, 10, .1], z: [-10, 10, .1],
+  yaw: [-180, 180, 5], pitch: [-180, 180, 5], roll: [-180, 180, 5],
+  count: [1, 12, 1], spacing: [.1, 5, .1], offset: [-10, 10, .1],
+} as const;
 export type Paint = { rails: string; ties: string; spine: string };
 export type Configuration = {
   parameters: Parameters;
   paint: Paint;
   isolated: boolean;
+  example?: 'track' | 'placed' | 'repeated';
+  composition?: Composition;
   asset: "blitz-tie" | "wheel-carrier";
 };
 export const initialConfiguration: Configuration = {
