@@ -47,6 +47,9 @@ for (const stepped of [false, true]) {
 }
 
 test("failure after loader cleanup and before readiness stays visible", async ({ page }) => {
+  let reached!: () => void;
+  const faultReached = new Promise<void>((resolve) => { reached = resolve; });
+  await page.exposeFunction("__readinessFaultReached", reached);
   await page.route(/\/assets\/index-[^/]+\.js$/, async (route) => {
     const response = await route.fetch();
     const source = await response.text();
@@ -55,12 +58,15 @@ test("failure after loader cleanup and before readiness stays visible", async ({
     const boundary = /document\.body\.dataset\.ready\s*=\s*(["'`])true\1/;
     expect(source.match(new RegExp(boundary.source, "g"))).toHaveLength(1);
     await route.fulfill({ response, body: source.replace(boundary,
-      '(()=>{throw new Error("Readiness boundary fault")})()') });
+      '(()=>{window.__readinessFaultReached();throw new Error("Readiness boundary fault")})()') });
   });
   await page.goto("./?stepped");
+  // Startup shares the test's existing timeout; the rendering assertions start
+  // only once the injected cause runs, not when the startup loader first appears.
+  await faultReached;
   await expect(page.locator("[data-shallot-bootstrap]")).toHaveCount(0);
-  await expect(page.locator("[data-shallot-loading]")).toBeVisible();
   await expect(page.locator("[data-shallot-loading]")).toContainText("Readiness boundary fault");
+  await expect(page.locator("[data-shallot-loading]")).toBeVisible();
   await expect(page.locator("body")).not.toHaveAttribute("data-ready", "true");
   await expect(page.locator("aside")).toBeHidden();
   await expect(page.locator("main")).toBeHidden();
