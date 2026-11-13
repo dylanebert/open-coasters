@@ -15,19 +15,16 @@ for (const aspect of [920/800,390/338]) test(`assembly reuses native assets/mate
   try {
     const w = app.world, refs = w.resource(Scene), camera = refs.camera, t = w.storage(Transform), orbit = w.storage(Orbit);
     const position = (e: number) => [t.translation.x.get(e),t.translation.y.get(e),t.translation.z.get(e)];
-    expect(refs.instances.length).toBe(10); // rails + 8 ties + fitting
-    // Native bar vertices stay around origin. Native fitting is intentionally off-origin.
-    expect(position(refs.instances.at(-1)![0])).toEqual([Math.fround(.7),1.5,6]);
+    expect(refs.instances.length).toBe(9); // rails + 8 native ties; no synthetic fitting
+    expect(position(refs.instances.at(-1)![0])).toEqual([0,1.5,4.5]);
     const mat = (group: number) => w.resource(Materials).get(w.storage(MeshMaterial).material.get(refs.instances[group][0]))!;
     [...mat(1).baseColor].forEach((v,i) => expect(v).toBeCloseTo([.035,.32,.48,1][i],6));
     expect(mat(1).metallic).toBeCloseTo(.65,6); expect(mat(1).perceptualRoughness).toBeCloseTo(.3,6);
-    [...mat(9).baseColor].forEach((v,i) => expect(v).toBeCloseTo([.8,.24,.035,1][i],6));
-    expect(mat(9).metallic).toBeCloseTo(.55,6); expect(mat(9).perceptualRoughness).toBeCloseTo(.28,6);
     [...mat(0).baseColor].forEach((v,i) => expect(v).toBeCloseTo([.06,.7,.78,1][i],6));
-    // Independent full envelope includes static ties and fitting beyond rail endpoints:
-    // [-.95,1.32,-6.09] .. [.95,1.595,6.20].
+    // Independent full envelope includes static ties and the unchanged rail endpoints:
+    // [-.95,1.32,-6.09] .. [.95,1.595,6].
     const pan = () => Array.from(orbit.pan.read(camera,new Float32Array(4)));
-    pan().slice(0,3).forEach((v,i) => expect(v).toBeCloseTo([0,1.4575,.055][i],5));
+    pan().slice(0,3).forEach((v,i) => expect(v).toBeCloseTo([0,1.4575,-.045][i],5));
     const distance = orbit.distance.get(camera), center = pan();
     expect(distance).toBeGreaterThan(13.6); expect(distance).toBeLessThan(13.8);
     const materialResource = w.resource(Materials), add = materialResource.add.bind(materialResource);
@@ -45,9 +42,8 @@ for (const aspect of [920/800,390/338]) test(`assembly reuses native assets/mate
       w.step(0); await w.frameFence; await w.gpu.device.queue.onSubmittedWorkDone();
     }
     await live.update({...initial,assembly:{...assemblyDefaults,spacing:Math.PI/3,separation:1.6}});
-    expect(refs.instances.length).toBe(14);
+    expect(refs.instances.length).toBe(13);
     position(refs.instances[7][0]).forEach((v,i) => expect(v).toBeCloseTo([2,1.5,0][i],5));
-    position(refs.instances.at(-1)![0]).forEach((v,i) => expect(v).toBeCloseTo([4*Math.SQRT2-6+.2*Math.sqrt(6),1.9,4*Math.SQRT2+.2*Math.sqrt(6)][i],5));
     expect(orbit.yaw.get(camera)).toBeCloseTo(1.1); expect(orbit.pitch.get(camera)).toBeCloseTo(-.4);
     expect(orbit.distance.get(camera)).not.toBe(distance);
     await live.update({...initial,example:'placed'});

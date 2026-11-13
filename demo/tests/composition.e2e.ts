@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) test(`retained far and wide subjects are projected inside the view at ${viewport.width}`, async ({ page }) => {
   await page.setViewportSize(viewport);
-  await page.goto('./?stepped');
+  await page.goto('./?example=placed&stepped');
   await page.locator('body[data-ready="true"]').waitFor();
   const step = () => page.evaluate(() => (window as any).step());
   const example = page.getByRole('combobox', { name: 'Example', exact: true });
@@ -59,7 +59,7 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
 
 for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) test(`authored controls and history retain camera at ${viewport.width}`, async ({ page }) => {
   await page.setViewportSize(viewport);
-  await page.goto('./?stepped');
+  await page.goto('./?example=placed&stepped');
   await page.locator('body[data-ready="true"]').waitFor();
   const step = () => page.evaluate(() => (window as any).step());
   const example = page.getByRole('combobox', { name: 'Example', exact: true });

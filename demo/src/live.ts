@@ -21,6 +21,7 @@ import { Orbit, OrbitPlugin } from "@dylanebert/shallot/extras";
 import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 import { frameTrack, initializeView, Scene } from "./scene";
 import { authoredPlacements } from './composition';
+import { normalForce, forceColor } from './loop-force';
 import { assemblyDefaults, assemblyRails, resolveAssembly } from './assembly';
 import { loadSampledSection, type SampledSection } from './sampled-section';
 import { placements, staticInstanceSnapshot } from "./instance";
@@ -36,6 +37,7 @@ export type Selection = {
   composition?: import('./configuration').Composition;
   asset: "blitz-tie" | "wheel-carrier";
   paint?: Paint;
+  appearance?: 'material' | 'normal-force';
 };
 type Placement = {
   translation: readonly [number, number, number];
@@ -52,6 +54,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
   let previous: Selection | undefined;
   let section: SampledSection;
   let railMaterial: MaterialHandle;
+  let forceMaterial: MaterialHandle;
   type Bounds = { low: number[]; high: number[] };
   function frameBounds({low, high}: Bounds) {
     const camera = world.resource(Scene).camera, orbit = world.storage(Orbit);
@@ -172,7 +175,7 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
     const authored = selection.example === 'placed' || selection.example === 'repeated';
     const isolatedView = selection.isolated || authored;
     if (!isolatedView) paint(selection.paint ?? initialConfiguration.paint);
-    const geometry = (s: Selection) => JSON.stringify([s.parameters, s.isolated, s.asset, s.example, s.composition, s.assembly]);
+    const geometry = (s: Selection) => JSON.stringify([s.parameters, s.isolated, s.asset, s.example, s.composition, s.assembly, s.appearance]);
     if (previous && geometry(previous) === geometry(selection)) { previous = selection; return; }
     const newSubject = !previous || previous.isolated !== selection.isolated || previous.example !== selection.example || previous.asset !== selection.asset || previous.parameters.configuration !== selection.parameters.configuration || (previous.assembly ?? assemblyDefaults).path !== (selection.assembly ?? assemblyDefaults).path;
     const refs = world.resource(Scene);
@@ -190,11 +193,11 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
     }
     if (assembly) {
       const resolved = resolveAssembly(selection.assembly ?? assemblyDefaults);
-      const mesh = assemblyRails(section, resolved.railFrames);
+      const mesh = assemblyRails(section, resolved.railFrames, selection.appearance === 'normal-force' && (selection.assembly ?? assemblyDefaults).path === 'loop' ? s => forceColor(normalForce(s)) : undefined);
       const eid = world.create();
       world.add(eid, Transform);
       world.add(eid, MeshInstance, {mesh: world.resource(Meshes).add(mesh)});
-      world.add(eid, MeshMaterial, railMaterial);
+      world.add(eid, MeshMaterial, selection.appearance === 'normal-force' && (selection.assembly ?? assemblyDefaults).path === 'loop' ? forceMaterial : railMaterial);
       refs.instances.push([eid]);
       const bounds = {low: [Infinity, Infinity, Infinity], high: [-Infinity, -Infinity, -Infinity]};
       if (newSubject) for (let i = 0; i < mesh.vertices.length; i += 8) for (let a = 0; a < 3; a++) {
@@ -202,7 +205,6 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
         bounds.high[a] = Math.max(bounds.high[a], mesh.vertices[i+a]);
       }
       place(resolved.tie, resolved.ties, undefined, newSubject, bounds);
-      place('assembly-fitting', resolved.fitting, undefined, newSubject, bounds);
       if (newSubject) frameBounds(bounds);
       previous = selection;
       return;
@@ -251,9 +253,10 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
           metallic: 0.4,
           perceptualRoughness: 0.35,
         }));
+      forceMaterial = world.resource(Materials).add(StandardMaterial({baseColor: [.8, .8, .8, 1], metallic: .7, perceptualRoughness: .25}));
       section = await loadSampledSection(assetUrl('assembly-section'));
       railMaterial = world.resource(Materials).add(StandardMaterial({baseColor: [.06, .7, .78, 1], metallic: .7, perceptualRoughness: .25}));
-      for (const name of ["blitz-tie", "wheel-carrier", 'ModernTie_Med', 'ModernTie_Dense', 'assembly-tie-bar', 'assembly-tie-fork', 'assembly-fitting'])
+      for (const name of ["blitz-tie", "wheel-carrier", 'ModernTie_Med', 'ModernTie_Dense', 'assembly-tie-bar', 'assembly-tie-fork'])
         assets.set(name, await cacheAsset(name));
       await update(initial);
     },

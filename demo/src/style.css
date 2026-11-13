@@ -86,6 +86,10 @@ section {
   display: grid;
   gap: var(--s1);
 }
+.force-scale { margin: var(--s2); font: 400 12px/20px var(--mono); }
+.force-scale figcaption { color: var(--muted); }
+.force-ramp { height: 12px; background: linear-gradient(to right in srgb-linear, rgb(80 134 231), rgb(231 231 231), rgb(231 80 80)); }
+.force-ticks { display: flex; justify-content: space-between; }
 h2 {
   margin: 0;
   padding: 0 var(--s2);

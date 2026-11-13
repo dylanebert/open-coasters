@@ -116,6 +116,6 @@ test('banked curve midpoint and endpoints are independent analytic expectations'
   }
 });
 
-for (const bad of [{spacing:0},{spacing:NaN},{separation:Infinity},{separation:.5},{path:'loop'},{tie:'unknown'}]) test(`invalid assembly ${JSON.stringify(bad)}`, () => {
+for (const bad of [{spacing:0},{spacing:NaN},{separation:Infinity},{separation:.5},{path:'unknown'},{tie:'unknown'}]) test(`invalid assembly ${JSON.stringify(bad)}`, () => {
   expect(() => resolveAssembly({...assemblyDefaults,...bad} as any)).toThrow('Invalid assembly');
 });

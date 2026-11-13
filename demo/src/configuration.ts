@@ -18,6 +18,7 @@ export type Paint = { rails: string; ties: string; spine: string };
 export type Configuration = {
   parameters: Parameters;
   paint: Paint;
+  appearance?: 'material' | 'normal-force';
   isolated: boolean;
   example?: 'track' | 'placed' | 'repeated' | 'assembly';
   assembly?: import('./assembly').Assembly;

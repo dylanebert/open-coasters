@@ -11,7 +11,7 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`a
   const example = page.locator('[name=example]'), path = page.locator('[name=assembly-path]'), tie = page.locator('[name=assembly-tie]');
   const camera = await page.evaluate(() => (window as any).demo.camera);
   await expect(example).toHaveValue('assembly');
-  // Entry includes both rails, static ties and asymmetric fitting. Independent
+  // Entry includes both rails and static ties, without a synthetic fitting. Independent
   // conservative envelope of the banked quarter circle (including native meshes).
   const fits = async (low: number[],high: number[]) => {
     // Same 2/3 s of Orbit's time-based damping; four 60 Hz ticks per draw.
@@ -35,20 +35,19 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`a
     await expect(input).toHaveValue(String(Number(value)));
     expect(await orbit()).toEqual(before);
   }
-  expect((await groups()).length).toBe(42); // rails + 40 ties + fitting
-  (await groups()).at(-1)[0].translation.forEach((v: number,k: number) => expect(v).toBeCloseTo([.8,1.5,6][k],5));
+  expect((await groups()).length).toBe(41); // rails + 40 ties
+  (await groups()).at(-1)[0].translation.forEach((v: number,k: number) => expect(v).toBeCloseTo([0,1.5,5.7][k],5));
   for(let i=0;i<4;i++) { await tie.selectOption(i%2 ? 'assembly-tie-bar':'assembly-tie-fork'); await step(); }
   expect(await orbit()).toEqual(before);
   await tie.selectOption('assembly-tie-fork'); await step();
-  const g = await groups(); expect(g[1]).toHaveLength(3); expect(g.at(-1)).toHaveLength(2);
+  const g = await groups(); expect(g[1]).toHaveLength(3); expect(g.at(-1)).toHaveLength(3);
   g.forEach((group: any[]) => group.forEach(e => expect(e.scale).toEqual([1,1,1])));
   await path.selectOption('curve'); await step();
   expect((await orbit()).yaw).toBe(before.yaw); expect((await orbit()).pitch).toBe(before.pitch);
-  (await groups()).at(-1)[0].translation.forEach((v: number,k: number) => expect(v).toBeCloseTo([4*Math.SQRT2-6+.2*Math.sqrt(6),1.9,4*Math.SQRT2+.2*Math.sqrt(6)][k],5));
   const retained = await orbit();
   for(const n of ['.35','.4','.45','.5']) { const input = page.locator('[name=assembly-spacing]'); await input.fill(n); await input.blur(); await step(); }
   expect(await orbit()).toEqual(retained);
-  await example.selectOption('repeated'); await step();
+  await example.selectOption('track'); await step();
   await example.selectOption('assembly'); await step();
   await expect(tie).toHaveValue('assembly-tie-fork'); await expect(path).toHaveValue('curve');
   expect(await page.evaluate(() => (window as any).demo.camera)).toBe(camera);
