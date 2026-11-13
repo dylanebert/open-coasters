@@ -10,33 +10,20 @@ meter. No artificial matching-end extrusion is used to recover a section.
 The independently inspectable delivery lives in `demo/public/assets/`:
 
 - `assembly-section.gltf/.bin`: 16 samples of a .06 m radius circle, one closed
-  16-edge cycle, no appearance. Source curve has zero bevel/extrude.
+  16-edge cycle, no appearance; source curve has zero bevel/extrude
 - `assembly-tie-bar.gltf/.bin`: static bar, bounds
-  (-.95,-.18,-.09) to (.95,-.06,.09) m.
+  (-.95,-.18,-.09) to (.95,-.06,.09) m
 - `assembly-tie-fork.gltf/.bin`: three static bars, bounds
-  (-.95,-.18,-.13) to (.95,-.10,.13) m.
+  (-.95,-.18,-.13) to (.95,-.10,.13) m
 - `assembly-fitting.gltf/.bin`: two asymmetric blocks, bounds
   (-.095,-.13,0) to (.21,.095,.20) m. Its offset geometry is intentional;
-  origin (0,0,0) is the declared placement frame, not a recentered bounding box.
+  origin (0,0,0) is the declared placement frame, not a recentered bounding box
 
 Tie native material: linear RGBA (.035,.32,.48,1), metallic .65, roughness .3.
 Fitting: (.8,.24,.035,1), metallic .55, roughness .28. Opaque, untextured, flat
 mesh normals; no supported appearance channel is replaced by the app. Rail and
 cap appearance is operation-selected native material, not a section default.
 `SECTION.md` owns the small geometry-only interpretation and explicit exclusions.
-
-## Grounding
-
-The existing native evidence archive
-`strategy/open-coasters/units/profile-authoring-evidence.tar.gz`, restored under
-`/tmp`, was inspected (`coasters-profile-authoring/REPORT.md`). It independently
-measured native cyclic Curve evaluation to glTF LINES, and demonstrated loss of
-editing controls and spline appearance. It explicitly did not give arbitrary
-LINES section winding or sweep semantics. That supports retaining editable
-source separately and qualifying sampled geometry only, not adopting the
-proposed corner/appearance binding. The strategy referents `blender-profile-geometry`,
-`blender-gltf-export`, `gltf` and `onshape-sweep` support the source/evaluation/
-operation distinction; they are not runtime-format fidelity guarantees.
 
 ## One-time boundary spikes (Omarchy, headless)
 
@@ -58,24 +45,22 @@ Results: native export completed; independent native source/import/construction
 check printed `PASS: independent native line import, straight construction,
 static dimensions/origin/materials 5.2.2 LTS`. All four deliveries reported zero
 validator errors, warnings, infos and hints. Validator establishes format validity,
-not section semantics. The first export attempt failed on unrecognized option
-`export_loose_edges`; inspecting operator RNA established the actual option
-`use_mesh_edges=True`, after which the native run succeeded. No test or budget
-was relaxed.
+not section semantics. The exporter uses `use_mesh_edges=True` to retain the
+evaluated curve's loose edges.
 
 `check-native.py` is independent of the TS decoder, policy and surface generator:
 
 - opens the retained native source and checks 16 cyclic POLY points, radius,
-  origin, identity scale, zero bevel/extrude and six editable meshes;
+  origin, identity scale, zero bevel/extrude and six editable meshes
 - imports section glTF with Blender's ordinary importer; compares each physical
   sample to independently calculated sine/cosine coordinates within 1e-7 m and
-  checks the undirected closed 16-edge graph, with zero faces;
+  checks the undirected closed 16-edge graph, with zero faces
 - constructs two straight rails directly from that imported graph at X ±.7 m,
   elevation 1.5 m and longitudinal endpoints ±6 m. Independent construction has
   36 polygons including four caps, bounds ±.76 m across, ±6 m along and
-  1.44..1.56 m high. Saves `/tmp/assembly-independent.blend` for inspection;
+  1.44..1.56 m high. Saves `/tmp/assembly-independent.blend` for inspection
 - independently imports each static component and checks the bounds above and
-  native material inputs (1e-7 m / 1e-6 channel tolerances).
+  native material inputs (1e-7 m / 1e-6 channel tolerances)
 
 The native oracle was also challenged with a changed section landmark:
 
@@ -102,35 +87,6 @@ that convention on its own.
 These are one-time boundary spikes. Routine tests require only committed local
 inputs, Bun, the pinned app dependencies and the existing GPU/browser environment;
 no Blender, validator, strategy archive or sibling repository is required.
-
-## Focused stage checks
-
-Run narrow to wide from `demo/`; all passed on the same Omarchy host:
-
-```sh
-bun test src/assembly.test.ts src/composition.test.ts src/configuration.test.ts
-bun run typecheck
-bun check
-bun test src/assembly.gpu.test.ts src/composition.gpu.test.ts src/live.gpu.test.ts src/reset.gpu.test.ts
-bunx playwright test tests/assembly.e2e.ts tests/composition.e2e.ts tests/history.e2e.ts tests/scene.e2e.ts
-```
-
-Results: 17 unit tests, 18,893 assertions; Svelte zero errors/warnings; Bun zero
-type errors; 10 GPU tests, 3,303 assertions; 9 built `/open-coasters/` Chromium
-browser tests. No whole pre-land command or all-suite run. Existing Vite startup
-script/chunk-size warnings remain; no budgets or checks changed.
-
-Independent expected results include section dimensions/frame/connectivity,
-off-origin retention, source component bounds/materials, explicit straight and
-banked rail/tie/fitting coordinates and quaternion orientation, emitted radius,
-flat outward caps and invalid-input refusal. GPU tests exercise repeated
-whole-registry replacement, destroyed old buffers, no new material registrations,
-unit native scale, material reuse and retained camera entity/orbit. Browser tests
-cover all new controls, keyboard history, repeated edits, example switching,
-entry/path framing of rail/tie/fitting envelopes and desktop 1280×800 / phone
-390×844 layout. Existing single/repeated controls and legacy source-witness
-pixels/routes remain covered. Headless assembly screenshots were inspected at
-`demo/test-results/assembly-1280.png` and `assembly-390.png` (ephemeral outputs).
 
 ## Qualification limits and remaining judgment
 
