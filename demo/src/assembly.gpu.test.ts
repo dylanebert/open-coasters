@@ -22,11 +22,12 @@ for (const aspect of [920/800,390/338]) test(`assembly reuses native assets/mate
     expect(mat(1).metallic).toBeCloseTo(.65,6); expect(mat(1).perceptualRoughness).toBeCloseTo(.3,6);
     [...mat(0).baseColor].forEach((v,i) => expect(v).toBeCloseTo([.06,.7,.78,1][i],6));
     // Independent full envelope includes static ties and the unchanged rail endpoints:
-    // [-.95,1.32,-6.09] .. [.95,1.595,6].
+    // Bar top is 1.44; the circular rail top is 1.56.
+    // [-.95,1.32,-6.09] .. [.95,1.56,6].
     const pan = () => Array.from(orbit.pan.read(camera,new Float32Array(4)));
-    pan().slice(0,3).forEach((v,i) => expect(v).toBeCloseTo([0,1.4575,-.045][i],5));
+    pan().slice(0,3).forEach((v,i) => expect(v).toBeCloseTo([0,1.44,-.045][i],5));
     const distance = orbit.distance.get(camera), center = pan();
-    expect(distance).toBeGreaterThan(13.6); expect(distance).toBeLessThan(13.8);
+    expect(distance).toBeCloseTo(Math.hypot(.95,.12,6.045)*1.1/Math.sin(Math.PI/6),5);
     const materialResource = w.resource(Materials), add = materialResource.add.bind(materialResource);
     let added = 0; materialResource.add = (...args) => { added++; return add(...args); };
     orbit.yaw.set(camera,1.1); orbit.pitch.set(camera,-.4);

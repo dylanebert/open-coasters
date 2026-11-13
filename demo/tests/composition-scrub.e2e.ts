@@ -6,9 +6,14 @@ for (const example of ['assembly', 'placed', 'repeated']) test(`${example} numer
   const step = () => page.evaluate(() => (window as any).step());
   await step();
   await page.locator('[name=example]').selectOption(example); await step();
+  if (example === 'assembly') {
+    // Populate the existing stepped raw-registration witness before its baseline.
+    await page.locator('[name=assembly-path]').selectOption('straight'); await step();
+    await page.locator('[name=assembly-path]').selectOption('curve'); await step();
+  }
   const snapshot = () => page.evaluate(example => {
     const d = (window as any).demo;
-    return example === 'assembly' ? { meshes: d.meshes(), instances: d.instances() } : d.instances();
+    return example === 'assembly' ? { meshes: d.meshes(), positions: d.trackPositions(), instances: d.instances() } : d.instances();
   }, example);
   await page.evaluate(() => { const w = window as any; w.savedScrub = { camera: w.demo.camera, orbit: w.demo.orbit() }; });
   const names = example === 'assembly' ? ['separation', 'spacing'] : example === 'placed' ? ['x', 'y', 'z', 'yaw', 'pitch', 'roll'] : ['count', 'spacing', 'offset', 'yaw', 'pitch', 'roll'];

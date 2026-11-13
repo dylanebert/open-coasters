@@ -15,8 +15,7 @@ export function resolveAssembly(a: Assembly) {
     const f = frame(a.path, i * a.spacing);
     return { translation: f.p, rotation: rotation(f) };
   });
-  const end = railFrames[1].at(-1)!;
-  return { railFrames, tie: a.tie, ties, fitting: [{ translation: end.p, rotation: rotation(end) }] };
+  return { railFrames, tie: a.tie, ties };
 }
 /** Operation-selected faceted walls and flat closure, using the unchanged sampled
  * section at each rigid frame. No profile appearance, bore or attachment inference. */

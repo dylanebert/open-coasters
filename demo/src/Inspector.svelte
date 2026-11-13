@@ -57,7 +57,7 @@
       {#if assembly.path === 'loop'}
         <label>Appearance<select name="appearance" value={c.appearance ?? 'material'} onchange={event => change({ ...c, appearance: event.currentTarget.value as Configuration['appearance'] }, true)}><option value="material">Native material</option><option value="normal-force">Normal support</option></select></label>
         {#if c.appearance === 'normal-force'}
-          <figure class="force-scale"><figcaption>Normal support · g<br />Recorded motion · 1 g = 9.81 m/s²</figcaption><div class="force-ramp"></div><div class="force-ticks"><span>0</span><span>2</span><span>4</span></div></figure>
+          <figure class="force-scale" aria-label="Normal support derived from recorded motion"><figcaption>Derived · 1 g = 9.81 m/s²</figcaption><div class="force-ramp"></div><div class="force-ticks"><span>0</span><span>2</span><span>4</span></div></figure>
         {/if}
       {/if}
       <label>Tie<select name="assembly-tie" value={assembly.tie} onchange={event => change({ ...c, assembly: { ...assembly, tie: event.currentTarget.value as typeof assembly.tie } }, true)}><option value="assembly-tie-bar">Bar</option><option value="assembly-tie-fork">Fork</option></select></label>

@@ -74,8 +74,8 @@ try {
     const meshes = app.world.resource(Meshes), add = meshes.add.bind(meshes);
     meshes.add = (mesh: MeshData | Mesh) => {
       const handle = mesh.vertices instanceof Float32Array ? add(mesh as MeshData) : add(mesh as Mesh);
-      if (mesh.vertices instanceof Float32Array && mesh.name.startsWith("Track ")) {
-        if (mesh.name === "Track rails") trackPositions.length = 0;
+      if (mesh.vertices instanceof Float32Array && (mesh.name.startsWith("Track ") || mesh.name === "Circular rails")) {
+        if (mesh.name === "Track rails" || mesh.name === "Circular rails") trackPositions.length = 0;
         trackPositions.push({ name: mesh.name, positions: Array.from(mesh.vertices).filter((_, i) => i % 8 < 3) });
       }
       return handle;
