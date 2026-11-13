@@ -35,14 +35,18 @@ The convex restriction allows simple generated flat closure without inferring
 filled regions or holes. Off-origin coordinates are tested; arbitrary source
 hierarchies/transforms and numeric scales are not qualified by this witness.
 
-The app separately chooses a straight or banked path, rigid station frames,
-rail offsets, faceted wall construction, exposed flat end closure and an
-explicit untextured native material for rails and caps. It reuses the same
-section at every station of both rails, without changing source dimensions.
-Ties and the irregular fitting are ordinary placed static glTF meshes with
-native materials, not section meaning. The fitting is explicitly placed on
-the positive-X rail's terminal frame; placement promises neither welding,
-watertight attachment nor engineering suitability.
+The app separately chooses the path, rigid station frames, rail offsets,
+faceted wall construction, exposed flat end closure and an explicit untextured
+native material for rails and caps. It reuses the same section at every station
+of both rails, without changing source dimensions. Ties are ordinary placed
+static glTF meshes with native materials, not section meaning; placement
+promises neither welding, watertight attachment nor engineering suitability.
+The asymmetric fitting remains a native source/import witness, not a public
+track component.
+
+The recorded-loop force display is a runtime consumer operation. It adds no
+force or appearance input to this section binding and makes no portable or
+export claim.
 
 This adds a scoped direct-section witness. It does not replace or tighten the
 legacy matching-end profile contract, Modern gate or existing source witnesses.

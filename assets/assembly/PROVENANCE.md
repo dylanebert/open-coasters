@@ -98,7 +98,7 @@ native scene is straight; analytic unit/GPU/browser expectations cover the app's
 banked path, rather than claiming identical native bevel behavior. The app's
 faceted rails and untextured flat closures are explicit operation choices.
 
-The existing app exposes `Asset assembly` in Example, or directly at
+The app exposes `Circular rails` in Example, or directly at
 `/open-coasters/?example=assembly`. The person still judges the interactive
 result. These technical checks neither accept a full contract nor close the
 asset loop or its roadmap item.
