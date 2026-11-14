@@ -1,0 +1,74 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "Open Coasters diagnostic rigid post witness"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0,
+        2
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "children": [
+        1
+      ]
+    },
+    {
+      "mesh": 0
+    },
+    {
+      "translation": [
+        0,
+        0,
+        4
+      ],
+      "children": [
+        3
+      ]
+    },
+    {
+      "mesh": 0
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0
+          }
+        }
+      ]
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 432,
+      "uri": "data:application/octet-stream;base64,zcxMvQAAAADNzEy9zcxMvQAAwD/NzEy9zcxMPQAAwD/NzEy9zcxMvQAAAADNzEy9zcxMPQAAwD/NzEy9zcxMPQAAAADNzEy9zcxMvQAAAADNzEw9zcxMPQAAAADNzEw9zcxMPQAAwD/NzEw9zcxMvQAAAADNzEw9zcxMPQAAwD/NzEw9zcxMvQAAwD/NzEw9zcxMvQAAAADNzEy9zcxMvQAAAADNzEw9zcxMvQAAwD/NzEw9zcxMvQAAAADNzEy9zcxMvQAAwD/NzEw9zcxMvQAAwD/NzEy9zcxMPQAAAADNzEy9zcxMPQAAwD/NzEy9zcxMPQAAwD/NzEw9zcxMPQAAAADNzEy9zcxMPQAAwD/NzEw9zcxMPQAAAADNzEw9zcxMvQAAAADNzEy9zcxMPQAAAADNzEy9zcxMPQAAAADNzEw9zcxMvQAAAADNzEy9zcxMPQAAAADNzEw9zcxMvQAAAADNzEw9zcxMvQAAwD/NzEy9zcxMvQAAwD/NzEw9zcxMPQAAwD/NzEw9zcxMvQAAwD/NzEy9zcxMPQAAwD/NzEw9zcxMPQAAwD/NzEy9"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 432
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "type": "VEC3",
+      "count": 36
+    }
+  ]
+}
