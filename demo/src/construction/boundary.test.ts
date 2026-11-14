@@ -36,6 +36,40 @@ test('shallow caller freezing cannot impersonate deeply owned immutable runtime 
     expect(()=>r.evaluate(doc,{inputs:{data:{type:T,value:immutable({bytes:new ArrayBuffer(4)})}}})).toThrow('runtime values must be immutable resources or plain data');
 }, TIMEOUT.cheap);
 
+test('accessors, hidden properties and host state cannot impersonate owned plain trees', () => {
+    const T=nominal('test.box');
+    const doc:Document={schema:'cc.graph@1',entry:'entry',groups:[{operation:'entry',graph:{inputs:[{name:'box',type:T}],nodes:[{id:'mutate',operation:'test.mutate',inputs:{box:{input:'box'}}}],outputs:[{name:'box',type:T,binding:{node:'mutate',output:'box'}}]}}]};
+    let calls=0;
+    const r=registry([{id:'test.box',validate:v=>v}],[{operation:'test.mutate',inputs:[{name:'box',type:T}],outputs:[{name:'box',type:T}],evaluate(v){calls++;(v.box as any).values[0]=9;return {box:v.box};}}]);
+    let source=[1], reads=0;
+    const getter=immutable({get values(){reads++;return source;}});
+    expect(reads).toBe(0);source=[2];
+    expect(()=>r.evaluate(doc,{inputs:{box:{type:T,value:getter}}})).toThrow('own enumerable data properties required');
+    expect(reads).toBe(0);expect(source).toEqual([2]);expect(calls).toBe(0);
+    const hidden=[3], date=new Date(0), symbol=Symbol('state');
+    const cases=[
+        Object.defineProperty({values:[2]},'hidden',{value:hidden}),
+        Object.defineProperty({values:[2]},'host',{value:date}),
+        Object.defineProperty({values:[2]},'getter',{get:()=>hidden}),
+        {values:[2],[symbol]:hidden},
+        {values:[2],host:date},
+        {values:[2],callback:()=>hidden},
+    ];
+    for(const box of cases) expect(()=>r.evaluate(doc,{inputs:{box:{type:T,value:immutable(box)}}})).toThrow('plain data');
+    expect(hidden).toEqual([3]);expect(Object.isFrozen(hidden)).toBe(false);
+    date.setTime(10);expect(date.getTime()).toBe(10);expect(calls).toBe(0);
+});
+
+test('proven ordinary data trees retain reference identity across complete calls', () => {
+    const T=nominal('test.tree'), tree=immutable({values:[1,2],nested:{flag:true}});
+    const r=registry([{id:'test.tree',validate:v=>v}],[{operation:'test.identity',inputs:[{name:'tree',type:T}],outputs:[{name:'tree',type:T}],evaluate(v){expect(v.tree).toBe(tree);expect(()=>(v.tree as typeof tree).values[0]=9).toThrow();return {tree:v.tree};}}]);
+    const doc:Document={schema:'cc.graph@1',entry:'entry',groups:[{operation:'entry',graph:{inputs:[{name:'tree',type:T}],nodes:[{id:'identity',operation:'test.identity',inputs:{tree:{input:'tree'}}}],outputs:[{name:'tree',type:T,binding:{node:'identity',output:'tree'}}]}}]};
+    for(let i=0;i<3;i++) {
+        const result=r.evaluate(doc,{inputs:{tree:{type:T,value:tree}}}).tree as typeof tree;
+        expect(result).toBe(tree);expect(result.values).toBe(tree.values);expect(result.nested).toBe(tree.nested);
+    }
+});
+
 test('nested complete-call validation demands unused inputs and every output including unsupported types', () => {
     const op = primitive(v => ({ data: v.data })), d = document();
     d.groups[1].graph.inputs.push({ name: 'required', type: N });

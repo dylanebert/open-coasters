@@ -14,24 +14,42 @@ export class ConstructionError extends Error {
     }
 }
 const deeplyImmutable = new WeakSet<object>();
+/** Complete own data properties only: never invoke getters or hide host state.
+ * Arrays are dense ordinary lists, not records with additional properties. */
+function dataEntries(value: object): [string, unknown][] | undefined {
+    const array = Array.isArray(value);
+    if (array ? Object.getPrototypeOf(value) !== Array.prototype : !record(value)) return;
+    const entries: [string, unknown][] = [];
+    for (const key of Reflect.ownKeys(value)) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
+        if (array && key === 'length') continue;
+        if (typeof key !== 'string' || !descriptor.enumerable || !('value' in descriptor)) return;
+        if (array && (!/^(0|[1-9]\d*)$/.test(key) || Number(key) >= (value as unknown[]).length)) return;
+        entries.push([key, descriptor.value]);
+    }
+    if (array && entries.length !== (value as unknown[]).length) return;
+    return entries;
+}
 export function immutable<T>(value: T): T {
     if (value && typeof value === 'object' && !deeplyImmutable.has(value)) {
-        const children = Object.values(value);
-        for (const v of children) immutable(v);
         Object.freeze(value);
-        // Only plain trees prove ownership. Frozen ArrayBuffers/host objects can
-        // still contain mutable state and must not acquire this fast path.
-        if ((Array.isArray(value) || record(value)) && children.every(v => !v || typeof v !== 'object' || deeplyImmutable.has(v))) deeplyImmutable.add(value);
+        const entries = dataEntries(value);
+        if (entries) for (const [, child] of entries) immutable(child);
+        // Trusted registry descriptors may contain functions, but those are not
+        // runtime data-tree proof. Neither are accessors or frozen host objects.
+        if (entries?.every(([, child]) => typeof child !== 'function' && (!child || typeof child !== 'object' || deeplyImmutable.has(child)))) deeplyImmutable.add(value);
     }
     return value;
 }
 /** Copy caller-owned mutable data before a registered validator or operation sees it. */
 function owned(value: any): any {
+    if (typeof value === 'function') throw Error('runtime values must be plain data, not functions');
     if (!value || typeof value !== 'object' || deeplyImmutable.has(value)) return value;
-    if (!Array.isArray(value) && !record(value)) throw Error('runtime values must be immutable resources or plain data');
-    const entries = Object.entries(value).map(([k, v]) => [k, owned(v)] as const);
-    if (Object.isFrozen(value) && entries.every(([k, v]) => (value as any)[k] === v)) return value;
-    return Array.isArray(value) ? entries.map(([, v]) => v) : Object.fromEntries(entries);
+    const source = dataEntries(value);
+    if (!source) throw Error('runtime values must be immutable resources or plain data (own enumerable data properties required)');
+    const entries = source.map(([key, child]) => [key, owned(child)] as const);
+    if (Object.isFrozen(value) && entries.every(([, child], i) => source[i][1] === child)) return value;
+    return Array.isArray(value) ? entries.map(([, child]) => child) : Object.fromEntries(entries);
 }
 const own = (v: object, k: string) => Object.hasOwn(v, k);
 const record = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v) && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);

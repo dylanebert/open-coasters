@@ -1,7 +1,7 @@
 import diagnosticSource from '../../construction/witness/resolved-supports.gltf?raw';
-import normalSource from '../../construction/normal-track.json';
-import supportSource from '../../construction/plane-supports.json';
-import switchSource from '../../construction/static-switch.json';
+import normal from '../../construction/normal-track.json?raw';
+import support from '../../construction/plane-supports.json?raw';
+import switched from '../../construction/static-switch.json?raw';
 import { normalTrack, stationGap } from '../../construction/normal-track';
 import { staticSwitch } from '../../construction/static-switch';
 import { supportRegistry, planeId } from '../../construction/plane-supports';
@@ -14,7 +14,6 @@ const diagnosticDocument=JSON.parse(diagnosticSource);
 // Reuse the authored diagnostic bytes, selecting one identity post, not a contributed asset kind.
 diagnosticDocument.nodes=[{mesh:0}]; diagnosticDocument.scenes=[{nodes:[0]}];
 export const diagnosticPost=nativeSnapshot(diagnosticDocument,diagnosticDocument.buffers.map((b: {uri:string})=>Uint8Array.from(atob(b.uri.split(',')[1]),c=>c.charCodeAt(0))));
-const normal = JSON.stringify(normalSource), support = JSON.stringify(supportSource), switched = JSON.stringify(switchSource);
 const pose=(x:number,y:number,z:number)=>frame({translation:[x,y,z],rotation:[0,0,0,1]});
 /** Explicitly executes the installed support library only for that selected witness.
  * Native reading is separate. No catch-and-bake or recipe fallback. */

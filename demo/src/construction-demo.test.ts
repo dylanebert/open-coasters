@@ -1,7 +1,9 @@
 import { expect, test } from 'bun:test';
 import { TIMEOUT } from '@dylanebert/shallot/testing';
 import { constructDemo, diagnosticPost } from './construction-demo';
-import { assemblyDefaults, assemblyPath, packRails } from './assembly';
+import { assemblyDefaults, assemblyPath, packRails, resolveAssembly, railAppearance } from './assembly';
+import normalSource from '../../construction/normal-track.json?raw';
+import { normalTrack } from '../../construction/normal-track';
 import { contentValue, readNative, resolvedNative } from '../../construction/native';
 import { framesAt, path } from '../../construction/geometry';
 import { loadSampledSection } from './sampled-section';
@@ -14,6 +16,14 @@ const tie=contentValue({snapshot:await readNative(new URL('assembly-tie-bar.gltf
 const fitting=contentValue({snapshot:await readNative(new URL('assembly-fitting.gltf',root))});
 const post=contentValue({snapshot:diagnosticPost});
 const a={...assemblyDefaults,path:'straight' as const,spacing:1,separation:1.4};
+
+test('consumer recipe source is original text and duplicate keys fail before execution',async()=>{
+ expect(normalSource).toBe(await Bun.file(new URL('../../construction/normal-track.json',import.meta.url)).text());
+ const duplicate=normalSource.replace('"schema":','"schema":"cc.graph@1","schema":');
+ expect(duplicate).not.toBe(normalSource);
+ const parameters={path:resolveAssembly(a).path,section,tieContent:tie,separation:a.separation,spacing:a.spacing,wall:railAppearance,cap:railAppearance};
+ expect(()=>normalTrack(parameters,duplicate)).toThrow('duplicate JSON key');
+});
 
 test('demo NormalTrack and station use shared graph results with independently derived counts and landmarks',()=>{
  const r=constructDemo(a,section,tie,fitting,post);

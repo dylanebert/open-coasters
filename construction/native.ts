@@ -35,16 +35,17 @@ export function nativeSnapshot(source: NativeDocument, resources: readonly (Arra
     assert((doc.buffers?.length ?? 0) === resources.length, 'all declared buffers must be resolved');
     // Base64 strings own immutable bytes without freezing hundreds of thousands of
     // numeric properties. Freezing an ArrayBuffer would NOT protect its contents.
+    const payloads: DataView[] = [];
     const buffers = resources.map((r, i) => {
         assert(r instanceof Uint8Array || r instanceof ArrayBuffer, 'resolved bytes required');
         const bytes = r instanceof Uint8Array ? new Uint8Array(r) : new Uint8Array(r.slice(0));
         assert(Number.isSafeInteger(doc.buffers[i].byteLength) && bytes.length === doc.buffers[i].byteLength, 'buffer byteLength mismatch');
+        payloads.push(new DataView(bytes.buffer));
         let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
         const encoded = btoa(binary);
         doc.buffers[i].uri = `data:application/octet-stream;base64,${encoded}`;
         return encoded;
     });
-    const payloads = resources.map(bytes => new DataView((bytes instanceof Uint8Array ? new Uint8Array(bytes) : new Uint8Array(bytes.slice(0))).buffer));
     for (const v of doc.bufferViews ?? []) {
         const b = index(v.buffer, buffers, 'buffer');
         assert(Number.isSafeInteger(v.byteLength) && v.byteLength > 0 && Number.isSafeInteger(v.byteOffset ?? 0) && (v.byteOffset ?? 0) >= 0 && (v.byteOffset ?? 0) + v.byteLength <= payloads[b].byteLength, 'bufferView range');

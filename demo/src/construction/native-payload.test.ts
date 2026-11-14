@@ -39,6 +39,31 @@ test('native POSITION reads owned bytes with both offsets and interleaved stride
     const backing = new Uint8Array(before.length + 7); backing.set(before, 7);
     expect(snapshotBytes(nativeSnapshot(f.doc, [backing.subarray(7)]),0)).toEqual(before);
 }, TIMEOUT.cheap);
+test('native validates and retains one owned copy, never a second read of caller resources', () => {
+    const f=fixture(), good=f.bytes.slice(), bad=good.slice();
+    new DataView(bad.buffer).setFloat32(8,NaN,true);
+    for (const invalidFirst of [true,false]) {
+        let reads=0;
+        const resources=new Array<Uint8Array>(1);
+        Object.defineProperty(resources,'0',{enumerable:true,get:()=>++reads===1 ? (invalidFirst?bad:good) : (invalidFirst?good:bad)});
+        if(invalidFirst) expect(()=>nativeSnapshot(f.doc,resources)).toThrow('nonfinite POSITION payload');
+        else {
+            const snapshot=nativeSnapshot(f.doc,resources);
+            expect(snapshotBytes(snapshot,0)).toEqual(good);
+            expect(Uint8Array.from(atob(snapshot.document.buffers[0].uri.split(',')[1]),c=>c.charCodeAt(0))).toEqual(good);
+        }
+        expect(reads).toBe(1);
+    }
+    // Resolving a later dependency may mutate the caller's earlier backing store.
+    // The already owned first buffer must remain both the validation and export input.
+    const resources=new Array<Uint8Array>(2), earlier=good.slice();
+    resources[0]=earlier;
+    Object.defineProperty(resources,'1',{enumerable:true,get:()=>{earlier.fill(255);return new Uint8Array([7]);}});
+    const d=structuredClone(f.doc);d.buffers.push({byteLength:1,uri:'second.bin'});
+    const snapshot=nativeSnapshot(d,resources);
+    expect(snapshotBytes(snapshot,0)).toEqual(good);expect(snapshotBytes(snapshot,1)).toEqual(new Uint8Array([7]));
+});
+
 test('native POSITION refuses each nonfinite component, normalization and unsupported alignment/layout', () => {
     for (const value of [NaN, Infinity, -Infinity]) for (const at of [8, 28, 48]) {
         const f = fixture(); f.view.setFloat32(at, value, true); refuses(f, 'nonfinite POSITION');
