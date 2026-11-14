@@ -1,3 +1,4 @@
+import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
 import { ConstructionError, registry, type Document, type Primitive } from '../../../construction/kernel';
 import { ids, list, nominal, standardTypes } from '../../../construction/geometry';
@@ -23,7 +24,7 @@ test('mutation refusal protects invocation values and outputs through two group 
     expect(attempted).toBe(true); expect(source).toEqual([1, 2, 2]); expect(Object.isFrozen(source)).toBe(false);
     expect(result.data).toEqual(source); expect(() => (result.data as number[]).push(3)).toThrow();
     expect(() => (result as any).extra = 3).toThrow(); source[0] = 5; expect(result.data).toEqual([1, 2, 2]);
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('nested complete-call validation demands unused inputs and every output including unsupported types', () => {
     const op = primitive(v => ({ data: v.data })), d = document();
@@ -39,7 +40,7 @@ test('nested complete-call validation demands unused inputs and every output inc
     d.groups[1].graph.outputs[1].type = N; d.groups[1].graph.outputs[1].binding = { value: 0 };
     expect(invoke().data).toEqual([2]);
     d.groups[0].graph.nodes[0].inputs.unknown = { value: 1 }; error(invoke, 'input', 'unknown input');
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('primitive signature copies and type validators are captured at registry creation', () => {
     const op = primitive(v => ({ data: v.data }));
@@ -47,7 +48,7 @@ test('primitive signature copies and type validators are captured at registry cr
     const r = registry(types, [op]);
     op.inputs[0].type = N; op.outputs[0].name = 'changed'; types.find(t => t.id === ids.number)!.validate = () => 'changed';
     expect(r.evaluate(document(), { inputs: { data: { type: LN, value: [1, 2] } } }).data).toEqual([1, 2]);
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('list wires have exact recursive types, nominal IDs never structurally coerce', () => {
     const d = document(), invoke = () => registry(standardTypes, [primitive(v => ({ data: v.data }))]).evaluate(d, { inputs: { data: { type: LN, value: [1] } } });
@@ -57,4 +58,4 @@ test('list wires have exact recursive types, nominal IDs never structurally coer
     d.groups[1].graph.nodes[0].inputs.data = { value: [[1]] }; error(invoke, 'type', 'finite number');
     d.groups[1].graph.nodes[0].inputs.data = { input: 'data' }; d.groups[1].graph.outputs[0].type = list(nominal(ids.span));
     error(invoke, 'type', 'output type mismatch');
-}, 1000);
+}, TIMEOUT.cheap);

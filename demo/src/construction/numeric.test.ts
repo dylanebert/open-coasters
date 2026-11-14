@@ -1,3 +1,4 @@
+import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { test, expect } from 'bun:test';
 import { fixedDistances, framesAt, frame, path, quaternion } from '../../../construction/geometry';
 const I = [0,0,0,1];
@@ -29,7 +30,7 @@ test('independent integer binary64 oracle: separate multiply/add, not iterative 
     const values = fixedDistances(1,.1,.03,[{start:0,end:1}],[]);
     let iterative = .03; const wrong: number[] = []; for (let k=0;k<values.length;k++) { wrong.push(iterative); iterative += .1; }
     expect(values).not.toEqual(wrong);
-},1000);
+}, TIMEOUT.cheap);
 
 test('quaternion boundary norm tolerance, WXYZ canonical sign and immutable copies', () => {
     for (const q of [[0,0,0,-1-8e-13],[-1-8e-13,0,0,0],[0,-1-8e-13,0,0],[0,0,-1-8e-13,0]]) {
@@ -40,7 +41,7 @@ test('quaternion boundary norm tolerance, WXYZ canonical sign and immutable copi
     for (const scale of [1+1.1e-12,1-1.1e-12,0,1e-300,1e300,Infinity,NaN]) expect(()=>frame({translation:[0,0,0],rotation:[0,0,0,scale]})).toThrow();
     const q = [0,0,-1,0], source = {distances:[0,1],positions:[[0,0,0],[0,0,1]],rotations:[q,q]};
     const out = framesAt(path(source),[0,1]); expect(out[0].rotation).toEqual([0,0,1,0]); expect(q).toEqual([0,0,-1,0]); expect(Object.isFrozen(out[0].rotation)).toBe(true);
-},1000);
+}, TIMEOUT.cheap);
 
 test('exact 180-degree tie retains canonical second representative; SLERP differs from nlerp', () => {
     const p = (rotations: number[][]) => path({distances:[0,4],positions:[[0,0,0],[0,0,4]],rotations});
@@ -58,7 +59,7 @@ test('exact 180-degree tie retains canonical second representative; SLERP differ
     }
     // Near antipodal source representatives canonicalize before interpolation.
     near(framesAt(p([[0,0,0,-1],[0,-1e-6,0,-Math.sqrt(1-1e-12)]]),[1])[0].rotation,[0,Math.sin(Math.asin(1e-6)/4),0,Math.cos(Math.asin(1e-6)/4)]);
-},1000);
+}, TIMEOUT.cheap);
 
 
 test('small-angle limit across nonidentity starts, independent axes and interpolation fractions', () => {
@@ -75,4 +76,4 @@ test('small-angle limit across nonidentity starts, independent axes and interpol
             near(framesAt(p,[t])[0].translation,[1+2*t,2+2*t,3+2*t]);
         }
     }
-},1000);
+}, TIMEOUT.cheap);

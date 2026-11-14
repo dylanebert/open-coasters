@@ -1,3 +1,4 @@
+import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
 import { nativeSnapshot, contentValue } from '../../../construction/native';
 import { ConstructionError } from '../../../construction/kernel';
@@ -37,7 +38,7 @@ test('native POSITION reads owned bytes with both offsets and interleaved stride
     // A subarray's backing-buffer prefix must not change resolved byte offsets.
     const backing = new Uint8Array(before.length + 7); backing.set(before, 7);
     expect(nativeSnapshot(f.doc, [backing.subarray(7)]).buffers[0]).toEqual(Array.from(before));
-}, 1000);
+}, TIMEOUT.cheap);
 test('native POSITION refuses each nonfinite component, normalization and unsupported alignment/layout', () => {
     for (const value of [NaN, Infinity, -Infinity]) for (const at of [8, 28, 48]) {
         const f = fixture(); f.view.setFloat32(at, value, true); refuses(f, 'nonfinite POSITION');
@@ -50,7 +51,7 @@ test('native POSITION refuses each nonfinite component, normalization and unsupp
         (f: ReturnType<typeof fixture>) => f.doc.bufferViews[0].byteStride = 256,
         (f: ReturnType<typeof fixture>) => f.doc.accessors[0].byteOffset = 12,
     ]) { const f = fixture(); mutate(f); refuses(f, ''); }
-}, 1000);
+}, TIMEOUT.cheap);
 test('native indices accept only non-normalized unsigned scalar encodings and check every referenced vertex', () => {
     for (const componentType of [5121, 5123, 5125]) {
         const f = fixture(componentType); f.doc.accessors[1].normalized = false;
@@ -77,7 +78,7 @@ test('native indices accept only non-normalized unsigned scalar encodings and ch
         (f: ReturnType<typeof fixture>) => f.doc.bufferViews[1].byteOffset = 65,
         (f: ReturnType<typeof fixture>) => f.doc.accessors[1].count = 4,
     ]) { const f = fixture(); mutate(f); refuses(f, ''); }
-}, 1000);
+}, TIMEOUT.cheap);
 test('original tight POSITION bytes and FLOAT-index review counterexamples are refused before branding', () => {
     const doc = structuredClone(witness), bytes = Uint8Array.from(atob(doc.buffers[0].uri.split(',')[1]), c => c.charCodeAt(0));
     new DataView(bytes.buffer).setFloat32(0, NaN, true);
@@ -85,4 +86,4 @@ test('original tight POSITION bytes and FLOAT-index review counterexamples are r
     new DataView(bytes.buffer).setFloat32(0, .1, true);
     doc.accessors.push({ bufferView: 0, componentType: 5126, count: 3, type: 'SCALAR' }); doc.meshes[0].primitives[0].indices = 1;
     expect(() => nativeSnapshot(doc, [bytes])).toThrow('unsigned SCALAR');
-}, 1000);
+}, TIMEOUT.cheap);

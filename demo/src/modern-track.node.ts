@@ -1,4 +1,6 @@
-import { expect, test } from 'bun:test';
+import { expect, test, setDefaultTimeout } from 'bun:test';
+import { TIMEOUT } from '@dylanebert/shallot/testing';
+setDefaultTimeout(TIMEOUT.node);
 import { trackGeometry, modernTies } from './modern-track';
 import { defaults } from './track';
 import loop from './loop-path.json';

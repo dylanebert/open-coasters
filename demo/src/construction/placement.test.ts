@@ -1,3 +1,4 @@
+import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
 import { parseGltf, type GltfJson } from '@dylanebert/shallot/gltf';
 import { adjustFrames, fixedDistances, frame, framesAt, ids, instance, join, nominal, path, quaternion } from '../../../construction/geometry';
@@ -44,7 +45,7 @@ test('binary64 origin candidates: nonzero phase, unions, exclusions and exact/ne
     expect(() => fixedDistances(1, 1, 0, [{ start: 0, end: 2 }], [])).toThrow('outside');
     let published: readonly number[] | undefined;
     expect(() => published = fixedDistances(6, 1, 0, all, [], 3)).toThrow('host candidate-work budget'); expect(published).toBeUndefined();
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('path boundaries, quaternion normalization and distinguishing shortest-arc SLERP', () => {
     const source = structuredClone(basePath), before = structuredClone(source);
@@ -60,7 +61,7 @@ test('path boundaries, quaternion normalization and distinguishing shortest-arc 
     expect(() => quaternion([0, 0, 0, 1 + 2e-12])).toThrow('unit');
     const normalized = frame({ translation: [0, 0, 0], rotation: [0, 0, 0, 1 + 5e-13] }); expect(normalized.rotation).toEqual(I);
     for (const p of [ { ...basePath, distances: [0, 0] }, { ...basePath, rotations: [I, [0, 0, 0, 2]] }, { ...basePath, positions: [[0, 0, 0]] } ]) expect(() => path(p)).toThrow();
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('asymmetric straight/banked/inverted landmarks prove path × local × authored order', () => {
     const local = frame({ translation: [.2, -.1, .3], rotation: [0, H, 0, H] });
@@ -72,7 +73,7 @@ test('asymmetric straight/banked/inverted landmarks prove path × local × autho
     });
     // Authored child translation remains inside the two rigid placement transforms.
     near(point(adjustFrames([frame({ translation: [0, 1.5, 2], rotation: I })], local)[0], [1.1, .2, .4]), [.6, 1.6, 1.2]);
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('Ties is reusable, owns immutable native bytes, preserves identity/hierarchy and joins without flattening', () => {
     const { source, bytes, snapshot, content } = fixture(), original = structuredClone(source);
@@ -94,7 +95,7 @@ test('Ties is reusable, owns immutable native bytes, preserves identity/hierarch
     let published: Construction | undefined;
     expect(() => published = run(content, { spacing: { type: nominal(ids.number), value: 0 } })).toThrow('evaluation'); expect(published).toBeUndefined();
     expect(run(content, { phase: { type: nominal(ids.number), value: .5 } }).placements.map(p => p.frame.translation[2])).toEqual([.5, 1.5, 2.5, 3.5, 4.5, 5.5]);
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('independent native reader consumes resolved witness with no recipe execution', async () => {
     const { content } = fixture();
@@ -113,7 +114,7 @@ test('independent native reader consumes resolved witness with no recipe executi
     // Native geometry is float32; the rigid transform expectations remain analytic.
     const expected = [[.1, 1.7, 2.4], [1.1, 1.7, 2.4], [2.4, .2, -.1], [2.4, .2, -1.1]];
     landmarks.forEach((p, i) => near(p, expected[i], 1e-7));
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('parameterized Ties carries local adjustments through bank/inversion into independently read native landmarks', () => {
     const { content } = fixture();
@@ -131,7 +132,7 @@ test('parameterized Ties carries local adjustments through bank/inversion into i
         const scene = parseGltf(json, buffers), placed = scene.instances[2], m = placed.matrix, v = scene.meshes[placed.mesh].vertices;
         near([0, 1, 2].map(row => m[row] * v[0] + m[4 + row] * v[1] + m[8 + row] * v[2] + m[12 + row]), expected[k], 1e-7);
     });
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('native boundary refuses live/fabricated resources and invalid selection/subsets atomically', () => {
     expect(() => contentValue({ snapshot: { document: {}, buffers: [] } })).toThrow('checked');
@@ -145,4 +146,4 @@ test('native boundary refuses live/fabricated resources and invalid selection/su
         (s: any) => s.nodes[0].extensions = { unknown: {} },
         (s: any) => s.accessors[0].count = 1000,
     ]) { const { source, bytes } = fixture(); mutate(source); expect(() => nativeSnapshot(source, [bytes.buffer])).toThrow('native resource'); }
-}, 1000);
+}, TIMEOUT.cheap);

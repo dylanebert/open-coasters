@@ -1,0 +1,94 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: Explicit qualification tier
+        required: true
+        type: choice
+        options:
+          - qualification
+          - gpu
+          - browser
+
+permissions:
+  contents: read
+
+jobs:
+  cheap:
+    if: github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun check
+      - run: bun run typecheck
+      - run: bun run test
+
+  qualification:
+    if: github.event_name == 'workflow_dispatch' && inputs.tier == 'qualification'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bun test $(find ./src -name '*.node.ts' -print | sort)
+
+  gpu:
+    if: github.event_name == 'workflow_dispatch' && inputs.tier == 'gpu'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SHALLOT_ALLOW_SOFTWARE_GPU: '1'
+    defaults:
+      run:
+        working-directory: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: sudo apt-get update && sudo apt-get install -y mesa-vulkan-drivers
+      - run: bun install --frozen-lockfile
+      - name: Identify adapter (software qualification, not hardware evidence)
+        run: |
+          bun -e "import { create, globals } from 'webgpu'; Object.assign(globalThis, globals); const adapter = await create([]).requestAdapter(); if (!adapter) throw new Error('WebGPU adapter unavailable'); console.log(adapter.info); (await adapter.requestDevice()).destroy();"
+      - run: bun test $(find ./src -name '*.gpu.test.ts' -print | sort)
+
+  browser:
+    if: github.event_name == 'workflow_dispatch' && inputs.tier == 'browser'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
+      - run: bunx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failures
+          path: demo/test-results/
+          retention-days: 7

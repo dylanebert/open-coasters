@@ -1,4 +1,6 @@
-import { expect, test } from "bun:test";
+import { expect, test, setDefaultTimeout } from "bun:test";
+import { TIMEOUT } from "@dylanebert/shallot/testing";
+setDefaultTimeout(TIMEOUT.node);
 import { defaults, generate, type Configuration } from "./track";
 
 // Width/depth affect only affine sweep sections, whose full control box is

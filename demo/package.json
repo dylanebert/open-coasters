@@ -6,7 +6,7 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "test": "bun test src",
+        "test": "bun test src --timeout 250 --path-ignore-patterns '**/*.gpu.test.ts'",
         "typecheck": "svelte-check --no-tsconfig --fail-on-warnings"
     },
     "devDependencies": {

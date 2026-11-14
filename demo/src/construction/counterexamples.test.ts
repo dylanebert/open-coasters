@@ -1,3 +1,4 @@
+import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
 import { parseDocument, registry } from '../../../construction/kernel';
 import { frame, ids, instance, nominal, standardRegistry, standardTypes, standardOperations } from '../../../construction/geometry';
@@ -43,7 +44,7 @@ test('exact extension signature and local supported switch list graph',()=>{
  expect(g.graph.inputs).toEqual(['approach','left','right','custom'].map(name=>({name,type:{id:'cc.construction@1'}})));
  expect(g.graph.nodes).toEqual([{id:'join',operation:'cc.join@1',inputs:{constructions:{list:['approach','left','right','custom'].map(input=>({input}))}}}]);
  expect(g.graph.outputs).toEqual([{name:'construction',type:{id:'cc.construction@1'},binding:{node:'join',output:'construction'}}]);
-},1000);
+}, TIMEOUT.cheap);
 test('installed support owns reused immutable native post and independent bases/top landmarks',()=>{
  const f=post(), before=JSON.stringify(f.doc), bytes=Array.from(f.data);
  const result=supportRegistry().evaluate(parseDocument(supportSource),invocation(f.content)).construction as Construction;
@@ -56,7 +57,7 @@ test('installed support owns reused immutable native post and independent bases/
  expect(JSON.stringify(f.doc)).toBe(before); expect(Array.from(f.data)).toEqual(bytes);
  f.data.fill(99); expect(raw(resolvedNative(result))).toEqual(points);
  expect(Object.isFrozen(result.placements)).toBe(true); expect(Object.isFrozen(f.content.snapshot.buffers[0])).toBe(true);
-},1000);
+}, TIMEOUT.cheap);
 test('source execution capabilities are separate from explicitly selected native reading; no fallback',()=>{
  const input=invocation(),doc=parseDocument(supportSource);
  const native=selectedNative;
@@ -71,14 +72,14 @@ test('source execution capabilities are separate from explicitly selected native
  expect(Math.min(...raw(native).map(p=>p[1]))).toBe(0); expect(Math.max(...raw(native).map(p=>p[1]))).toBe(1.5);
  const resources=native.buffers.map((b:any)=>Uint8Array.from(atob(b.uri.split(',')[1]),c=>c.charCodeAt(0)));
  expect(nativeSnapshot(native,resources).document.scene).toBe(0);
-},1000);
+}, TIMEOUT.cheap);
 test('incompatible height/orientation/plane/selected post refuse atomically, including a bad second attachment',()=>{
  const good=post().content;
  const cases=[invocation(post(2).content),invocation(good,[pose(0,1.5,0),pose(0,2,4)]),invocation(good,[frame({translation:[0,1.5,0],rotation:[0,1,0,0]})]),invocation(good,undefined,{point:[0,0,0],normal:[0,0,1]}),invocation(good,undefined,{point:[0,0,0],normal:[0,2,0]})];
  const transformed=post(); transformed.doc.nodes[0]= {...transformed.doc.nodes[0],translation:[0,.1,0]} as any;
  cases.push(invocation(contentValue({snapshot:nativeSnapshot(transformed.doc,[transformed.data.buffer])})));
  for(const input of cases) { let result:unknown; expect(()=>{result=supportRegistry().evaluate(parseDocument(supportSource),input);}).toThrow(); expect(result).toBeUndefined(); }
-},1000);
+}, TIMEOUT.cheap);
 test('native compatibility uses selected bytes and transforms, not metadata or unselected meshes',()=>{
  const wrong=post(); wrong.data[0]=.2;
  (wrong.doc.accessors[0] as any).min=[-.05,0,-.05]; (wrong.doc.accessors[0] as any).max=[.05,1.5,.05];
@@ -91,7 +92,7 @@ test('native compatibility uses selected bytes and transforms, not metadata or u
  const selected=contentValue({snapshot:nativeSnapshot(f.doc,[f.data.buffer])});
  const result=supportRegistry().evaluate(parseDocument(supportSource),invocation(selected,[pose(2,4.5,8)],{point:[7,3,9],normal:[0,1,0]})).construction as Construction;
  expect(result.placements.map(p=>p.frame.translation)).toEqual([[2,3,8]]);
-},1000);
+}, TIMEOUT.cheap);
 test('parameterized switch owns seven ordered placements, shared approach once, custom ordinary content',()=>{
  for(const offset of [0,10]) {
   const a=post().content,b=post().content;
@@ -105,4 +106,4 @@ test('parameterized switch owns seven ordered placements, shared approach once, 
   // No inferred deduplication: deliberate repeated ownership remains repeated.
   expect(staticSwitch(switchSource,{approach,left:approach,right,custom}).placements.length).toBe(7);
  }
-},1000);
+}, TIMEOUT.cheap);

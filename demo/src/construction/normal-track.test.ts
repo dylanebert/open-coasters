@@ -1,3 +1,4 @@
+import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { test, expect } from 'bun:test';
 import { normalTrack, stationGap } from '../../../construction/normal-track';
 import { sampledSection } from '../../../construction/section';
@@ -37,14 +38,14 @@ test('NormalTrack base counts, independent native bounds, mesh counts and fresh 
   expect(s).not.toBe(again.placements[i].content.snapshot); expect(Object.isFrozen(s.buffers[0])).toBe(true);
  }
  expect(result.placements[2].content.snapshot).toBe(snapshot);
-},1000);
+}, TIMEOUT.cheap);
 test('phase preserving station gaps and explicitly owned custom parts',()=>{
  for(const [phase,expected] of [[0,[0,1,4,5]],[.5,[.5,1.5,3.5,4.5,5.5]]] as const){
  const result=stationGap({...parameters,phase,excluded:[{start:2,end:3.5}]},source,[{content:tieContent,frames:[frame({translation:[9,8,7],rotation:I})]}]);
  expect(result.placements.slice(2,-1).map(p=>p.frame.translation[2])).toEqual([...expected]);
  expect(result.placements.at(-1)!.frame.translation).toEqual([9,8,7]); expect(result.placements.at(-1)!.content.snapshot).toBe(snapshot);
  }
-},1000);
+}, TIMEOUT.cheap);
 test('asymmetric local adjustment straight, banked and inverted, plus faceted directed native normals and caps',()=>{
  const local=frame({translation:[.2,-.1,.3],rotation:[0,Math.SQRT1_2,0,Math.SQRT1_2]});
  for(const [q,expected] of [[I,[.6,1.6,2.2]],[[0,0,Math.SQRT1_2,Math.SQRT1_2],[-.1,2.1,2.2]],[[0,0,1,0],[-.6,1.4,2.2]]] as const){
@@ -62,7 +63,7 @@ test('asymmetric local adjustment straight, banked and inverted, plus faceted di
   }
  }
  }
-},1000);
+}, TIMEOUT.cheap);
 test('unsupported section, geometry and appearance fail without publishing results',()=>{
  const f=frame({translation:[0,0,0],rotation:I});
  for(const frames of [[f],[f,f],[f,frame({translation:[0,0,1e-14],rotation:I})]]) expect(()=>sweepConvex(section,frames,wall,cap)).toThrow();
@@ -76,7 +77,7 @@ test('unsupported section, geometry and appearance fail without publishing resul
  }
  expect(()=>normalTrack({...parameters,separation:0},source)).toThrow();
  expect(()=>normalTrack({...parameters,spacing:NaN},source)).toThrow();
-},1000);
+}, TIMEOUT.cheap);
 
 test('published NormalTrack interface, defaults and composition remain explicit graph data',()=>{
  const d=JSON.parse(source), g=d.groups.find((g:any)=>g.operation==='example.NormalTrack@1').graph;
@@ -87,7 +88,7 @@ test('published NormalTrack interface, defaults and composition remain explicit 
  expect(g.nodes.map((n:any)=>n.operation)).toEqual(['cc.pathStations@1','cc.fullSpan@1','cc.railOffsets@1','cc.adjustFrames@1','cc.sweepConvex@1','cc.adjustFrames@1','cc.sweepConvex@1','example.Ties@1','cc.join@1']);
  expect(g.nodes.at(-1).inputs.constructions).toEqual({list:[{node:'leftRail',output:'construction'},{node:'rightRail',output:'construction'},{node:'ties',output:'construction'}]});
  expect(g.outputs).toEqual([{name:'construction',type:{id:'cc.construction@1'},binding:{node:'join',output:'construction'}}]);
-},1000);
+}, TIMEOUT.cheap);
 
 test('native float32 precision collapse refuses atomically at ordinary and translated coordinates',()=>{
  // Exact review counterexample, then the same representability failure on other axes/scales.
@@ -103,7 +104,7 @@ test('native float32 precision collapse refuses atomically at ordinary and trans
  }
  // Finiteness is also an emitted-coordinate property.
  expect(()=>sweepConvex(section,[frame({translation:[0,0,1e39],rotation:I}),frame({translation:[0,0,2e39],rotation:I})],wall,cap)).toThrow('nonfinite');
-},1000);
+}, TIMEOUT.cheap);
 
 test('native accessor positions own degeneracy and directed normals on banked nonplanar and precision-boundary sweeps',()=>{
  for (const frames of [
@@ -129,4 +130,4 @@ test('native accessor positions own degeneracy and directed normals on banked no
    }
   }
  }
-},1000);
+}, TIMEOUT.cheap);

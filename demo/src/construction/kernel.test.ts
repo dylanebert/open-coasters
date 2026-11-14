@@ -1,3 +1,4 @@
+import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
 import { ConstructionError, parseDocument, registry, validateDocument, type Document, type Primitive, type Type } from '../../../construction/kernel';
 import { ids, nominal, list, standardOperations, standardTypes, standardRegistry } from '../../../construction/geometry';
@@ -26,7 +27,7 @@ test('original JSON parsing rejects duplicate keys, closed variants and nonfinit
         (d: any) => d.groups[0].graph.outputs[0].type = { id: ids.number, list: N },
         (d: any) => d.groups[0].graph.outputs[0].binding = { list: {} },
     ]) { const d = doc(); change(d); failure(() => evaluate(d), 'structure', ''); }
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('whole-document structural failures do not disappear with dead definitions', () => {
     const mutations: [string, (d: any) => void][] = [
@@ -46,7 +47,7 @@ test('whole-document structural failures do not disappear with dead definitions'
     d.groups.push({ operation: 'dead', graph: { inputs: [{ name: 'badDefault', type: nominal('not.installed'), default: null }], nodes: [], outputs: [{ name: 'unknown', type: nominal('not.installed'), binding: { value: null } }] } });
     expect(evaluate(d)).toEqual({ out: 1 });
     failure(() => evaluate(doc(nominal('not.installed'))), 'unsupported', 'type not.installed');
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('defaults and invocation values are exact, every entry input is required or decoded', () => {
     const d = doc(); d.groups[0].graph.inputs = [{ name: 'unused', type: N }];
@@ -59,7 +60,7 @@ test('defaults and invocation values are exact, every entry input is required or
     const resource = doc(nominal(ids.content), { value: {} }); failure(() => evaluate(resource), 'type', 'no literal decoder');
     d.groups[0].graph.inputs[0].type = list(nominal('missing'));
     d.groups[0].graph.inputs[0].default = []; failure(() => evaluate(d), 'unsupported', 'type missing');
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('recursive lists and nested groups bind complete calls, preserving duplicates and order', () => {
     const d = doc(LL, { list: [{ list: [{ value: 2 }, { value: 2 }] }, { list: [] }] });
@@ -81,7 +82,7 @@ test('recursive lists and nested groups bind complete calls, preserving duplicat
     expect(evaluate(nested, inputs).out).toEqual([[9], [8, 8]]);
     nested.groups[0].graph.inputs[0].type = list(N);
     failure(() => evaluate(nested, inputs), 'type', 'connection type');
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('all demanded primitive inputs/outputs checked; unknown output and atomic failures have context', () => {
     const operation: Primitive = { operation: 'custom', inputs: [{ name: 'unused', type: N }], outputs: [{ name: 'a', type: N }, { name: 'b', type: N }], evaluate: () => ({ a: 1, b: 'wrong' }) };
@@ -103,7 +104,7 @@ test('all demanded primitive inputs/outputs checked; unknown output and atomic f
     d.groups[0].graph.outputs[0].binding = { node: 'call', output: 'absent' };
     failure(() => registry(standardTypes, [operation]).evaluate(d, { inputs: {} }), 'type', 'unknown output');
     d.groups[0].graph.nodes[0].operation = 'missing'; failure(() => evaluate(d), 'unsupported', 'operation missing');
-}, 1000);
+}, TIMEOUT.cheap);
 
 test('published Ties JSON signatures independently typewalk against explicit expected signatures', () => {
     const signatures: Record<string, [Record<string, string>, Record<string, string>]> = {
@@ -129,4 +130,4 @@ test('published Ties JSON signatures independently typewalk against explicit exp
     }
     expect(g.outputs.map(p => [p.name, spelling(p.type), output(p.binding)])).toEqual([['construction', 'R', 'R']]);
     validateDocument(tiesDocument);
-}, 1000);
+}, TIMEOUT.cheap);

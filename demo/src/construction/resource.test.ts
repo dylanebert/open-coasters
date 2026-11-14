@@ -1,3 +1,4 @@
+import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
 import { ConstructionError, registry, type Document, type TypeDefinition, type Primitive } from '../../../construction/kernel';
 const T = { id: 'test.resource@1' };
@@ -21,7 +22,7 @@ test('entry validator and default/literal decoder allocation refusals retain res
         d.groups[0].graph.inputs = []; d.groups[0].graph.outputs = [{ name: 'result', type: T, binding: { value: 0 } }];
         refused(() => registry([type], []).evaluate(d, { inputs: {} }), ['outer'], 'entry', 'result');
     }
-}, 1000);
+}, TIMEOUT.cheap);
 test('primitive output validators recontextualize allocation refusals without publishing successful sibling outputs', () => {
     for (const failure of failures) {
         const type: TypeDefinition = { id: T.id, validate: v => { if (v === 2) throw failure(); return v; } };
@@ -30,7 +31,7 @@ test('primitive output validators recontextualize allocation refusals without pu
         d.groups[0].graph.outputs = [{ name: 'result', type: T, binding: { node: 'produce', output: 'good' } }];
         refused(() => registry([type], [op]).evaluate(d, { inputs: {} }), ['outer', 'produce'], 'produce', 'bad');
     }
-}, 1000);
+}, TIMEOUT.cheap);
 test('nested group output validation allocation refusal identifies the active complete-call output', () => {
     for (const failure of failures) {
         let validations = 0;
@@ -41,7 +42,7 @@ test('nested group output validation allocation refusal identifies the active co
         d.groups.push({ operation: 'inner', graph: { inputs: [], nodes: [], outputs: [{ name: 'x', type: T, binding: { value: 0 } }] } });
         refused(() => registry([type], []).evaluate(d, { inputs: {} }), ['outer', 'call'], 'call', 'x');
     }
-}, 1000);
+}, TIMEOUT.cheap);
 test('primitive execution preserves explicit resource errors just like allocation RangeErrors; ordinary causes stay evaluation/type', () => {
     for (const failure of [...failures, () => new Error('host allocation limit')]) {
         const d = source(), type: TypeDefinition = { id: T.id, validate: v => v };
@@ -53,4 +54,4 @@ test('primitive execution preserves explicit resource errors just like allocatio
     }
     const d = source(); d.groups[0].graph.inputs = [{ name: 'x', type: T }];
     refused(() => registry([{ id: T.id, validate: () => { throw Error('host allocation limit'); } }], []).evaluate(d, { inputs: { x: { type: T, value: 0 } } }), ['outer'], 'entry', 'x', 'type');
-}, 1000);
+}, TIMEOUT.cheap);
