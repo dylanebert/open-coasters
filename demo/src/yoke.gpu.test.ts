@@ -3,7 +3,8 @@ import { Materials, Meshes } from "@dylanebert/shallot";
 import { openGpuApp } from "@dylanebert/shallot/testing/gpu";
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { attachTexture, captureTexture } from "@dylanebert/shallot/rendering";
-import { initialConfiguration } from "./configuration";
+import { initialConfiguration as initialState, effective } from "./configuration";
+const initialConfiguration = effective({...initialState, selected:'track'});
 import { liveScene } from "./live";
 import { Scene } from "./scene";
 

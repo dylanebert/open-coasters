@@ -16,7 +16,9 @@ for (const phone of [false, true]) test(`numeric native focus and vertical inten
   if (phone) {
     const session = await page.context().newCDPSession(page);
     await session.send('Emulation.setTouchEmulationEnabled', { enabled: true });
-    await page.setViewportSize({ width: 390, height: 500 });
+    // The earned inspector no longer overflows at 500px; exercise native
+    // vertical scrolling at a genuinely constrained phone height instead.
+    await page.setViewportSize({ width: 390, height: 320 });
     const scroller = page.locator('aside');
     await scroller.evaluate(el => { el.scrollTop = el.scrollHeight; });
     const startScroll = await scroller.evaluate(el => el.scrollTop);

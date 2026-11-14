@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 const root = '/home/dylan/.local/share/open-coasters/placement-earned-suite';
 for (const phone of [false, true]) test(`earned placement suite ${phone ? 'phone' : 'desktop'}`, async ({ page }) => {
   if (phone) await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('./?example=station');
+  await page.goto('./?example=station&stepped');
   await page.locator('body[data-ready=true]').waitFor();
   const menu = page.locator('[name=example]');
   expect(await menu.locator('option').evaluateAll(options => options.map(o => (o as HTMLOptionElement).value))).toEqual(['ties','station','supports','assembly','track']);
@@ -14,7 +14,7 @@ for (const phone of [false, true]) test(`earned placement suite ${phone ? 'phone
   }
   await menu.selectOption('station');
   const spacing=page.locator('[name=assembly-spacing]'), start=page.locator('[name=gap-start]'), end=page.locator('[name=gap-end]');
-  const positions=()=>page.evaluate(()=>(window as any).demo.instances().slice(1).map((g:any)=>g[0].translation[2]));
+  const positions=()=>page.evaluate(async()=>{await (window as any).step();return (window as any).demo.instances().slice(1).map((g:any)=>g[0].translation[2]);});
   await spacing.fill('1'); await spacing.press('Enter');
   await start.fill('2'); await start.press('Enter'); await end.fill('5'); await end.press('Enter');
   await expect.poll(positions).toEqual([-6,-5,-1,0,1,2,3,4,5]);

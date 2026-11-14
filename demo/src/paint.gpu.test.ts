@@ -5,7 +5,8 @@ import { openGpuApp } from '@dylanebert/shallot/testing/gpu';
 import { TIMEOUT } from '@dylanebert/shallot/testing';
 import { attachTexture, captureTexture } from '@dylanebert/shallot/rendering';
 import { liveScene } from './live';
-import { initialConfiguration } from './configuration';
+import { initialConfiguration as initialState, effective } from './configuration';
+const initialConfiguration = effective({...initialState, selected:'track'});
 import { Scene } from './scene';
 
 test('paint uses stable material updates without mesh allocation, registration or camera changes', async () => {

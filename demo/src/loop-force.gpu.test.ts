@@ -7,7 +7,8 @@ import { TIMEOUT } from '@dylanebert/shallot/testing';
 import { attachTexture, captureTexture } from '@dylanebert/shallot/rendering';
 import { liveScene } from './live';
 import { Scene } from './scene';
-import { initialConfiguration } from './configuration';
+import { initialConfiguration as initialState, effective } from './configuration';
+const initialConfiguration = effective({...initialState, selected:'track'});
 import { assemblyDefaults } from './assembly';
 
 for(const proof of ['field controls','native material multiplication'] as const) test(`recorded support renders along unchanged rails: ${proof}`, async () => {

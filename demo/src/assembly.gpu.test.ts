@@ -5,7 +5,8 @@ import { openGpuApp } from '@dylanebert/shallot/testing/gpu';
 import { TIMEOUT } from '@dylanebert/shallot/testing';
 import { liveScene } from './live';
 import { Scene } from './scene';
-import { initialConfiguration } from './configuration';
+import { initialConfiguration as initialState, effective } from './configuration';
+const initialConfiguration = effective({...initialState, selected:'track'});
 import { assemblyDefaults } from './assembly';
 
 for (const aspect of [920/800,390/338]) test(`assembly reuses native assets/materials, frames every component and retains camera at ${aspect}`, async () => {
@@ -47,7 +48,7 @@ for (const aspect of [920/800,390/338]) test(`assembly reuses native assets/mate
     position(refs.instances[7][0]).forEach((v,i) => expect(v).toBeCloseTo([2,1.5,0][i],5));
     expect(orbit.yaw.get(camera)).toBeCloseTo(1.1); expect(orbit.pitch.get(camera)).toBeCloseTo(-.4);
     expect(orbit.distance.get(camera)).not.toBe(distance);
-    await live.update({...initial,example:'placed'});
+    await live.update({...initial,isolated:true});
     await live.update(initial);
     expect(refs.camera).toBe(camera); expect(orbit.distance.get(camera)).toBe(distance);
     w.step(0); await w.frameFence; await w.gpu.device.queue.onSubmittedWorkDone();

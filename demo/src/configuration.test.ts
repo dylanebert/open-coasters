@@ -2,22 +2,23 @@ import { expect, test } from 'bun:test';
 import { history, preview, commit, undo, redo, initialConfiguration, effective, linearColor } from './configuration';
 import { defaults, generate } from './track';
 
-test('Blitz app selection preserves procedural numeric defaults', () => {
+test('earned entry fixes native Bar defaults without changing procedural fixture defaults', () => {
   expect(defaults.fixed).toBe(false);
-  expect(initialConfiguration.parameters).toEqual({ ...defaults, fixed: true });
+  expect(initialConfiguration.selected).toBe('ties');
+  expect(effective(initialConfiguration).assembly).toMatchObject({tie:'assembly-tie-bar', spacing:.65, separation:1.2});
 });
 
 test('snapshot gestures, no-ops, undo/redo and branching', () => {
-  const a = { ...structuredClone(initialConfiguration), parameters: { ...defaults } };
-  const b = { ...a, parameters: { ...a.parameters, separation: 1.4 } };
-  const c = { ...b, parameters: { ...b.parameters, fixed: true } };
+  const a = structuredClone(initialConfiguration);
+  const b = { ...a, values: { ...a.values, ties: {...a.values.ties, spacing: 1.4} } };
+  const c = { ...b, selected: 'track' as const };
   let h = history(a);
   h = preview(preview(h, b), c);
   expect(h.past).toHaveLength(0);
   h = commit(h);
   expect(h.past).toEqual([a]);
   expect(effective(h.present).parameters.separation).toBe(1.2);
-  expect(h.present.parameters.separation).toBe(1.4);
+  expect(h.present.values.ties.spacing).toBe(1.4);
   h = undo(h);
   expect(h.present).toEqual(a);
   h = redo(h);
@@ -64,8 +65,8 @@ test('part views reconstruct original typed arrays without changing indices or v
   expect(selectedExample(selected)).toBe(key);
   expect(selectedExample(selectExample(selected,'track'))).toBe('track');
  }
- expect(selectExample(selectExample(initialConfiguration,'assembly'),'witness').example).toBeUndefined();
+ expect(selectedExample(selectExample(selectExample(initialConfiguration,'assembly'),'witness'))).toBe('witness');
  expect(selectExample(initialConfiguration,'unknown')).toBe(initialConfiguration);
- expect(selectedExample({...initialConfiguration,isolated:true})).toBe('witness');
- expect(selectedExample({...initialConfiguration,example:'assembly'})).toBe('assembly');
+ expect(selectedExample({...initialConfiguration,selected:'witness'})).toBe('witness');
+ expect(selectedExample({...initialConfiguration,selected:'assembly'})).toBe('assembly');
  });

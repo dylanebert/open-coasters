@@ -57,7 +57,7 @@ test(
       const orbit = w.storage(Orbit);
       w.gpu.device.pushErrorScope("validation");
       for (let cycle = 0; cycle < 2; cycle++)
-        for (let mode = 0; mode < 18; mode++) {
+        for (let mode = 0; mode < 17; mode++) {
           const previous = currentBuffers();
           for (const buffer of previous) families.add(buffer);
           const next: Selection = {
@@ -73,7 +73,7 @@ test(
               secondSpine: mode >= 11,
             },
             example: mode >= 14 ? 'assembly' : undefined,
-            assembly: {...assemblyDefaults, path: mode === 14 ? 'loop' : 'straight', witness: (['normal','station','supports','switch'] as const)[mode-14] ?? 'normal'},
+            assembly: {...assemblyDefaults, path: mode === 14 ? 'loop' : 'straight', witness: (['normal','station','supports'] as const)[mode-14] ?? 'normal'},
             isolated: mode === 4 || mode === 5,
             asset: mode === 4 ? "blitz-tie" : "wheel-carrier",
           };

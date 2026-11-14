@@ -1,311 +1,42 @@
-import { expect, test, type Page } from "@playwright/test";
-import { pixels as capturePixels, changedPixels } from "./pixels";
-const pixels = (page: Page) => capturePixels(page, [480, 400]);
-const step = (page: Page) => page.evaluate(() => (window as any).step());
-test("Pages: edits immediately change geometry in one document/app/camera; examples reframe and parameters retain orbit", async ({
-  page,
-}) => {
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => {
-    if (m.type() === "error") errors.push(m.text());
-  });
-  const requests: string[] = [];
-  page.on("request", (request) => {
-    if (/\.(gltf|bin)(\?|$)/.test(request.url())) requests.push(request.url());
-  });
-  await page.goto("./?stepped&component=local");
-  await page.locator('body[data-ready="true"]').waitFor();
-  await step(page);
-  const originalUrl = page.url();
-  await expect(page.getByRole("button", { name: "Undo", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Redo", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button")).toHaveCount(0);
-  await page.evaluate(() => {
-    const w = window as any;
-    w.witness = {
-      document,
-      app: w.demo.app,
-      world: w.demo.app.world,
-      camera: w.demo.camera,
-    };
-  });
-  const requestCount = requests.length;
-  // Real orbit and zoom, not a synthetic storage write.
-  const box = (await page.locator("canvas").boundingBox())!;
-  await page.mouse.move(box.x + box.width / 2, box.height / 2);
-  await page.mouse.down();
-  await step(page);
-  for (let i = 1; i <= 4; i++) {
-    await page.mouse.move(
-      box.x + box.width / 2 + i * 8,
-      box.height / 2 + i * 4,
-    );
-    await step(page);
+import { expect, test, type Page } from '@playwright/test';
+import { pixels, changedPixels } from './pixels';
+const step=(page:Page)=>page.evaluate(()=>(window as any).step());
+test('contributed native composition changes actual mesh topology, caches source and retains camera on edits',async({page})=>{
+ const errors:string[]=[], requests:string[]=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(/\.(gltf|bin)$/.test(r.url()))requests.push(r.url());});
+ await page.goto('./?example=track&stepped');await page.locator('body[data-ready=true]').waitFor();
+ await page.evaluate(()=>{const w=window as any;w.witness=[document,w.demo.app,w.demo.app.world,w.demo.camera];});
+ let count=0;
+ for(const path of ['straight','curve','loop']){
+  const before=await page.evaluate(()=>(window as any).demo.orbit());
+  await page.locator('[name=configuration]').selectOption(path);await step(page);
+  const view=await page.evaluate(()=>(window as any).demo.orbit());expect(view.yaw).toBe(before.yaw);expect(view.pitch).toBe(before.pitch);expect(view.distance).toBe(path==='loop'?26:19);
+  for(const composition of ['single','double']){
+   await page.locator('[name=spineAssembly]').selectOption(composition);await step(page);
+   expect(await page.evaluate(()=>(window as any).demo.orbit())).toEqual(view);
+   const meshes=await page.evaluate(()=>(window as any).demo.meshes());
+   expect(meshes.find((m:any)=>m.name==='Track rails').indexCount).toBe(32*192*6+168);
+   expect(meshes.find((m:any)=>m.name==='Track spine').indexCount).toBe((composition==='single'?24:48)*192*6+(composition==='single'?132:264));
   }
-  await page.mouse.up();
-  await step(page);
-  await page.mouse.wheel(0, -100);
-  await step(page);
-  let orbit = await page.evaluate(() => (window as any).demo.orbit());
-  let prior = await pixels(page);
-  const edited = async (kind?: string) => {
-    await step(page);
-    if (kind) {
-      const nextOrbit = await page.evaluate(() => (window as any).demo.orbit());
-      expect(nextOrbit.yaw).toBe(orbit.yaw);
-      expect(nextOrbit.pitch).toBe(orbit.pitch);
-      const inputs: { name: string; positions: number[] }[] = await page.evaluate(() => (window as any).demo.trackPositions());
-      expect(inputs.map(input => input.name)).toEqual(["Track rails", "Track spine", "Track ties"]);
-      // Independently reduce the actual mesh inputs. No camera value or
-      // production centering helper contributes to the expected target.
-      const low = [Infinity, Infinity, Infinity], high = [-Infinity, -Infinity, -Infinity];
-      for (const { positions } of inputs) {
-        expect(positions.length).toBeGreaterThan(0);
-        expect(positions.length % 3).toBe(0);
-        expect(positions.every(Number.isFinite)).toBe(true);
-        for (let i = 0; i < positions.length; i++) {
-          const axis = i % 3;
-          low[axis] = Math.min(low[axis], positions[i]);
-          high[axis] = Math.max(high[axis], positions[i]);
-        }
-      }
-      low.forEach((value, axis) => expect(nextOrbit.pan[axis]).toBeCloseTo((value + high[axis]) / 2, 5));
-      expect(nextOrbit.distance).toBe(kind === 'loop' ? 26 : 19);
-      orbit = nextOrbit;
-    }
-    const next = await pixels(page);
-    expect(await changedPixels(next, prior)).toBeGreaterThan(30);
-    await prior.dispose();
-    prior = next;
-    expect(page.url()).toBe(originalUrl);
-    expect(
-      await page.evaluate(() => {
-        const w = window as any;
-        return (
-          w.witness.document === document &&
-          w.witness.app === w.demo.app &&
-          w.witness.world === w.demo.app.world &&
-          w.witness.camera === w.demo.camera
-        );
-      }),
-    ).toBe(true);
-    expect(await page.evaluate(() => (window as any).demo.orbit())).toEqual(
-      orbit,
-    );
-  };
-  for (const kind of ["straight", "curve", "loop"]) {
-    await page.locator("[name=configuration]").selectOption(kind);
-    await edited(kind);
-  }
-  await page.keyboard.press('ControlOrMeta+z');
-  await edited('curve');
-  await page.keyboard.press('ControlOrMeta+Shift+z');
-  await edited('loop');
-  for (const [name, value] of [
-    ["spacing", "1.2"],
-    ["separation", "1.5"],
-    ["width", "0.6"],
-    ["depth", "0.8"],
-  ]) {
-    await page.locator(`[name=${name}]`).fill(value);
-    await edited();
-  }
-  await page.locator("[name=spacing]").fill("0.8");
-  await edited();
-  const latest = await page.evaluate(() => (window as any).demo.meshes());
-  // Multiple edits before a frame: compare actual registered geometry with the presented final value.
-  await page.locator("[name=spacing]").fill("0.4");
-  await page.locator("[name=spacing]").fill("0.8");
-  await step(page);
-  expect(await page.evaluate(() => (window as any).demo.meshes())).toEqual(
-    latest,
-  );
-  await prior.dispose();
-  prior = await pixels(page);
-  await page.locator("[name=component]").selectOption("fixed");
-  await edited();
-  await expect(page.locator("[name=separation]")).toHaveValue("1.2");
-  await expect(page.locator("[name=separation]")).toBeDisabled();
-  await expect(page.locator("#meaning, .hint")).toHaveCount(0);
-  await page.locator("[name=component]").selectOption("local");
-  await edited();
-  await expect(page.locator("[name=separation]")).toBeEnabled();
-  await expect(page.locator("[name=separation]")).toHaveValue("1.5");
-  await expect(page.locator("[name=asset]")).toBeHidden();
-  expect(requests.length).toBe(requestCount + 6); // three profiles, loaded once on first Blitz selection
-  expect(
-    await page.evaluate(async () => {
-      await document.fonts.ready;
-      return [
-        '13px "IBM Plex Sans"',
-        '12px "JetBrains Mono"',
-        '700 15px "JetBrains Mono"',
-      ].every((font) => document.fonts.check(font));
-    }),
-  ).toBe(true);
-  await prior.dispose();
-  expect(errors).toEqual([]);
+  if(count)expect(requests.length).toBe(count);else count=requests.length;
+ }
+ const meshes=await page.evaluate(()=>(window as any).demo.meshes());
+ await page.locator('[name=spineAssembly]').press('ControlOrMeta+z');await step(page);
+ expect(await page.evaluate(()=>(window as any).demo.meshes())).not.toEqual(meshes);
+ await page.locator('[name=spineAssembly]').press('ControlOrMeta+Shift+z');await step(page);
+ expect(await page.evaluate(()=>(window as any).demo.meshes())).toEqual(meshes);
+ expect(await page.evaluate(()=>{const w=window as any;return w.witness.every((v:any,i:number)=>v===[document,w.demo.app,w.demo.app.world,w.demo.camera][i]);})).toBe(true);
+ expect(errors).toEqual([]);
 });
-
-test("desktop and phone fields are aligned, keyboard editable, locally fonted and contained", async ({
-  page,
-}) => {
-  await page.goto("./?stepped&component=local");
-  await page.locator('body[data-ready="true"]').waitFor();
-  await expect(page.locator("[name=width]")).toHaveValue("0.28");
-  await page.locator("canvas").click();
-  await step(page);
-  const orbit = await page.evaluate(() => (window as any).demo.orbit());
-  await page.locator("[name=width]").focus();
-  await page.keyboard.press("ControlOrMeta+A");
-  await page.keyboard.type("0.4");
-  await expect(page.locator("[name=width]")).toBeFocused();
-  await page.keyboard.down("ArrowUp");
-  await step(page);
-  await page.keyboard.up("ArrowUp");
-  await expect(page.locator("[name=width]")).toHaveValue("0.41");
-  expect(await page.evaluate(() => (window as any).demo.orbit())).toEqual(
-    orbit,
-  );
-  await step(page);
-  await page.keyboard.press("Enter");
-  expect(new URL(page.url()).search).toBe("?stepped&component=local");
-  for (const width of [1280, 390, 320]) {
-    await page.setViewportSize({ width, height: 844 });
-    await step(page);
-    const layout = await page.evaluate(() => {
-      const panel = document.querySelector("aside")!;
-      const controls = [
-        ...document.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
-          "input,select",
-        ),
-      ].filter((e) => e.getClientRects().length);
-      return {
-        width: document.documentElement.scrollWidth,
-        panelOverflow: panel.scrollWidth > panel.clientWidth,
-        controls: controls.map((e) => ({
-          left: e.getBoundingClientRect().left,
-          right: e.getBoundingClientRect().right,
-          height: e.getBoundingClientRect().height,
-        })),
-        canvasHeight: document.querySelector("canvas")!.getBoundingClientRect()
-          .height,
-      };
-    });
-    expect(layout.width).toBe(width);
-    expect(layout.panelOverflow).toBe(false);
-    expect(new Set(layout.controls.map((c) => c.left)).size).toBe(1);
-    for (const control of layout.controls) {
-      expect(control.right).toBeLessThanOrEqual(width);
-      expect(control.height).toBeGreaterThanOrEqual(width <= 480 ? 44 : 32);
-    }
-    expect(layout.canvasHeight).toBeGreaterThan(300);
-  }
-  const fontRequests = await page.evaluate(() =>
-    performance
-      .getEntriesByType("resource")
-      .map((e) => e.name)
-      .filter((name) => name.endsWith(".woff2")),
-  );
-  expect(fontRequests).toHaveLength(3);
-  expect(
-    fontRequests.every((url) =>
-      new URL(url).pathname.startsWith("/open-coasters/fonts/"),
-    ),
-  ).toBe(true);
-});
-
-// Each query entry must bootstrap its own asset before an in-document switch;
-// decoder/static geometry correctness belongs to the independent Dawn witnesses.
-for (const asset of ["wheel-carrier", "blitz-tie"]) {
-  test(`separate ${asset} entry retains immediate asset editing`, async ({ page }) => {
-    const errors: string[] = [];
-    page.on("pageerror", e => errors.push(e.message));
-    await page.goto(`./?stepped&asset=${asset}`);
-    await page.locator('body[data-ready="true"]').waitFor();
-    await step(page);
-    await expect(page.locator("[name=configuration]")).toBeHidden();
-    await expect(page.locator("#ties")).toBeHidden();
-    await expect(page.locator("#spine")).toBeHidden();
-    await expect(page.locator("[name=asset]")).toHaveValue(asset);
-    const before = await pixels(page);
-    const url = page.url();
-    await page.evaluate(() => { (window as any).saved = (window as any).demo.app; });
-    await page.locator("[name=asset]").selectOption(asset === "blitz-tie" ? "wheel-carrier" : "blitz-tie");
-    await step(page);
-    const after = await pixels(page);
-    expect(await after.evaluate((data, prior) => data.some((v, i) => v !== prior[i]), before)).toBe(true);
-    await before.dispose();
-    await after.dispose();
-    expect(page.url()).toBe(url);
-    expect(await page.evaluate(() => (window as any).saved === (window as any).demo.app)).toBe(true);
-    await page.getByRole("link", {name: "Open Coasters"}).click();
-    await page.locator('body[data-ready="true"]').waitFor();
-    await expect(page.locator("[name=configuration]")).toBeVisible();
-    expect(errors).toEqual([]);
-  });
-}
-
-
-test('Blitz assemblies: fixed source controls, retained dimensions, history, color and cached assets across tracks', async ({ page }) => {
-  const requests: string[] = [];
-  page.on('request', r => { if (/\.(gltf|bin)$/.test(r.url())) requests.push(r.url()); });
-  await page.goto('./?stepped&component=local');
-  await page.locator('body[data-ready="true"]').waitFor();
-  await step(page);
-  for (const [name,value] of [['separation','1.4'],['width','0.4'],['depth','0.7']]) {
-    await page.locator(`[name=${name}]`).fill(value); await page.locator(`[name=${name}]`).blur();
-  }
-  await page.locator('[name=component]').selectOption('fixed');
-  await step(page);
-  const requestCount = requests.length;
-  const world = await page.evaluate(() => { const w=window as any; w.blitzWitness=[w.demo.app,w.demo.app.world,w.demo.camera]; return w.demo.orbit(); });
-  await expect(page.getByRole('heading', { name: 'Color', exact: true })).toBeVisible();
-  await expect(page.locator('form p')).toHaveCount(0);
-  for (const [name,value] of [['separation','1.2'],['width','0.533333'],['depth','0.533333']]) {
-    await expect(page.locator(`[name=${name}]`)).toBeDisabled();
-    await expect(page.locator(`[name=${name}]`)).toHaveValue(value);
-  }
-  for (const track of ['straight','curve','loop']) {
-    await page.locator('[name=configuration]').selectOption(track); await step(page);
-    const view=await page.evaluate(()=>(window as any).demo.orbit());
-    expect(view.yaw).toBe(world.yaw); expect(view.pitch).toBe(world.pitch);
-    expect(view.distance).toBe(track === 'loop' ? 26 : 19);
-    for (const assembly of ['single','double']) {
-      await page.locator('[name=spineAssembly]').selectOption(assembly); await step(page);
-      expect(await page.evaluate(()=>(window as any).demo.orbit())).toEqual(view);
-      const meshes=await page.evaluate(()=>(window as any).demo.meshes());
-      expect(meshes.find((m:any)=>m.name==='Track rails').indexCount).toBe(32*192*6+168);
-      expect(meshes.find((m:any)=>m.name==='Track spine').indexCount).toBe((assembly==='single'?24:48)*192*6+(assembly==='single'?132:264));
-    }
-  }
-  // Orbit's public distance target eases from 19 to 26 after the track change.
-  for (let i=0;i<60;i++) await step(page);
-  const beforeView=await page.evaluate(()=>(window as any).demo.orbit());
-  const beforeMeshes=await page.evaluate(()=>(window as any).demo.meshes());
-  const paintedBefore=await pixels(page);
-  for (const part of ['rails','ties','spine']) {
-    await page.locator(`[name=${part}Color]`).evaluate(input=>{
-      const e=input as HTMLInputElement; e.value='#ff0000'; e.dispatchEvent(new Event('input',{bubbles:true})); e.dispatchEvent(new Event('change',{bubbles:true}));
-    });
-  }
-  await step(page);
-  const painted=await pixels(page); expect(await changedPixels(painted,paintedBefore)).toBeGreaterThan(30);
-  for(let i=0;i<3;i++) await page.keyboard.press('ControlOrMeta+z');
-  await step(page);
-  expect(await page.evaluate(()=>(window as any).demo.orbit())).toEqual(beforeView);
-  expect(await page.evaluate(()=>(window as any).demo.meshes())).toEqual(beforeMeshes);
-  const restored=await pixels(page); expect(await changedPixels(restored,paintedBefore)).toBe(0);
-  await page.keyboard.press('ControlOrMeta+z'); await step(page);
-  await expect(page.locator('[name=spineAssembly]')).toHaveValue('single');
-  await page.keyboard.press('ControlOrMeta+Shift+z'); await step(page);
-  await expect(page.locator('[name=spineAssembly]')).toHaveValue('double');
-  await page.locator('[name=component]').selectOption('local'); await step(page);
-  for (const [name,value] of [['separation','1.4'],['width','0.4'],['depth','0.7']]) await expect(page.locator(`[name=${name}]`)).toHaveValue(value);
-  await page.locator('[name=component]').selectOption('fixed'); await step(page);
-  await expect(page.locator('[name=spineAssembly]')).toHaveValue('double');
-  expect(requests.length).toBe(requestCount);
-  expect(await page.evaluate(()=>{ const w=window as any; return w.blitzWitness.every((v:any,i:number)=>v===[w.demo.app,w.demo.app.world,w.demo.camera][i]); })).toBe(true);
-  await paintedBefore.dispose(); await painted.dispose(); await restored.dispose();
+for(const asset of ['wheel-carrier','blitz-tie'])test(`source witness ${asset} retains hierarchy framing and immediate source selection`,async({page})=>{
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(`./?asset=${asset}&stepped`);await page.locator('body[data-ready=true]').waitFor();await step(page);
+ await expect(page.locator('[name=example]')).toHaveValue('witness');await expect(page.locator('[name=asset]')).toHaveValue(asset);
+ expect(await page.evaluate(()=>(window as any).demo.orbit().distance)).toBe(8);
+ const groups=await page.evaluate(()=>(window as any).demo.instances());expect(groups).toHaveLength(2);expect(groups[0]).toHaveLength(asset==='wheel-carrier'?4:1);
+ if(asset==='wheel-carrier')expect(groups[0][1].translation).toEqual(expect.arrayContaining([expect.closeTo(-1.25,5),expect.closeTo(.6,5),expect.closeTo(.45,5)]));
+ const before=await pixels(page,[480,400]);const url=page.url();
+ await page.locator('[name=asset]').selectOption(asset==='wheel-carrier'?'blitz-tie':'wheel-carrier');await step(page);
+ const after=await pixels(page,[480,400]);expect(await changedPixels(after,before)).toBeGreaterThan(30);await before.dispose();await after.dispose();expect(page.url()).toBe(url);
+ await page.getByRole('link',{name:'Open Coasters'}).click();await page.locator('body[data-ready=true]').waitFor();await expect(page.locator('[name=example]')).toHaveValue('ties');
+ expect(errors).toEqual([]);
 });

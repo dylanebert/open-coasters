@@ -22,7 +22,7 @@ test("ordinary Pages route runs and presents a nonblank scene", async ({
   await expect(page.locator("canvas")).toBeVisible();
   const before = await pixels(page);
   expect(await nonblank(before)).toBeGreaterThan(1000);
-  await page.locator("[name=spacing]").fill("1.2");
+  await page.locator("[name=assembly-spacing]").fill("1.2");
   await frames.run(2);
   const after = await pixels(page);
   expect(await changedChannels(after, before)).toBeGreaterThan(1000);
