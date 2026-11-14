@@ -1,7 +1,7 @@
 import { expect, test, setDefaultTimeout } from "bun:test";
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 setDefaultTimeout(TIMEOUT.node);
-import { defaults, frame, generate, length, ties, type Configuration } from "./track";
+import { defaults, generate, length, ties, type Configuration } from "./track";
 import { crossing, dot, groups, localBounds, norm, normal, railPoint, sub, triangleDistance, triangles, type Triangle } from "./yoke-oracle";
 
 function nearBoxes(a: Triangle,b: Triangle) {

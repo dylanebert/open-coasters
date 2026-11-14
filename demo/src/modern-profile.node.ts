@@ -7,7 +7,6 @@ import { requireStaticInstance } from "./instance";
 import { sweepProfile } from "./profile-sweep";
 
 const names = ["ModernRail", "ModernSpine_1", "ModernSpine_2"];
-const archive = new URL("../../assets/blitz-profile/", import.meta.url);
 // Oracle reads original OBJ face-corner records, never the production extractor.
 async function source(name: string) {
   const vertices: number[][] = [], normals: number[][] = [], faces: number[][][] = [];

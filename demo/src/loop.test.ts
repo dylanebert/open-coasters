@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import path from "./loop-path.json";
 import state from "../fixtures/loop-state.json";
-import { defaults, frame, generate, length, rotation, ties } from "./track";
-import { groups, localBounds } from "./yoke-oracle";
+import { defaults, frame, length, rotation, ties } from "./track";
 
 const dot = (a: number[], b: number[]) =>
   a.reduce((s, x, i) => s + x * b[i], 0);
@@ -240,7 +239,6 @@ test("independent recorded velocity differences and geometry/state recover autho
   expect(state.samples[apex][1]).toBeCloseTo(5.8290506301, 6);
 });
 
-const add = (a: number[], b: number[]) => a.map((x, i) => x + b[i]);
 const scale = (a: number[], k: number) => a.map((x) => x * k);
 
 test("noncircular spatial loop: independently measured chord curvature and nonplanarity", () => {

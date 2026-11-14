@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { defaults, frame, generate, length, ties, type Configuration } from "./track";
-import { crossing, dot, groups, localBounds, norm, normal, railPoint, sub, triangleDistance, triangles, type Triangle } from "./yoke-oracle";
+import { defaults, generate } from "./track";
+import { crossing, triangleDistance, triangles, type Triangle } from "./yoke-oracle";
 
 function nearBoxes(a: Triangle,b: Triangle) {
   for (let k=0;k<3;k++) {
