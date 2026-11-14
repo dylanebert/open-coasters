@@ -8,7 +8,7 @@ for(const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`pu
   const step=()=>page.evaluate(()=>(window as any).step());
   const settle=()=>page.evaluate(async()=>{for(let i=0;i<10;i++)await(window as any).step(1/15);});
   const example=page.locator('[name=example]');
-  expect(await example.locator('option').evaluateAll(options=>options.map(o=>(o as HTMLOptionElement).value))).toEqual(['track','assembly']);
+  expect(await example.locator('option').evaluateAll(options=>options.map(o=>(o as HTMLOptionElement).value))).toEqual(['track','assembly','placed','repeated','station','supports','switch']);
   const camera=await page.evaluate(()=>(window as any).demo.camera);
   await example.selectOption('assembly');await step();
   await page.locator('[name=assembly-path]').selectOption('loop');await step();await settle();

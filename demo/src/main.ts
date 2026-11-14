@@ -5,7 +5,7 @@ import { worldToViewport, attachCanvas } from "@dylanebert/shallot/rendering";
 import { Orbit } from "@dylanebert/shallot/extras";
 import { mount, unmount } from "svelte";
 import Inspector from "./Inspector.svelte";
-import { initialConfiguration, effective, numericRanges, type Configuration } from "./configuration";
+import { initialConfiguration, selectExample, effective, numericRanges, type Configuration } from "./configuration";
 import { Scene } from "./scene";
 import { liveScene, type Selection } from "./live";
 
@@ -14,9 +14,9 @@ const loading = shallotDark({ container: document.body, bootstrap });
 let inspector: ReturnType<typeof mount> | undefined;
 try {
   const query = new URLSearchParams(location.search);
-  const initial: Configuration = structuredClone(initialConfiguration);
+  let initial: Configuration = structuredClone(initialConfiguration);
   initial.isolated = query.has("asset");
-  if (!initial.isolated && ['assembly', 'placed', 'repeated'].includes(query.get('example')!)) initial.example = query.get('example') as Configuration['example'];
+  if (!initial.isolated) initial = selectExample(initial, query.get('example') ?? 'track');
   if (["blitz-tie", "wheel-carrier"].includes(query.get("asset")!)) initial.asset = query.get("asset") as Configuration['asset'];
   if (["straight", "curve", "loop"].includes(query.get("configuration")!)) initial.parameters.configuration = query.get("configuration") as Configuration['parameters']['configuration'];
   if (["local", "fixed"].includes(query.get("component")!)) initial.parameters.fixed = query.get("component") === "fixed";

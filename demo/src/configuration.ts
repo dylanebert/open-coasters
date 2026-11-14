@@ -1,4 +1,5 @@
 import { defaults, type Parameters } from "./track";
+import { assemblyDefaults } from './assembly';
 
 export const numericRanges = {
   spacing: { min: .3, max: 1.5, step: .05 },
@@ -31,6 +32,23 @@ export const initialConfiguration: Configuration = {
   isolated: false,
   asset: "wheel-carrier",
 };
+export const exampleOptions = [
+  ['track', 'Spine track'], ['assembly', 'Repeat along a path'],
+  ['placed', 'Place an asset'], ['repeated', 'Repeat in a line'],
+  ['station', 'Gap in repeated ties'], ['supports', 'Place two supports'],
+  ['switch', 'Compose parts'],
+] as const;
+export type Example = typeof exampleOptions[number][0] | 'witness';
+export function selectedExample(c: Configuration): Example {
+  return c.isolated ? 'witness' : c.example === 'assembly' ? c.assembly?.witness === 'normal' || !c.assembly?.witness ? 'assembly' : c.assembly.witness : c.example ?? 'track';
+}
+export function selectExample(c: Configuration, value: string): Configuration {
+  if (value === 'witness') return { ...c, isolated: true, example: undefined };
+  if (!exampleOptions.some(([key]) => key === value)) return c;
+  const assembly = value === 'assembly' || ['station', 'supports', 'switch'].includes(value);
+  return { ...c, isolated: false, example: assembly ? 'assembly' : value as Configuration['example'],
+    ...(assembly ? { assembly: { ...(c.assembly ?? assemblyDefaults), witness: value === 'assembly' ? 'normal' : value as 'station' | 'supports' | 'switch' } } : {}) };
+}
 export type History = { past: Configuration[]; present: Configuration; future: Configuration[]; origin?: Configuration };
 const same = (a: Configuration, b: Configuration) => JSON.stringify(a) === JSON.stringify(b);
 export function history(present: Configuration): History { return { past: [], present, future: [] }; }

@@ -1,15 +1,14 @@
 <script lang="ts">
-  import { history, preview, commit, undo, redo, effective, numericRanges, compositionDefaults, compositionRanges, type Configuration } from './configuration';
+  import { exampleOptions, selectedExample, selectExample, history, preview, commit, undo, redo, effective, numericRanges, compositionDefaults, compositionRanges, type Configuration } from './configuration';
   import { scrub } from './field-scrub';
-  import { assemblyDefaults } from './assembly';
+  import { postDefaults, assemblyDefaults, type Assembly } from './assembly';
   import { untrack } from 'svelte';
   let { initial, changed }: { initial: Configuration; changed: (value: Configuration) => void } = $props();
   let h = $state(history(untrack(() => initial)));
   const c = $derived(h.present);
-  const witnesses = untrack(() => initial.example === 'placed' || initial.example === 'repeated');
   const assetView = $derived(c.isolated || c.example === 'placed' || c.example === 'repeated');
   const composition = $derived(c.composition ?? compositionDefaults);
-  const assembly = $derived(c.assembly ?? assemblyDefaults);
+  const assembly: Assembly = $derived(c.assembly ?? assemblyDefaults);
   const assemblyView = $derived(c.example === 'assembly');
   const compositionLabels = { x: 'X · m', y: 'Y · m', z: 'Z · m', yaw: 'Yaw · °', pitch: 'Pitch · °', roll: 'Roll · °', count: 'Count', spacing: 'Spacing · m', offset: 'Starting offset · m' };
   const rendered = $derived(effective(c));
@@ -43,8 +42,8 @@
 <h1 id="identity">{#if c.isolated}<a href={location.pathname}>Open Coasters</a>{:else}Open Coasters{/if}</h1>
 <form onsubmit={event => event.preventDefault()}>
   <section>
-    <label>Example<select name="example" value={c.isolated ? 'witness' : c.example ?? 'track'} onchange={event => change({ ...c, isolated: event.currentTarget.value === 'witness', example: event.currentTarget.value === 'witness' ? undefined : event.currentTarget.value as Configuration['example'] }, true)}>
-      <option value="track">Spine track</option><option value="assembly">Circular rails</option>{#if witnesses}<option value="placed">Placed asset witness</option><option value="repeated">Repeated asset witness</option>{/if}{#if c.isolated}<option value="witness">Source witness</option>{/if}
+    <label>Example<select name="example" value={selectedExample(c)} onchange={event => change(selectExample(c, event.currentTarget.value), true)}>
+      {#each exampleOptions as [value, label]}<option {value}>{label}</option>{/each}{#if c.isolated}<option value="witness">Source witness</option>{/if}
     </select></label>
     <label id="configuration-row" hidden={assetView || assemblyView}>Track<select name="configuration" value={c.parameters.configuration} onchange={event => change({ ...c, parameters: { ...c.parameters, configuration: event.currentTarget.value as Configuration['parameters']['configuration'] } }, true)}>
       <option value="straight">Straight</option><option value="curve">Banked curve</option><option value="loop">Vertical loop</option>
@@ -53,8 +52,14 @@
   </section>
   {#if assemblyView}
     <section>
-      <label>Construction<select name="assembly-witness" value={assembly.witness ?? 'normal'} onchange={event => change({ ...c, assembly: { ...assembly, witness: event.currentTarget.value as typeof assembly.witness } }, true)}><option value="normal">Normal track</option><option value="station">Station gap</option><option value="supports">Rigid box posts</option><option value="switch">Static part composition</option></select></label>
-      <label>Path<select disabled={assembly.witness === 'supports' || assembly.witness === 'switch'} name="assembly-path" value={assembly.path} onchange={event => change({ ...c, assembly: { ...assembly, path: event.currentTarget.value as typeof assembly.path } }, true)}><option value="straight">Straight</option><option value="curve">Banked curve</option><option value="loop">Recorded loop</option></select></label>
+      {#if assembly.witness !== 'supports' && assembly.witness !== 'switch'}
+      <label>Path<select name="assembly-path" value={assembly.path} onchange={event => change({ ...c, assembly: { ...assembly, path: event.currentTarget.value as typeof assembly.path } }, true)}><option value="straight">Straight</option><option value="curve">Banked curve</option><option value="loop">Recorded loop</option></select></label>
+      {/if}
+      {#if assembly.witness === 'supports'}
+        {#each (['post1', 'post2'] as const) as key, i}
+          <label>Support {i + 1} from start · m<input name={'assembly-' + key} type="number" min="0" max="12" step="any" required value={assembly[key] ?? postDefaults[key]} oninput={event => { if (event.currentTarget.validity.valid) change({ ...c, assembly: { ...assembly, [key]: event.currentTarget.valueAsNumber } }); }} onblur={event => { finish(); event.currentTarget.value = String(assembly[key] ?? postDefaults[key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} /></label>
+        {/each}
+      {/if}
       {#if assembly.path === 'loop' && assembly.witness !== 'supports' && assembly.witness !== 'switch'}
         <label>Appearance<select name="appearance" value={c.appearance ?? 'material'} onchange={event => change({ ...c, appearance: event.currentTarget.value as Configuration['appearance'] }, true)}><option value="material">Native material</option><option value="normal-force">Normal support</option></select></label>
         {#if c.appearance === 'normal-force'}
@@ -62,9 +67,11 @@
         {/if}
       {/if}
       <label>Tie<select name="assembly-tie" value={assembly.tie} onchange={event => change({ ...c, assembly: { ...assembly, tie: event.currentTarget.value as typeof assembly.tie } }, true)}><option value="assembly-tie-bar">Bar</option><option value="assembly-tie-fork">Fork</option></select></label>
+      {#if assembly.witness !== 'switch'}
       {#each (['separation', 'spacing'] as const) as key}
-        <label use:scrub={{ value: () => assembly[key], preview: value => change({ ...c, assembly: { ...assembly, [key]: value } }), commit: finish }}>{key === 'separation' ? 'Rail separation · m' : 'Tie spacing · m'}<input disabled={assembly.witness === 'switch'} name={'assembly-' + key} type="number" min={numericRanges[key].min} max={numericRanges[key].max} step={numericRanges[key].step} required value={assembly[key]} oninput={event => { if (event.currentTarget.validity.valid) change({ ...c, assembly: { ...assembly, [key]: event.currentTarget.valueAsNumber } }); }} onblur={event => { finish(); event.currentTarget.value = String(assembly[key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} /></label>
+        <label use:scrub={{ value: () => assembly[key], preview: value => change({ ...c, assembly: { ...assembly, [key]: value } }), commit: finish }}>{key === 'separation' ? 'Rail separation · m' : 'Tie spacing · m'}<input name={'assembly-' + key} type="number" min={numericRanges[key].min} max={numericRanges[key].max} step={numericRanges[key].step} required value={assembly[key]} oninput={event => { if (event.currentTarget.validity.valid) change({ ...c, assembly: { ...assembly, [key]: event.currentTarget.valueAsNumber } }); }} onblur={event => { finish(); event.currentTarget.value = String(assembly[key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} /></label>
       {/each}
+      {/if}
     </section>
   {/if}
   {#if !c.isolated && assetView}

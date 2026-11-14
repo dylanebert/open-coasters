@@ -8,7 +8,7 @@ import { supportRegistry, planeId } from '../../construction/plane-supports';
 import { parseDocument } from '../../construction/kernel';
 import { frame, framesAt, ids, instance, join, nominal } from '../../construction/geometry';
 import { nativeSnapshot, type Construction, type Content } from '../../construction/native';
-import { assemblyDefaults, resolveAssembly, railAppearance, type Assembly } from './assembly';
+import { postDefaults, assemblyDefaults, resolveAssembly, railAppearance, type Assembly } from './assembly';
 import type { SampledSection } from './sampled-section';
 const diagnosticDocument=JSON.parse(diagnosticSource);
 // Reuse the authored diagnostic bytes, selecting one identity post, not a contributed asset kind.
@@ -27,7 +27,7 @@ export function constructDemo(a: Assembly, section: SampledSection, tie: Content
     construction=stationGap({...parameters,excluded:[{start:total*.35,end:total*.65}]},normal,[{content:fitting,frames:framesAt(resolved.path,[total*.35,total*.65])}]);
   } else if(witness==='supports') {
     const supports=supportRegistry().evaluate(parseDocument(support),{inputs:{
-      attachments:{type:{list:nominal(ids.frame)},value:[pose(0,1.5,-4),pose(0,1.5,4)]},
+      attachments:{type:{list:nominal(ids.frame)},value:framesAt(resolved.path,[a.post1 ?? postDefaults.post1,a.post2 ?? postDefaults.post2])},
       terrain:{type:nominal(planeId),value:{point:[0,0,0],normal:[0,1,0]}},
       post:{type:nominal(ids.content),value:post},
     }}).construction as Construction;

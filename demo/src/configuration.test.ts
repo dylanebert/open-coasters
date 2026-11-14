@@ -56,3 +56,16 @@ test('part views reconstruct original typed arrays without changing indices or v
     expect(new Uint32Array(indices)).toEqual(mesh.indices);
   }
 });
+
+ test('flat example selection and URL values share a reversible view mapping',async()=>{
+ const {exampleOptions,selectedExample,selectExample,initialConfiguration}=await import('./configuration');
+ for(const [key] of exampleOptions) {
+  const selected=selectExample(initialConfiguration,key);
+  expect(selectedExample(selected)).toBe(key);
+  expect(selectedExample(selectExample(selected,'track'))).toBe('track');
+ }
+ expect(selectExample(selectExample(initialConfiguration,'assembly'),'witness').example).toBeUndefined();
+ expect(selectExample(initialConfiguration,'unknown')).toBe(initialConfiguration);
+ expect(selectedExample({...initialConfiguration,isolated:true})).toBe('witness');
+ expect(selectedExample({...initialConfiguration,example:'assembly'})).toBe('assembly');
+ });

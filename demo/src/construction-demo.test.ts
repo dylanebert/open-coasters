@@ -83,3 +83,17 @@ test('construction controls keep history and deterministic camera/replacement de
  expect(changesSubject(initial,{...initial,appearance:'normal-force'})).toBe(false);
  expect(geometryKey(initial)).toBe(geometryKey({...initial,paint:{...initial.paint,rails:'#123456'}}));
 },TIMEOUT.cheap);
+
+ for(const [post1,post2] of [[0,12],[12,0],[3.125,8.875],[4.25,4.25]]) test(`explicit support stations ${post1}, ${post2} are independent of tie repetition`,()=>{
+ const build=(patch:object)=>constructDemo({...a,witness:'supports',...patch},section,tie,fitting,post);
+ const base=build({});
+   const r=build({post1,post2});
+   expect(r.parts[2].placements).toHaveLength(2);
+   r.parts[2].placements.forEach((f,i)=>{ expect(f.translation[0]).toBe(0); expect(f.translation[1]).toBe(0); expect(f.translation[2]).toBeCloseTo([post1,post2][i]-6,12); });
+   expect(r.parts[0]).toEqual(base.parts[0]);
+   expect(build({post1,post2,spacing:.375}).parts[2]).toEqual(r.parts[2]);
+
+ expect(build({post1:1.234}).parts[2].placements[1]).toEqual(base.parts[2].placements[1]);
+ expect(build({post2:11.789}).parts[2].placements[0]).toEqual(base.parts[2].placements[0]);
+ for(const key of ['post1','post2']) for(const value of [NaN,Infinity,-.001,12.001]) expect(()=>build({[key]:value})).toThrow('Invalid support station');
+ },TIMEOUT.cheap);
