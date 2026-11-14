@@ -115,14 +115,14 @@ a native result never proves another tool can execute its source recipe.
 
 ## Demo consumer and qualification
 
-The demo calls the reusable NormalTrack graph through
+Path-based tie repetition calls the reusable NormalTrack graph through
 [a bounded app adapter](demo/src/construction-demo.ts). Analytic and recorded poses
 become explicit sampled data in [assembly.ts](demo/src/assembly.ts); the displayed
 rails use 97 stations (a bounded visualization approximation). Recorded source
 poses/physics are unchanged. Repeated ties, gaps, explicitly positioned posts and
 static part composition are separate examples in one chooser. Post distances are
-independent of tie spacing. The static example has
-seven owned parts, not a generated switch. Force coloring is consumer-only native
+independent of tie spacing. Static composition has seven owned parts, not a
+generated switch. Force coloring is consumer-only native
 mesh packing. Legacy spine-track behavior is not thereby construction conformance.
 
 `live.ts` still owns whole-mesh reset and stable material registrations; `main.ts`
