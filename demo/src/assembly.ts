@@ -6,6 +6,7 @@ import { nativeSnapshot, snapshotBytes, type Construction } from '../../construc
 import type { SampledSection } from './sampled-section';
 
 export const assemblyDefaults = { path: 'curve' as 'straight' | 'curve' | 'loop', separation: 1.2, spacing: .65, tie: 'assembly-tie-bar' as 'assembly-tie-bar' | 'assembly-tie-fork', witness: 'normal' as 'normal' | 'station' | 'supports' | 'switch' };
+export const postRange = { min: 0, max: 12 };
 export const postDefaults = { post1: 2, post2: 10 };
 export type Assembly = typeof assemblyDefaults & { post1?: number; post2?: number };
 /** Bounded consumer adapter. Analytic stations and recorded poses are data inputs,
@@ -29,7 +30,7 @@ export function resolveAssembly(a: Assembly) {
   if (!['straight', 'curve', 'loop'].includes(a.path) || !['assembly-tie-bar', 'assembly-tie-fork'].includes(a.tie) || !['normal','station','supports','switch'].includes(a.witness ?? 'normal') || !Number.isFinite(a.separation) || a.separation < .6 || a.separation > 1.6 || !Number.isFinite(a.spacing) || a.spacing < .3 || a.spacing > 1.5) throw new Error('Invalid assembly');
   for (const key of ['post1', 'post2'] as const) {
     const station = a[key] ?? postDefaults[key];
-    if (!Number.isFinite(station) || station < 0 || station > 12) throw new Error('Invalid support station');
+    if (!Number.isFinite(station) || station < postRange.min || station > postRange.max) throw new Error('Invalid support station');
   }
   const source = assemblyPath(a.path), total = source.distances.at(-1)!;
   // The rendering tessellation is explicit sampled data, also used by NormalTrack.

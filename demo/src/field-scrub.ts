@@ -1,5 +1,9 @@
+export function scrubValue(value: number, dx: number, increment: number, min: number, max: number) {
+  return Number(Math.min(max, Math.max(min, value + Math.round(dx / 4) * increment)).toFixed(10));
+}
+
 // A label action previews plain values; the inspector remains the value owner.
-export function scrub(label: HTMLLabelElement, options: { value: () => number; preview: (value: number) => void; commit: () => void }) {
+export function scrub(label: HTMLLabelElement, options: { value: () => number; increment: number; preview: (value: number) => void; commit: () => void }) {
   const input = label.querySelector('input')!;
   const abort = new AbortController();
   const listen = (target: EventTarget, name: string, fn: (event: any) => void) => target.addEventListener(name, fn, { signal: abort.signal });
@@ -33,12 +37,10 @@ export function scrub(label: HTMLLabelElement, options: { value: () => number; p
       label.classList.add('scrubbing');
     }
     event.preventDefault();
-    const step = Number(input.step) || 1, base = Number(input.min) || 0;
-    const ticks = Math.round((drag.value - base) / step) + Math.round(dx / 4);
-    options.preview(Number(Math.min(Number(input.max), Math.max(base, base + ticks * step)).toFixed(10)));
+    options.preview(scrubValue(drag.value, dx, options.increment, Number(input.min), Number(input.max)));
   });
   listen(label, 'click', (event: MouseEvent) => { if (suppress) { event.preventDefault(); suppress = false; } });
   for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) listen(label, name, stop);
   listen(window, 'blur', stop);
-  return { destroy() { stop(); abort.abort(); } };
+  return { update(next: typeof options) { options = next; }, destroy() { stop(); abort.abort(); } };
 }

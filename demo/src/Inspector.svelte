@@ -1,7 +1,7 @@
 <script lang="ts">
   import { exampleOptions, selectedExample, selectExample, history, preview, commit, undo, redo, effective, numericRanges, compositionDefaults, compositionRanges, type Configuration } from './configuration';
-  import { scrub } from './field-scrub';
-  import { postDefaults, assemblyDefaults, type Assembly } from './assembly';
+  import NumericField from './NumericField.svelte';
+  import { postRange, postDefaults, assemblyDefaults, type Assembly } from './assembly';
   import { untrack } from 'svelte';
   let { initial, changed }: { initial: Configuration; changed: (value: Configuration) => void } = $props();
   let h = $state(history(untrack(() => initial)));
@@ -57,7 +57,7 @@
       {/if}
       {#if assembly.witness === 'supports'}
         {#each (['post1', 'post2'] as const) as key, i}
-          <label>Support {i + 1} from start · m<input name={'assembly-' + key} type="number" min="0" max="12" step="any" required value={assembly[key] ?? postDefaults[key]} oninput={event => { if (event.currentTarget.validity.valid) change({ ...c, assembly: { ...assembly, [key]: event.currentTarget.valueAsNumber } }); }} onblur={event => { finish(); event.currentTarget.value = String(assembly[key] ?? postDefaults[key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} /></label>
+          <NumericField name={'assembly-' + key} label={'Support ' + (i + 1) + ' from start · m'} value={assembly[key] ?? postDefaults[key]} min={postRange.min} max={postRange.max} step="any" increment={0.05} preview={value => change({ ...c, assembly: { ...assembly, [key]: value } })} commit={finish} />
         {/each}
       {/if}
       {#if assembly.path === 'loop' && assembly.witness !== 'supports' && assembly.witness !== 'switch'}
@@ -69,7 +69,7 @@
       <label>Tie<select name="assembly-tie" value={assembly.tie} onchange={event => change({ ...c, assembly: { ...assembly, tie: event.currentTarget.value as typeof assembly.tie } }, true)}><option value="assembly-tie-bar">Bar</option><option value="assembly-tie-fork">Fork</option></select></label>
       {#if assembly.witness !== 'switch'}
       {#each (['separation', 'spacing'] as const) as key}
-        <label use:scrub={{ value: () => assembly[key], preview: value => change({ ...c, assembly: { ...assembly, [key]: value } }), commit: finish }}>{key === 'separation' ? 'Rail separation · m' : 'Tie spacing · m'}<input name={'assembly-' + key} type="number" min={numericRanges[key].min} max={numericRanges[key].max} step={numericRanges[key].step} required value={assembly[key]} oninput={event => { if (event.currentTarget.validity.valid) change({ ...c, assembly: { ...assembly, [key]: event.currentTarget.valueAsNumber } }); }} onblur={event => { finish(); event.currentTarget.value = String(assembly[key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} /></label>
+        <NumericField name={'assembly-' + key} label={key === 'separation' ? 'Rail separation · m' : 'Tie spacing · m'} value={assembly[key]} {...numericRanges[key]} increment={numericRanges[key].step} preview={value => change({ ...c, assembly: { ...assembly, [key]: value } })} commit={finish} />
       {/each}
       {/if}
     </section>
@@ -77,7 +77,7 @@
   {#if !c.isolated && assetView}
     <section>
       {#each (Object.keys(compositionRanges) as (keyof typeof compositionRanges)[]).filter(key => c.example === 'repeated' ? !['x', 'y', 'z'].includes(key) : !['count', 'spacing', 'offset'].includes(key)) as key}
-        <label use:scrub={{ value: () => composition[key], preview: value => change({ ...c, composition: { ...composition, [key]: value } }), commit: finish }}>{compositionLabels[key]}<input name={'placement-' + key} type="number" min={compositionRanges[key][0]} max={compositionRanges[key][1]} step={compositionRanges[key][2]} required value={composition[key]} oninput={event => { if (event.currentTarget.validity.valid) change({ ...c, composition: { ...composition, [key]: event.currentTarget.valueAsNumber } }); }} onblur={event => { finish(); event.currentTarget.value = String(composition[key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} /></label>
+        <NumericField name={'placement-' + key} label={compositionLabels[key]} value={composition[key]} min={compositionRanges[key][0]} max={compositionRanges[key][1]} step={compositionRanges[key][2]} increment={compositionRanges[key][2]} preview={value => change({ ...c, composition: { ...composition, [key]: value } })} commit={finish} />
       {/each}
     </section>
   {/if}
@@ -91,9 +91,7 @@
         <label>Assembly<select name="spineAssembly" value={c.parameters.secondSpine ? 'double' : 'single'} onchange={event => change({ ...c, parameters: { ...c.parameters, secondSpine: event.currentTarget.value === 'double' } }, true)}><option value="single">Spine 1</option><option value="double">Spines 1 + 2</option></select></label>
       {/if}
       {#each fields.filter(f => section === 'ties' ? ['spacing', 'separation'].includes(f.key) : ['width', 'depth'].includes(f.key)) as field}
-        <label use:scrub={{ value: () => c.parameters[field.key], preview: value => number(field.key, value), commit: finish }}>
-          {field.label}<input name={field.key} aria-label={field.key === 'separation' ? 'Gauge, rail center-to-center · m' : undefined} title={field.key === 'separation' ? 'Rail center-to-center · m' : undefined} type="number" min={field.min} max={field.max} step={field.step} required disabled={c.isolated || (field.key !== 'spacing' && c.parameters.fixed)} value={rendered.parameters[field.key]} oninput={event => { if (event.currentTarget.validity.valid) number(field.key, event.currentTarget.valueAsNumber); }} onblur={event => { finish(); event.currentTarget.value = String(rendered.parameters[field.key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} />
-        </label>
+        <NumericField name={field.key} label={field.label} ariaLabel={field.key === 'separation' ? 'Gauge, rail center-to-center · m' : undefined} title={field.key === 'separation' ? 'Rail center-to-center · m' : undefined} value={rendered.parameters[field.key]} min={field.min} max={field.max} step={field.step} increment={field.step} disabled={c.isolated || (field.key !== 'spacing' && c.parameters.fixed)} preview={value => number(field.key, value)} commit={finish} />
       {/each}
     </section>
   {/each}
