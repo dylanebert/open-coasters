@@ -1,6 +1,6 @@
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
-import { nativeSnapshot, contentValue, snapshotBytes } from '../../../construction/native';
+import { nativeSnapshot, contentValue, snapshotBytes, resolvedNative, type ImmutableNativeSnapshot } from '../../../construction/native';
 import { ConstructionError } from '../../../construction/kernel';
 const witness = await Bun.file(new URL('../../../construction/witness/resolved-ties.gltf', import.meta.url)).json();
 function fixture(componentType = 5123) {
@@ -63,6 +63,35 @@ test('native validates and retains one owned copy, never a second read of caller
     const snapshot=nativeSnapshot(d,resources);
     expect(snapshotBytes(snapshot,0)).toEqual(good);expect(snapshotBytes(snapshot,1)).toEqual(new Uint8Array([7]));
 });
+
+test('every declared buffer is owned, including unused dependencies with sparse caller resources', () => {
+    const f=fixture(), external='https://example.invalid/mutable.bin';
+    f.doc.buffers.push({byteLength:1,uri:external});
+    const resources=new Array<Uint8Array>(2);resources[0]=f.bytes;
+    let snapshot:ImmutableNativeSnapshot|undefined, result:unknown, caught:unknown;
+    try {
+        snapshot=nativeSnapshot(f.doc,resources);
+        result=resolvedNative({placements:[{content:contentValue({snapshot}),frame:{translation:[0,0,0],rotation:[0,0,0,1]}}]});
+    } catch(e) {caught=e;}
+    expect(snapshot).toBeUndefined();expect(result).toBeUndefined();
+    expect(caught).toBeInstanceOf(ConstructionError);
+    expect((caught as ConstructionError).category).toBe('resource');
+    expect((caught as Error).message).toContain('resolved bytes required');
+    expect(f.doc.buffers[1].uri).toBe(external); // Caller data is not pruned or repaired.
+
+    const reads=[0,0], bytes=[f.bytes,new Uint8Array([17])];
+    const dense=new Array<Uint8Array>(2);
+    for(let i=0;i<2;i++) Object.defineProperty(dense,i,{enumerable:true,get:()=>{reads[i]++;return bytes[i];}});
+    const owned=nativeSnapshot(f.doc,dense);
+    const exported=resolvedNative({placements:[{content:contentValue({snapshot:owned}),frame:{translation:[0,0,0],rotation:[0,0,0,1]}}]});
+    expect(reads).toEqual([1,1]);expect(exported.buffers).toHaveLength(2);
+    for(let i=0;i<2;i++) {
+        expect(snapshotBytes(owned,i)).toEqual(bytes[i]);
+        expect(exported.buffers[i].uri.startsWith('data:application/octet-stream;base64,')).toBe(true);
+        expect(Uint8Array.from(atob(exported.buffers[i].uri.split(',')[1]),c=>c.charCodeAt(0))).toEqual(bytes[i]);
+    }
+    expect(JSON.stringify(exported)).not.toContain(external);
+}, TIMEOUT.cheap);
 
 test('native POSITION refuses each nonfinite component, normalization and unsupported alignment/layout', () => {
     for (const value of [NaN, Infinity, -Infinity]) for (const at of [8, 28, 48]) {
