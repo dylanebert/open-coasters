@@ -66,7 +66,8 @@ export function framesAt(source: Path, distances: readonly number[]): readonly F
         let dot = a.reduce((sum, x, i) => sum + x * raw[i], 0);
         const b = dot < 0 ? raw.map(x => -x) : raw; if (dot < 0) dot = -dot;
         const d = Math.max(0, Math.min(1, dot));
-        let q: readonly number[] = a;
+        // Only a rounded dot of one uses the normalized small-angle limit.
+        let q: readonly number[] = a.map((x, i) => (1 - t) * x + t * b[i]);
         if (d !== 1) { const theta = Math.acos(d), den = Math.sin(theta); q = a.map((x, i) => (Math.sin((1 - t) * theta) * x + Math.sin(t * theta) * b[i]) / den); }
         return frame({ translation: p.positions[lo].map((x, i) => x + t * (p.positions[hi][i] - x)), rotation: quaternion(q) });
     }));
@@ -80,10 +81,14 @@ export const standardTypes: readonly TypeDefinition[] = immutable([
     literalType(ids.number, number), literalType(ids.frame, frame), literalType(ids.span, span), literalType(ids.path, path),
     { id: ids.content, validate: contentValue }, { id: ids.construction, validate: constructionValue },
 ]);
-function primitive(name: string, inputs: Record<string, Type>, outputs: Record<string, Type>, evaluate: (v: any) => Record<string, unknown>): Primitive {
+export function primitive(name: string, inputs: Record<string, Type>, outputs: Record<string, Type>, evaluate: (v: any) => Record<string, unknown>): Primitive {
     return immutable({ operation: `cc.${name}@1`, inputs: Object.entries(inputs).map(([name, type]) => ({ name, type })), outputs: Object.entries(outputs).map(([name, type]) => ({ name, type })), evaluate });
 }
+export function fullSpan(length: number): readonly Span[] { number(length); if (length <= 0) throw Error('positive length required'); return Object.freeze([span({ start: 0, end: length })]); }
+export function railOffsets(separation: number): { left: Frame; right: Frame } { number(separation); if (separation <= 0) throw Error('positive separation required'); return Object.freeze({ left: frame({ translation: [-separation/2, 0, 0], rotation: [0,0,0,1] }), right: frame({ translation: [separation/2, 0, 0], rotation: [0,0,0,1] }) }); }
 export const standardOperations: readonly Primitive[] = Object.freeze([
+    primitive('fullSpan', { length: N }, { spans: list(S) }, v => ({ spans: fullSpan(v.length) })),
+    primitive('railOffsets', { separation: N }, { left: F, right: F }, v => railOffsets(v.separation)),
     primitive('fixedDistances', { length: N, spacing: N, phase: N, allowed: list(S), excluded: list(S) }, { distances: list(N) }, v => ({ distances: fixedDistances(v.length, v.spacing, v.phase, v.allowed, v.excluded) })),
     primitive('framesAt', { path: P, distances: list(N) }, { frames: list(F) }, v => ({ frames: framesAt(v.path, v.distances) })),
     primitive('adjustFrames', { frames: list(F), localFrame: F }, { frames: list(F) }, v => ({ frames: adjustFrames(v.frames, v.localFrame) })),

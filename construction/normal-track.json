@@ -1,0 +1,401 @@
+{
+  "schema": "cc.graph@1",
+  "groups": [
+    {
+      "operation": "example.Ties@1",
+      "graph": {
+        "inputs": [
+          {
+            "name": "path",
+            "type": {
+              "id": "cc.sampled-frame-path@1"
+            }
+          },
+          {
+            "name": "content",
+            "type": {
+              "id": "cc.content@1"
+            }
+          },
+          {
+            "name": "spacing",
+            "type": {
+              "id": "cc.number@1"
+            },
+            "default": 1
+          },
+          {
+            "name": "phase",
+            "type": {
+              "id": "cc.number@1"
+            },
+            "default": 0
+          },
+          {
+            "name": "allowed",
+            "type": {
+              "list": {
+                "id": "cc.span@1"
+              }
+            }
+          },
+          {
+            "name": "excluded",
+            "type": {
+              "list": {
+                "id": "cc.span@1"
+              }
+            },
+            "default": []
+          },
+          {
+            "name": "localFrame",
+            "type": {
+              "id": "cc.frame@1"
+            },
+            "default": {
+              "translation": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          }
+        ],
+        "nodes": [
+          {
+            "id": "stations",
+            "operation": "cc.pathStations@1",
+            "inputs": {
+              "path": {
+                "input": "path"
+              }
+            }
+          },
+          {
+            "id": "origins",
+            "operation": "cc.fixedDistances@1",
+            "inputs": {
+              "length": {
+                "node": "stations",
+                "output": "length"
+              },
+              "spacing": {
+                "input": "spacing"
+              },
+              "phase": {
+                "input": "phase"
+              },
+              "allowed": {
+                "input": "allowed"
+              },
+              "excluded": {
+                "input": "excluded"
+              }
+            }
+          },
+          {
+            "id": "sample",
+            "operation": "cc.framesAt@1",
+            "inputs": {
+              "path": {
+                "input": "path"
+              },
+              "distances": {
+                "node": "origins",
+                "output": "distances"
+              }
+            }
+          },
+          {
+            "id": "adjust",
+            "operation": "cc.adjustFrames@1",
+            "inputs": {
+              "frames": {
+                "node": "sample",
+                "output": "frames"
+              },
+              "localFrame": {
+                "input": "localFrame"
+              }
+            }
+          },
+          {
+            "id": "place",
+            "operation": "cc.instance@1",
+            "inputs": {
+              "content": {
+                "input": "content"
+              },
+              "frames": {
+                "node": "adjust",
+                "output": "frames"
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "name": "construction",
+            "type": {
+              "id": "cc.construction@1"
+            },
+            "binding": {
+              "node": "place",
+              "output": "construction"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "operation": "example.NormalTrack@1",
+      "graph": {
+        "inputs": [
+          {
+            "name": "path",
+            "type": {
+              "id": "cc.sampled-frame-path@1"
+            }
+          },
+          {
+            "name": "section",
+            "type": {
+              "id": "cc.convex-section@1"
+            }
+          },
+          {
+            "name": "tieContent",
+            "type": {
+              "id": "cc.content@1"
+            }
+          },
+          {
+            "name": "separation",
+            "type": {
+              "id": "cc.number@1"
+            }
+          },
+          {
+            "name": "spacing",
+            "type": {
+              "id": "cc.number@1"
+            }
+          },
+          {
+            "name": "wall",
+            "type": {
+              "id": "cc.native-material@1"
+            }
+          },
+          {
+            "name": "cap",
+            "type": {
+              "id": "cc.native-material@1"
+            }
+          },
+          {
+            "name": "phase",
+            "type": {
+              "id": "cc.number@1"
+            },
+            "default": 0
+          },
+          {
+            "name": "excluded",
+            "type": {
+              "list": {
+                "id": "cc.span@1"
+              }
+            },
+            "default": []
+          },
+          {
+            "name": "tieLocalFrame",
+            "type": {
+              "id": "cc.frame@1"
+            },
+            "default": {
+              "translation": [
+                0,
+                0,
+                0
+              ],
+              "rotation": [
+                0,
+                0,
+                0,
+                1
+              ]
+            }
+          }
+        ],
+        "nodes": [
+          {
+            "id": "stations",
+            "operation": "cc.pathStations@1",
+            "inputs": {
+              "path": {
+                "input": "path"
+              }
+            }
+          },
+          {
+            "id": "span",
+            "operation": "cc.fullSpan@1",
+            "inputs": {
+              "length": {
+                "node": "stations",
+                "output": "length"
+              }
+            }
+          },
+          {
+            "id": "offsets",
+            "operation": "cc.railOffsets@1",
+            "inputs": {
+              "separation": {
+                "input": "separation"
+              }
+            }
+          },
+          {
+            "id": "leftFrames",
+            "operation": "cc.adjustFrames@1",
+            "inputs": {
+              "frames": {
+                "node": "stations",
+                "output": "frames"
+              },
+              "localFrame": {
+                "node": "offsets",
+                "output": "left"
+              }
+            }
+          },
+          {
+            "id": "leftRail",
+            "operation": "cc.sweepConvex@1",
+            "inputs": {
+              "section": {
+                "input": "section"
+              },
+              "frames": {
+                "node": "leftFrames",
+                "output": "frames"
+              },
+              "wall": {
+                "input": "wall"
+              },
+              "cap": {
+                "input": "cap"
+              }
+            }
+          },
+          {
+            "id": "rightFrames",
+            "operation": "cc.adjustFrames@1",
+            "inputs": {
+              "frames": {
+                "node": "stations",
+                "output": "frames"
+              },
+              "localFrame": {
+                "node": "offsets",
+                "output": "right"
+              }
+            }
+          },
+          {
+            "id": "rightRail",
+            "operation": "cc.sweepConvex@1",
+            "inputs": {
+              "section": {
+                "input": "section"
+              },
+              "frames": {
+                "node": "rightFrames",
+                "output": "frames"
+              },
+              "wall": {
+                "input": "wall"
+              },
+              "cap": {
+                "input": "cap"
+              }
+            }
+          },
+          {
+            "id": "ties",
+            "operation": "example.Ties@1",
+            "inputs": {
+              "path": {
+                "input": "path"
+              },
+              "content": {
+                "input": "tieContent"
+              },
+              "spacing": {
+                "input": "spacing"
+              },
+              "phase": {
+                "input": "phase"
+              },
+              "allowed": {
+                "node": "span",
+                "output": "spans"
+              },
+              "excluded": {
+                "input": "excluded"
+              },
+              "localFrame": {
+                "input": "tieLocalFrame"
+              }
+            }
+          },
+          {
+            "id": "join",
+            "operation": "cc.join@1",
+            "inputs": {
+              "constructions": {
+                "list": [
+                  {
+                    "node": "leftRail",
+                    "output": "construction"
+                  },
+                  {
+                    "node": "rightRail",
+                    "output": "construction"
+                  },
+                  {
+                    "node": "ties",
+                    "output": "construction"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "outputs": [
+          {
+            "name": "construction",
+            "type": {
+              "id": "cc.construction@1"
+            },
+            "binding": {
+              "node": "join",
+              "output": "construction"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "entry": "example.NormalTrack@1"
+}

@@ -107,6 +107,8 @@ test('all demanded primitive inputs/outputs checked; unknown output and atomic f
 
 test('published Ties JSON signatures independently typewalk against explicit expected signatures', () => {
     const signatures: Record<string, [Record<string, string>, Record<string, string>]> = {
+        'cc.fullSpan@1': [{ length: 'N' }, { spans: 'LS' }],
+        'cc.railOffsets@1': [{ separation: 'N' }, { left: 'F', right: 'F' }],
         'cc.pathStations@1': [{ path: 'P' }, { length: 'N', frames: 'LF' }],
         'cc.fixedDistances@1': [{ length: 'N', spacing: 'N', phase: 'N', allowed: 'LS', excluded: 'LS' }, { distances: 'LN' }],
         'cc.framesAt@1': [{ path: 'P', distances: 'LN' }, { frames: 'LF' }],
