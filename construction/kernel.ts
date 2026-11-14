@@ -13,16 +13,21 @@ export class ConstructionError extends Error {
         super(`${category}: ${path.join('/')} ${node}${port ? '.' + port : ''}: ${cause}`);
     }
 }
+const deeplyImmutable = new WeakSet<object>();
 export function immutable<T>(value: T): T {
-    if (value && typeof value === 'object') {
-        for (const v of Object.values(value)) immutable(v);
+    if (value && typeof value === 'object' && !deeplyImmutable.has(value)) {
+        const children = Object.values(value);
+        for (const v of children) immutable(v);
         Object.freeze(value);
+        // Only plain trees prove ownership. Frozen ArrayBuffers/host objects can
+        // still contain mutable state and must not acquire this fast path.
+        if ((Array.isArray(value) || record(value)) && children.every(v => !v || typeof v !== 'object' || deeplyImmutable.has(v))) deeplyImmutable.add(value);
     }
     return value;
 }
 /** Copy caller-owned mutable data before a registered validator or operation sees it. */
 function owned(value: any): any {
-    if (!value || typeof value !== 'object') return value;
+    if (!value || typeof value !== 'object' || deeplyImmutable.has(value)) return value;
     if (!Array.isArray(value) && !record(value)) throw Error('runtime values must be immutable resources or plain data');
     const entries = Object.entries(value).map(([k, v]) => [k, owned(v)] as const);
     if (Object.isFrozen(value) && entries.every(([k, v]) => (value as any)[k] === v)) return value;

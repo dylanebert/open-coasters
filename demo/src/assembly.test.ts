@@ -79,7 +79,8 @@ test('straight rigid rail/tie placements have independently known coordinates an
   for (let i=0;i<m.vertices.length;i+=8) expect(Math.hypot(...m.vertices.slice(i+4,i+7))).toBeCloseTo(1,6);
   // Exposed caps point out, not toward the path.
   const normal = (vertex: number) => Array.from(m.vertices.slice(vertex*8+4,vertex*8+7));
-  expect([...normal(96*16*6),...normal(96*16*6+42)]).toEqual([0,0,-1,0,0,1]);
+  // Shared native sweep interleaves the start/end triangle fans.
+  expect([...normal(96*16*6),...normal(96*16*6+3)].map(v => v || 0)).toEqual([0,0,-1,0,0,1]);
 });
 
 test('banked curve midpoint and endpoints are independent analytic expectations', () => {

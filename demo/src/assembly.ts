@@ -1,48 +1,68 @@
-import { frame, length, point, rotation, type Vec } from './track';
+import { frame as analyticFrame, length, rotation, type Vec } from './track';
+import recorded from './loop-path.json';
+import { adjustFrames, fixedDistances, framesAt, path, rotate, type Path, type Frame } from '../../construction/geometry';
+import { sweepConvex, type Material } from '../../construction/sweep';
+import { nativeSnapshot, snapshotBytes, type Construction } from '../../construction/native';
 import type { SampledSection } from './sampled-section';
 
-export const assemblyDefaults = { path: 'curve' as 'straight' | 'curve' | 'loop', separation: 1.2, spacing: .65, tie: 'assembly-tie-bar' as 'assembly-tie-bar' | 'assembly-tie-fork' };
+export const assemblyDefaults = { path: 'curve' as 'straight' | 'curve' | 'loop', separation: 1.2, spacing: .65, tie: 'assembly-tie-bar' as 'assembly-tie-bar' | 'assembly-tie-fork', witness: 'normal' as 'normal' | 'station' | 'supports' | 'switch' };
 export type Assembly = typeof assemblyDefaults;
-/** App-local policy. Resolved rigid frames/placements are plain data, not a recipe schema. */
-export function resolveAssembly(a: Assembly) {
-  if (!['straight', 'curve', 'loop'].includes(a.path) || !['assembly-tie-bar', 'assembly-tie-fork'].includes(a.tie) || !Number.isFinite(a.separation) || a.separation < .6 || a.separation > 1.6 || !Number.isFinite(a.spacing) || a.spacing < .3 || a.spacing > 1.5) throw new Error('Invalid assembly');
-  const total = length(a.path);
-  const railFrames = [-1, 1].map(side => Array.from({length: 97}, (_, i) => {
-    const f = frame(a.path, total * i / 96);
-    return { ...f, s: total * i / 96, p: point(f, side * a.separation / 2, 0) };
-  }));
-  const ties = Array.from({length: Math.floor((total - 1e-6) / a.spacing) + 1}, (_, i) => {
-    const f = frame(a.path, i * a.spacing);
-    return { translation: f.p, rotation: rotation(f) };
-  });
-  return { railFrames, tie: a.tie, ties };
+/** Bounded consumer adapter. Analytic stations and recorded poses are data inputs,
+ * not a second interpolation policy. Recorded physics/fixtures remain untouched. */
+export function assemblyPath(kind: Assembly['path']): Path {
+  if (kind === 'loop') {
+    const apex = recorded.reduce((a,b) => b[2] > a[2] ? b : a)[1];
+    const positions = recorded.map(r => [-r[1]+apex,r[2]+1.5,-r[3]-4.3]);
+    const rotations = recorded.map(r => {
+      const raw = r.slice(4), norm = Math.hypot(...raw), q = raw.map(x => x/norm);
+      const x = rotate(q, [1,0,0]), y = rotate(q,[0,1,0]), z = rotate(q,[0,0,1]);
+      return rotation({p:[0,0,0],x:[x[0],-x[1],x[2]], y:[-y[0],y[1],-y[2]], z:[z[0],-z[1],z[2]]});
+    });
+    return path({distances: recorded.map(r => r[0]), positions, rotations});
+  }
+  const distances = Array.from({length:97},(_,i) => length(kind)*i/96);
+  const poses = distances.map(s => analyticFrame(kind,s));
+  return path({distances, positions: poses.map(f => f.p), rotations: poses.map(rotation)});
 }
-/** Operation-selected faceted walls and flat closure, using the unchanged sampled
- * section at each rigid frame. No profile appearance, bore or attachment inference. */
-export function assemblyRails(section: SampledSection, rails: ReturnType<typeof resolveAssembly>['railFrames'], appearance?: (station: number) => readonly number[]) {
-  const vertices: number[] = [], indices: number[] = [], color: number[] = [];
-  function triangle(a: Vec, b: Vec, c: Vec, stations: number[]) {
-    const u = b.map((v,i) => v-a[i]), v = c.map((v,i) => v-a[i]);
-    const n = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]];
-    const size = Math.hypot(...n);
-    if (!Number.isFinite(size) || size <= 1e-12) throw new Error('Degenerate assembly surface');
-    const first = vertices.length / 8;
-    for (const [i,p] of [a,b,c].entries()) {
-      vertices.push(...p, 0, ...n.map(v => v/size), 0);
-      if (appearance) color.push(...appearance(stations[i]));
+export function resolveAssembly(a: Assembly) {
+  if (!['straight', 'curve', 'loop'].includes(a.path) || !['assembly-tie-bar', 'assembly-tie-fork'].includes(a.tie) || !['normal','station','supports','switch'].includes(a.witness ?? 'normal') || !Number.isFinite(a.separation) || a.separation < .6 || a.separation > 1.6 || !Number.isFinite(a.spacing) || a.spacing < .3 || a.spacing > 1.5) throw new Error('Invalid assembly');
+  const source = assemblyPath(a.path), total = source.distances.at(-1)!;
+  // The rendering tessellation is explicit sampled data, also used by NormalTrack.
+  const sampled = framesAt(source, Array.from({length:97},(_,i) => total*i/96));
+  const nativePath = path({distances: Array.from({length:97},(_,i) => total*i/96),positions:sampled.map(f=>f.translation),rotations:sampled.map(f=>f.rotation)});
+  const railFrames = [-1,1].map(side => adjustFrames(sampled,{translation:[side*a.separation/2,0,0],rotation:[0,0,0,1]}).map((f,i) => ({...basis(f),s:nativePath.distances[i]})));
+  const ties = framesAt(nativePath,fixedDistances(total,a.spacing,0,[{start:0,end:total}],[]));
+  return { path: nativePath, railFrames, tie:a.tie, ties };
+}
+function basis(f: Frame) { return {p:f.translation as Vec,x:rotate(f.rotation,[1,0,0]) as Vec,y:rotate(f.rotation,[0,1,0]) as Vec,z:rotate(f.rotation,[0,0,1]) as Vec}; }
+const appearanceSnapshot = nativeSnapshot({asset:{version:'2.0'},scene:0,scenes:[{nodes:[0]}],nodes:[{mesh:0}],meshes:[{primitives:[{attributes:{POSITION:0},material:0}]}],materials:[{pbrMetallicRoughness:{baseColorFactor:[.06,.7,.78,1],metallicFactor:.7,roughnessFactor:.25}}],accessors:[{bufferView:0,componentType:5126,count:3,type:'VEC3'}],bufferViews:[{buffer:0,byteLength:36}],buffers:[{byteLength:36}]},[new Float32Array([0,0,0,1,0,0,0,1,0]).buffer]);
+export const railAppearance: Material = {snapshot:appearanceSnapshot,material:0};
+/** Thin renderer packing of generated native accessors; no placement or sweep rules.
+ * Consumer force coloring is never written back into native snapshots/export. */
+export function packRails(construction: Construction, stations: readonly number[], sectionSize: number, appearance?: (station:number)=>readonly number[]) {
+  const vertices:number[] = [], indices:number[] = [], color:number[] = [];
+  for (const placement of construction.placements) {
+    const s = placement.content.snapshot, d = s.document;
+    for (const [kind,p] of d.meshes[0].primitives.entries()) {
+      const pa=d.accessors[p.attributes.POSITION], na=d.accessors[p.attributes.NORMAL];
+      const pv=d.bufferViews[pa.bufferView], nv=d.bufferViews[na.bufferView];
+      const pd=new DataView(snapshotBytes(s,pv.buffer).buffer), nd=new DataView(snapshotBytes(s,nv.buffer).buffer);
+      for(let i=0;i<pa.count;i++) {
+        const at=(pv.byteOffset??0)+(pa.byteOffset??0)+i*12, nt=(nv.byteOffset??0)+(na.byteOffset??0)+i*12;
+        indices.push(vertices.length/8);
+        vertices.push(pd.getFloat32(at,true),pd.getFloat32(at+4,true),pd.getFloat32(at+8,true),0,nd.getFloat32(nt,true),nd.getFloat32(nt+4,true),nd.getFloat32(nt+8,true),0);
+        if(appearance) {
+          // Native sweep wall order a,b,c / a,c,d; caps alternate start/end triangles.
+          const station=kind===0 ? Math.floor(i/(sectionSize*6))+([0,0,1,0,1,1][i%6]) : (Math.floor(i/3)%2 ? stations.length-1 : 0);
+          color.push(...appearance(stations[station]));
+        }
+      }
     }
-    indices.push(first, first+1, first+2);
   }
-  for (const frames of rails) {
-    for (let i = 0; i < frames.length-1; i++) for (let j = 0; j < section.length; j++) {
-      const a = point(frames[i], ...section[j]), b = point(frames[i], ...section[(j+1)%section.length]);
-      const c = point(frames[i+1], ...section[(j+1)%section.length]), d = point(frames[i+1], ...section[j]);
-      triangle(a,b,c,[frames[i].s,frames[i].s,frames[i+1].s]); triangle(a,c,d,[frames[i].s,frames[i+1].s,frames[i+1].s]);
-    }
-    for (const end of [0,1]) {
-      const f = frames[end ? frames.length-1 : 0], p = section.map(s => point(f, ...s));
-      for (let j = 1; j < p.length-1; j++) triangle(p[0], p[end ? j : j+1], p[end ? j+1 : j], [f.s,f.s,f.s]);
-    }
-  }
-  return { name: 'Circular rails', vertices: new Float32Array(vertices), indices: new Uint32Array(indices), ...(appearance ? {color: new Float32Array(color)} : {}) };
+  return {name:'Circular rails',vertices:new Float32Array(vertices),indices:new Uint32Array(indices),...(appearance?{color:new Float32Array(color)}:{})};
+}
+/** Compatibility entry for geometry fixtures; the live consumer executes NormalTrack. */
+export function assemblyRails(section: SampledSection, rails: ReturnType<typeof resolveAssembly>['railFrames'], appearance?: (station:number)=>readonly number[]) {
+  const placements=rails.flatMap(r=>sweepConvex(section,r.map(f=>({translation:f.p,rotation:rotation(f)})),railAppearance,railAppearance).placements);
+  return packRails({placements},rails[0].map(f=>f.s),section.length,appearance);
 }

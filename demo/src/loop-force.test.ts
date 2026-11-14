@@ -2,7 +2,11 @@ import { expect, test } from 'bun:test';
 import path from './loop-path.json';
 import state from '../fixtures/loop-state.json';
 import { loopForces, normalForce, forceColor } from './loop-force';
-import { assemblyDefaults, assemblyRails, resolveAssembly } from './assembly';
+import { assemblyDefaults, packRails, railAppearance, resolveAssembly } from './assembly';
+import { rotation } from './track';
+import { loadSampledSection } from './sampled-section';
+import { sweepConvex } from '../../construction/sweep';
+const section = await loadSampledSection(new URL('../public/assets/assembly-section.gltf',import.meta.url));
 
 // Authored targets are an expectation, never the production field. The separate
 // recorded-motion test in loop.test also qualifies their agreement (<0.003 g).
@@ -54,23 +58,25 @@ function expectedColor(s:number) {
   return g<2 ? [.1+.45*g,.3+.35*g,1,1] : [1,1-.45*(g-2),1-.45*(g-2),1];
 }
 test('unchanged section receives longitudinal corner colors; flat, transverse and shifted output controls fail', () => {
-  const section: [number,number][] = [[-.06,0],[0,-.06],[.06,0],[0,.06]];
   const rails=resolveAssembly({...assemblyDefaults,path:'loop'}).railFrames;
-  const plain=assemblyRails(section, rails), colored=assemblyRails(section, rails, s=>forceColor(normalForce(s)));
+  const construction={placements:rails.flatMap(r=>sweepConvex(section,r.map(f=>({translation:f.p,rotation:rotation(f)})),railAppearance,railAppearance).placements)};
+  const pack=(appearance?: (s:number)=>readonly number[])=>packRails(construction,rails[0].map(f=>f.s),section.length,appearance);
+  const plain=pack(), colored=pack(s=>forceColor(normalForce(s)));
   expect(colored.vertices).toEqual(plain.vertices);
   expect(colored.indices).toEqual(plain.indices);
   const stations:number[]=[];
   for(let rail=0;rail<2;rail++) {
-    for(let i=0;i<96;i++) for(let j=0;j<4;j++)
+    for(let i=0;i<96;i++) for(let j=0;j<section.length;j++)
       for(const k of [i,i,i+1,i,i+1,i+1]) stations.push(42.0726940244*k/96);
-    for(const end of [0,96]) for(let j=0;j<6;j++) stations.push(42.0726940244*end/96);
+    // Shared native sweep alternates start/end triangles for each fan edge.
+    for(let fan=0;fan<section.length-2;fan++) for(const end of [0,96]) for(let j=0;j<3;j++) stations.push(42.0726940244*end/96);
   }
   const audit=(color:Float32Array)=>stations.every((s,i)=>expectedColor(s).every((v,k)=>Math.abs(v-color[i*4+k])<.002));
   expect(stations.length).toBe(colored.vertices.length/8);
   expect(audit(colored.color!)).toBe(true);
-  const flat=assemblyRails(section,rails,()=>[1,1,1,1]);
+  const flat=pack(()=>[1,1,1,1]);
   expect(audit(flat.color!)).toBe(false);
-  const shifted=assemblyRails(section,rails,s=>forceColor(normalForce((s+5)%42.0726940244)));
+  const shifted=pack(s=>forceColor(normalForce((s+5)%42.0726940244)));
   expect(audit(shifted.color!)).toBe(false);
   const transverse=new Float32Array(colored.color!.length);
   for(let i=0;i<stations.length;i++) transverse.set(expectedColor((i%24)/24*42.0726940244),i*4);

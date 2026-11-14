@@ -1,4 +1,5 @@
 import type { GltfJson } from "@dylanebert/shallot/gltf";
+import { readNative, nativeURL } from '../../construction/native';
 
 /** Contribution-subset gate, NOT a glTF validator. Run Khronos validation separately. */
 export function requireStaticInstance(json: GltfJson): void {
@@ -101,17 +102,11 @@ export function requireStaticInstance(json: GltfJson): void {
     }
 }
 
-/** Freeze the accepted document; Shallot must not refetch the mutable source URL. */
+/** Own dependent bytes too; neither the renderer nor graph can refetch live buffers. */
 export async function staticInstanceSnapshot(url: URL): Promise<URL> {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Instance load failed: ${response.status}`);
-    const json = (await response.json()) as GltfJson;
-    requireStaticInstance(json);
-    const base = response.url || url.href;
-    for (const buffer of json.buffers ?? []) {
-        if (buffer.uri) buffer.uri = new URL(buffer.uri, base).href;
-    }
-    return new URL(`data:model/gltf+json,${encodeURIComponent(JSON.stringify(json))}`);
+    const snapshot = await readNative(url);
+    requireStaticInstance(snapshot.document as GltfJson);
+    return nativeURL(snapshot.document);
 }
 
 export const placements = [

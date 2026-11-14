@@ -83,7 +83,7 @@ test('Ties is reusable, owns immutable native bytes, preserves identity/hierarch
     expect(source).toEqual(original); expect(Object.isFrozen(source)).toBe(false); expect(Object.isFrozen(bytes.buffer)).toBe(false);
     const first = snapshot.buffers[0][0]; bytes.fill(0); source.nodes[2].mesh = 100; source.buffers[0].uri = 'changed';
     expect(snapshot.buffers[0][0]).toBe(first); expect(snapshot.document.nodes[2].mesh).toBe(0); expect(snapshot.document.buffers[0].uri.startsWith('data:')).toBe(true);
-    for (const mutate of [() => (snapshot.buffers[0] as number[])[0] = 2, () => snapshot.document.nodes[1].children.push(99), () => (result.placements as any[]).push({}), () => (result.placements[0].frame.translation as number[])[0] = 9]) expect(mutate).toThrow();
+    for (const mutate of [() => (snapshot.buffers as string[])[0] = 'changed', () => snapshot.document.nodes[1].children.push(99), () => (result.placements as any[]).push({}), () => (result.placements[0].frame.translation as number[])[0] = 9]) expect(mutate).toThrow();
     const joined = join([result, result]); expect(joined.placements).toHaveLength(12); expect(joined.placements.every(p => p.content.snapshot === snapshot)).toBe(true);
     const distinct = fixture().snapshot; expect(distinct).not.toBe(snapshot);
     const combined = join([result, instance(contentValue({ snapshot: distinct }), [frame({ translation: [0, 0, 0], rotation: I })])]);

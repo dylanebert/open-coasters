@@ -1,6 +1,6 @@
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
-import { ConstructionError, registry, type Document, type Primitive } from '../../../construction/kernel';
+import { ConstructionError, registry, immutable, type Document, type Primitive } from '../../../construction/kernel';
 import { ids, list, nominal, standardTypes } from '../../../construction/geometry';
 const N = nominal(ids.number), LN = list(N);
 const document = (): Document => ({ schema: 'cc.graph@1', entry: 'outer', groups: [
@@ -24,6 +24,16 @@ test('mutation refusal protects invocation values and outputs through two group 
     expect(attempted).toBe(true); expect(source).toEqual([1, 2, 2]); expect(Object.isFrozen(source)).toBe(false);
     expect(result.data).toEqual(source); expect(() => (result.data as number[]).push(3)).toThrow();
     expect(() => (result as any).extra = 3).toThrow(); source[0] = 5; expect(result.data).toEqual([1, 2, 2]);
+}, TIMEOUT.cheap);
+
+test('shallow caller freezing cannot impersonate deeply owned immutable runtime data', () => {
+    const T=nominal('test.nested'), child={number:1}, source=Object.freeze({child});
+    const r=registry([{id:'test.nested',validate:(v:any)=>v}],[]);
+    const doc:Document={schema:'cc.graph@1',entry:'entry',groups:[{operation:'entry',graph:{inputs:[{name:'data',type:T}],nodes:[],outputs:[{name:'data',type:T,binding:{input:'data'}}]}}]};
+    const result=r.evaluate(doc,{inputs:{data:{type:T,value:source}}}).data as typeof source;
+    child.number=9; expect(result.child.number).toBe(1); expect(Object.isFrozen(child)).toBe(false);
+    expect(()=>result.child.number=2).toThrow();
+    expect(()=>r.evaluate(doc,{inputs:{data:{type:T,value:immutable({bytes:new ArrayBuffer(4)})}}})).toThrow('runtime values must be immutable resources or plain data');
 }, TIMEOUT.cheap);
 
 test('nested complete-call validation demands unused inputs and every output including unsupported types', () => {

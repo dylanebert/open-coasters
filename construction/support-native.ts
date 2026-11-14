@@ -1,4 +1,4 @@
-import { contentValue, type Content } from './native';
+import { contentValue, snapshotBytes, type Content } from './native';
 /** Diagnostic selected native post only: an axis-aligned 0.1 × 1.5 × 0.1 m
  * box, identity authored nodes, nonindexed triangles. Not a general post classifier.
  * Inspect actual selected POSITION bytes, never an asset ID or accessor min/max.
@@ -12,7 +12,7 @@ export function requireDiagnosticPost(value: Content): void {
         if (n.mesh !== undefined) for (const p of d.meshes[n.mesh].primitives) {
             if (p.indices !== undefined) throw Error('diagnostic post requires nonindexed box triangles');
             const a = d.accessors[p.attributes.POSITION], v = d.bufferViews[a.bufferView];
-            const data = new DataView(Uint8Array.from(s.buffers[v.buffer]).buffer);
+            const data = new DataView(snapshotBytes(s,v.buffer).buffer);
             for (let j = 0; j < a.count; j++) points.push([0,1,2].map(c => data.getFloat32((v.byteOffset ?? 0) + (a.byteOffset ?? 0) + j * (v.byteStride ?? 12) + c * 4, true)));
         }
         (n.children ?? []).forEach(visit);

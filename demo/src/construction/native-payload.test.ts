@@ -1,6 +1,6 @@
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
-import { nativeSnapshot, contentValue } from '../../../construction/native';
+import { nativeSnapshot, contentValue, snapshotBytes } from '../../../construction/native';
 import { ConstructionError } from '../../../construction/kernel';
 const witness = await Bun.file(new URL('../../../construction/witness/resolved-ties.gltf', import.meta.url)).json();
 function fixture(componentType = 5123) {
@@ -32,12 +32,12 @@ function refuses(f: ReturnType<typeof fixture>, cause: string) {
 test('native POSITION reads owned bytes with both offsets and interleaved stride, ignoring padding', () => {
     const f = fixture(), before = f.bytes.slice(); f.doc.accessors[0].normalized = false;
     const snapshot = nativeSnapshot(f.doc, [f.bytes]);
-    expect(contentValue({ snapshot }).snapshot).toBe(snapshot); expect(snapshot.buffers[0]).toEqual(Array.from(before));
+    expect(contentValue({ snapshot }).snapshot).toBe(snapshot); expect(snapshotBytes(snapshot,0)).toEqual(before);
     expect(f.bytes).toEqual(before); expect(f.doc.buffers[0].uri).toBe('source.bin');
-    f.bytes.fill(0); expect(snapshot.buffers[0]).toEqual(Array.from(before));
+    f.bytes.fill(0); expect(snapshotBytes(snapshot,0)).toEqual(before);
     // A subarray's backing-buffer prefix must not change resolved byte offsets.
     const backing = new Uint8Array(before.length + 7); backing.set(before, 7);
-    expect(nativeSnapshot(f.doc, [backing.subarray(7)]).buffers[0]).toEqual(Array.from(before));
+    expect(snapshotBytes(nativeSnapshot(f.doc, [backing.subarray(7)]),0)).toEqual(before);
 }, TIMEOUT.cheap);
 test('native POSITION refuses each nonfinite component, normalization and unsupported alignment/layout', () => {
     for (const value of [NaN, Infinity, -Infinity]) for (const at of [8, 28, 48]) {

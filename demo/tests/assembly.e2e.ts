@@ -50,6 +50,17 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`a
   await example.selectOption('track'); await step();
   await example.selectOption('assembly'); await step();
   await expect(tie).toHaveValue('assembly-tie-fork'); await expect(path).toHaveValue('curve');
+  const witness = page.locator('[name=assembly-witness]');
+  await witness.selectOption('station'); await step();
+  expect((await groups()).length).toBe(21); // 18 phase-filtered ties + rail mesh + 2 custom fittings
+  await witness.selectOption('supports'); await step();
+  await expect(path).toBeDisabled();
+  expect((await groups()).length).toBe(27); // 24 ties on straight + rail mesh + 2 rigid posts
+  await witness.selectOption('switch'); await step();
+  expect((await groups()).length).toBe(7); // two approach parts, two per branch, one custom
+  await expect(page.locator('[name=assembly-spacing]')).toBeDisabled();
+  await witness.selectOption('normal'); await step();
+  await expect(path).toBeEnabled(); await expect(path).toHaveValue('curve');
   expect(await page.evaluate(() => (window as any).demo.camera)).toBe(camera);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   const canvas = (await page.locator('canvas').boundingBox())!, aside = (await page.locator('aside').boundingBox())!;

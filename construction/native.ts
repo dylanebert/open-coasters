@@ -2,7 +2,7 @@ import { ConstructionError, immutable } from './kernel';
 import { frame, type Frame } from './geometry';
 /** Native glTF JSON, not a parallel geometry representation. */
 export type NativeDocument = { [key: string]: any };
-export type ImmutableNativeSnapshot = { readonly document: NativeDocument; readonly buffers: readonly (readonly number[])[] };
+export type ImmutableNativeSnapshot = { readonly document: NativeDocument; readonly buffers: readonly string[] };
 export type Content = { readonly snapshot: ImmutableNativeSnapshot };
 export type Construction = { readonly placements: readonly { readonly content: Content; readonly frame: Frame }[] };
 const snapshots = new WeakSet<object>();
@@ -33,19 +33,21 @@ export function nativeSnapshot(source: NativeDocument, resources: readonly (Arra
     const selected = index(doc.scene, doc.scenes, 'scene');
     assert(Array.isArray(doc.scenes[selected].nodes) && doc.scenes[selected].nodes.length, 'nonempty selected roots required');
     assert((doc.buffers?.length ?? 0) === resources.length, 'all declared buffers must be resolved');
-    // Frozen ordinary byte arrays are intentionally used: freezing an ArrayBuffer does NOT own immutable bytes.
+    // Base64 strings own immutable bytes without freezing hundreds of thousands of
+    // numeric properties. Freezing an ArrayBuffer would NOT protect its contents.
     const buffers = resources.map((r, i) => {
         assert(r instanceof Uint8Array || r instanceof ArrayBuffer, 'resolved bytes required');
         const bytes = r instanceof Uint8Array ? new Uint8Array(r) : new Uint8Array(r.slice(0));
         assert(Number.isSafeInteger(doc.buffers[i].byteLength) && bytes.length === doc.buffers[i].byteLength, 'buffer byteLength mismatch');
         let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
-        doc.buffers[i].uri = `data:application/octet-stream;base64,${btoa(binary)}`;
-        return Object.freeze(Array.from(bytes));
+        const encoded = btoa(binary);
+        doc.buffers[i].uri = `data:application/octet-stream;base64,${encoded}`;
+        return encoded;
     });
-    const payloads = buffers.map(bytes => new DataView(Uint8Array.from(bytes).buffer));
+    const payloads = resources.map(bytes => new DataView((bytes instanceof Uint8Array ? new Uint8Array(bytes) : new Uint8Array(bytes.slice(0))).buffer));
     for (const v of doc.bufferViews ?? []) {
         const b = index(v.buffer, buffers, 'buffer');
-        assert(Number.isSafeInteger(v.byteLength) && v.byteLength > 0 && Number.isSafeInteger(v.byteOffset ?? 0) && (v.byteOffset ?? 0) >= 0 && (v.byteOffset ?? 0) + v.byteLength <= buffers[b].length, 'bufferView range');
+        assert(Number.isSafeInteger(v.byteLength) && v.byteLength > 0 && Number.isSafeInteger(v.byteOffset ?? 0) && (v.byteOffset ?? 0) >= 0 && (v.byteOffset ?? 0) + v.byteLength <= payloads[b].byteLength, 'bufferView range');
     }
     const sizes: Record<number, number> = { 5120: 1, 5121: 1, 5122: 2, 5123: 2, 5125: 4, 5126: 4 };
     const components: Record<string, number> = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT2: 4, MAT3: 9, MAT4: 16 };
@@ -100,7 +102,9 @@ export function nativeSnapshot(source: NativeDocument, resources: readonly (Arra
         for (const [key, length] of [['matrix', 16], ['translation', 3], ['rotation', 4], ['scale', 3]] as const) {
             if (n[key] !== undefined) assert(Array.isArray(n[key]) && n[key].length === length && n[key].every((x: unknown) => typeof x === 'number' && Number.isFinite(x)), 'invalid node transform');
         }
-        if (n.rotation) frame({ translation: [0, 0, 0], rotation: n.rotation });
+        // Authored native transforms are retained verbatim, not cc.Frame inputs.
+        // This subset gate is not a glTF unit-quaternion validator (exporters use float32).
+        if (n.rotation) assert(Math.hypot(...n.rotation) > 0, 'zero native rotation');
         if (n.mesh !== undefined) index(n.mesh, doc.meshes, 'mesh');
         if (n.children !== undefined) assert(Array.isArray(n.children), 'children array');
         for (const c of n.children ?? []) { index(c, doc.nodes, 'child'); assert(!parents.has(c), 'multiple parents'); parents.add(c); }
@@ -119,6 +123,28 @@ export function nativeSnapshot(source: NativeDocument, resources: readonly (Arra
     }
     assert(doc.scenes[selected].nodes.map(visit).some(Boolean), 'selected scene requires geometry');
     const snapshot = immutable({ document: doc, buffers }); snapshots.add(snapshot); return snapshot;
+}
+/** Resolve and own every declared dependent buffer before publishing a snapshot.
+ * Explicit native-result reading; this never executes or searches for a recipe. */
+export async function readNative(url: URL): Promise<ImmutableNativeSnapshot> {
+    const response = await fetch(url);
+    if (!response.ok) throw Error(`Native load failed: ${response.status}`);
+    const document = await response.json() as NativeDocument;
+    const base = response.url || url.href;
+    const resources = await Promise.all((document.buffers ?? []).map(async (buffer: any) => {
+        if (typeof buffer.uri !== 'string') throw Error('Native reader requires explicit buffer URI (no GLB binding)');
+        const result = await fetch(new URL(buffer.uri, base));
+        if (!result.ok) throw Error(`Native buffer load failed: ${result.status}`);
+        return new Uint8Array(await result.arrayBuffer());
+    }));
+    return nativeSnapshot(document, resources);
+}
+export function nativeURL(document: NativeDocument): URL {
+    return new URL(`data:model/gltf+json,${encodeURIComponent(JSON.stringify(document))}`);
+}
+/** Fresh consumer-owned bytes; mutating them cannot alter the snapshot. */
+export function snapshotBytes(snapshot: ImmutableNativeSnapshot, buffer: number): Uint8Array {
+    return Uint8Array.from(atob(snapshot.buffers[buffer]), c => c.charCodeAt(0));
 }
 export function contentValue(v: any): Content {
     assert(v && Object.keys(v).length === 1 && snapshots.has(v.snapshot), 'Content requires checked immutable snapshot');

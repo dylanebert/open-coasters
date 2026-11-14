@@ -3,7 +3,7 @@ import { test, expect } from 'bun:test';
 import { normalTrack, stationGap } from '../../../construction/normal-track';
 import { sampledSection } from '../../../construction/section';
 import { sweepConvex, materialValue } from '../../../construction/sweep';
-import { nativeSnapshot, contentValue } from '../../../construction/native';
+import { nativeSnapshot, contentValue, snapshotBytes } from '../../../construction/native';
 import { frame, path, adjustFrames, rotate } from '../../../construction/geometry';
 const root = new URL('../../public/assets/', import.meta.url);
 const json = await Bun.file(new URL('assembly-section.gltf', root)).json();
@@ -21,7 +21,7 @@ const parameters = {path:path({distances:[0,6],positions:[[0,1.5,0],[0,1.5,6]],r
 // Independent raw native accessor reader; never calls the generator's transform or decoder.
 function read(s: typeof snapshot, index: number): number[][] {
  const a=s.document.accessors[index], v=s.document.bufferViews[a.bufferView];
- const data=new DataView(Uint8Array.from(s.buffers[v.buffer]).buffer);
+ const data=new DataView(snapshotBytes(s,v.buffer).buffer);
  return Array.from({length:a.count},(_,i)=>[0,1,2].map(c=>data.getFloat32((v.byteOffset??0)+(a.byteOffset??0)+i*(v.byteStride??12)+c*4,true)));
 }
 const close = (a: readonly number[], b: readonly number[], tolerance=1e-12) => a.forEach((x,i)=>expect(Math.abs(x-b[i])).toBeLessThanOrEqual(tolerance));

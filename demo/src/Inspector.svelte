@@ -53,8 +53,9 @@
   </section>
   {#if assemblyView}
     <section>
-      <label>Path<select name="assembly-path" value={assembly.path} onchange={event => change({ ...c, assembly: { ...assembly, path: event.currentTarget.value as typeof assembly.path } }, true)}><option value="straight">Straight</option><option value="curve">Banked curve</option><option value="loop">Recorded loop</option></select></label>
-      {#if assembly.path === 'loop'}
+      <label>Construction<select name="assembly-witness" value={assembly.witness ?? 'normal'} onchange={event => change({ ...c, assembly: { ...assembly, witness: event.currentTarget.value as typeof assembly.witness } }, true)}><option value="normal">Normal track</option><option value="station">Station gap</option><option value="supports">Rigid box posts</option><option value="switch">Static part composition</option></select></label>
+      <label>Path<select disabled={assembly.witness === 'supports' || assembly.witness === 'switch'} name="assembly-path" value={assembly.path} onchange={event => change({ ...c, assembly: { ...assembly, path: event.currentTarget.value as typeof assembly.path } }, true)}><option value="straight">Straight</option><option value="curve">Banked curve</option><option value="loop">Recorded loop</option></select></label>
+      {#if assembly.path === 'loop' && assembly.witness !== 'supports' && assembly.witness !== 'switch'}
         <label>Appearance<select name="appearance" value={c.appearance ?? 'material'} onchange={event => change({ ...c, appearance: event.currentTarget.value as Configuration['appearance'] }, true)}><option value="material">Native material</option><option value="normal-force">Normal support</option></select></label>
         {#if c.appearance === 'normal-force'}
           <figure class="force-scale" aria-label="Normal support derived from recorded motion"><figcaption>Derived · 1 g = 9.81 m/s²</figcaption><div class="force-ramp"></div><div class="force-ticks"><span>0</span><span>2</span><span>4</span></div></figure>
@@ -62,7 +63,7 @@
       {/if}
       <label>Tie<select name="assembly-tie" value={assembly.tie} onchange={event => change({ ...c, assembly: { ...assembly, tie: event.currentTarget.value as typeof assembly.tie } }, true)}><option value="assembly-tie-bar">Bar</option><option value="assembly-tie-fork">Fork</option></select></label>
       {#each (['separation', 'spacing'] as const) as key}
-        <label use:scrub={{ value: () => assembly[key], preview: value => change({ ...c, assembly: { ...assembly, [key]: value } }), commit: finish }}>{key === 'separation' ? 'Rail separation · m' : 'Tie spacing · m'}<input name={'assembly-' + key} type="number" min={numericRanges[key].min} max={numericRanges[key].max} step={numericRanges[key].step} required value={assembly[key]} oninput={event => { if (event.currentTarget.validity.valid) change({ ...c, assembly: { ...assembly, [key]: event.currentTarget.valueAsNumber } }); }} onblur={event => { finish(); event.currentTarget.value = String(assembly[key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} /></label>
+        <label use:scrub={{ value: () => assembly[key], preview: value => change({ ...c, assembly: { ...assembly, [key]: value } }), commit: finish }}>{key === 'separation' ? 'Rail separation · m' : 'Tie spacing · m'}<input disabled={assembly.witness === 'switch'} name={'assembly-' + key} type="number" min={numericRanges[key].min} max={numericRanges[key].max} step={numericRanges[key].step} required value={assembly[key]} oninput={event => { if (event.currentTarget.validity.valid) change({ ...c, assembly: { ...assembly, [key]: event.currentTarget.valueAsNumber } }); }} onblur={event => { finish(); event.currentTarget.value = String(assembly[key]); }} onkeydown={event => { if (event.key === 'Enter') { event.preventDefault(); finish(); } }} /></label>
       {/each}
     </section>
   {/if}

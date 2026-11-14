@@ -6,6 +6,7 @@ import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { attachTexture, captureTexture } from "@dylanebert/shallot/rendering";
 import { liveScene, type Selection } from "./live";
 import { Scene, createScene } from "./scene";
+import { assemblyDefaults } from './assembly';
 import { defaults } from "./track";
 const url = (name: string) =>
   new URL(`../public/assets/${name}.gltf`, import.meta.url);
@@ -56,7 +57,7 @@ test(
       const orbit = w.storage(Orbit);
       w.gpu.device.pushErrorScope("validation");
       for (let cycle = 0; cycle < 2; cycle++)
-        for (let mode = 0; mode < 14; mode++) {
+        for (let mode = 0; mode < 18; mode++) {
           const previous = currentBuffers();
           for (const buffer of previous) families.add(buffer);
           const next: Selection = {
@@ -71,6 +72,8 @@ test(
               fixed: mode === 3 || mode >= 8,
               secondSpine: mode >= 11,
             },
+            example: mode >= 14 ? 'assembly' : undefined,
+            assembly: {...assemblyDefaults, path: mode === 14 ? 'loop' : 'straight', witness: (['normal','station','supports','switch'] as const)[mode-14] ?? 'normal'},
             isolated: mode === 4 || mode === 5,
             asset: mode === 4 ? "blitz-tie" : "wheel-carrier",
           };
@@ -104,7 +107,7 @@ test(
       app.dispose();
     }
   },
-  // 28 GPU replacements, not one draw. Every mode establishes its bound,
+  // 36 GPU replacements, including all construction witnesses, not one draw. Every mode establishes its bound,
   // then repeats it; release is checked on every replacement.
   TIMEOUT.gpu * 4,
 );
