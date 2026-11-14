@@ -172,7 +172,7 @@ export function registry(types: readonly TypeDefinition[], operations: readonly 
                 const t = ts.get(type.id); if (!t) return fail('unsupported', path, node, port, `type ${type.id}`);
                 if (literal && !t.decode) return fail('type', path, node, port, 'type has no literal decoder');
                 try { return immutable(t.validate(literal ? t.decode!(owned(v) as JSONValue) : owned(v))); }
-                catch (e) { return fail('type', path, node, port, String(e)); }
+                catch (e) { return fail(e instanceof RangeError || (e instanceof ConstructionError && e.category === 'resource') ? 'resource' : 'type', path, node, port, String(e)); }
             };
             const support = (t: Type, path: string[], node: string, port: string): void => {
                 if ('list' in t) support(t.list, path, node, port); else if (!ts.has(t.id)) fail('unsupported', path, node, port, `type ${t.id}`);
@@ -231,7 +231,7 @@ export function registry(types: readonly TypeDefinition[], operations: readonly 
                 } else {
                     let raw: Record<string, unknown>;
                     try { raw = primitive!.evaluate(inputs); }
-                    catch (e) { return fail(e instanceof RangeError ? 'resource' : 'evaluation', path, boundary, undefined, String(e)); }
+                    catch (e) { return fail(e instanceof RangeError || (e instanceof ConstructionError && e.category === 'resource') ? 'resource' : 'evaluation', path, boundary, undefined, String(e)); }
                     if (!record(raw)) return fail('evaluation', path, boundary, undefined, 'outputs must be record');
                     for (const k of Object.keys(raw)) if (!primitive!.outputs.some(p => p.name === k)) fail('evaluation', path, boundary, k, 'undeclared output');
                     for (const p of primitive!.outputs) {

@@ -42,6 +42,7 @@ export function nativeSnapshot(source: NativeDocument, resources: readonly (Arra
         doc.buffers[i].uri = `data:application/octet-stream;base64,${btoa(binary)}`;
         return Object.freeze(Array.from(bytes));
     });
+    const payloads = buffers.map(bytes => new DataView(Uint8Array.from(bytes).buffer));
     for (const v of doc.bufferViews ?? []) {
         const b = index(v.buffer, buffers, 'buffer');
         assert(Number.isSafeInteger(v.byteLength) && v.byteLength > 0 && Number.isSafeInteger(v.byteOffset ?? 0) && (v.byteOffset ?? 0) >= 0 && (v.byteOffset ?? 0) + v.byteLength <= buffers[b].length, 'bufferView range');
@@ -65,9 +66,29 @@ export function nativeSnapshot(source: NativeDocument, resources: readonly (Arra
             extensions(p); assert(!('targets' in p) && (p.mode ?? 4) === 4, 'only static triangles supported');
             assert(p.attributes && !('JOINTS_0' in p.attributes) && !('WEIGHTS_0' in p.attributes), 'skinning unsupported');
             const position = doc.accessors?.[index(p.attributes.POSITION, doc.accessors, 'POSITION')];
-            assert(position.type === 'VEC3' && position.componentType === 5126, 'float VEC3 positions required');
+            assert(position.type === 'VEC3' && position.componentType === 5126 && (position.normalized === undefined || position.normalized === false), 'non-normalized float VEC3 positions required');
+            const pv = doc.bufferViews[position.bufferView], po = position.byteOffset ?? 0, ps = pv.byteStride ?? 12;
+            assert(po % 4 === 0 && ((pv.byteOffset ?? 0) + po) % 4 === 0 && ps % 4 === 0 && ps >= 12 && ps <= 252, 'POSITION alignment/stride unsupported');
+            const positions = payloads[pv.buffer], start = (pv.byteOffset ?? 0) + po;
+            for (let i = 0; i < position.count; i++) for (let c = 0; c < 3; c++)
+                assert(Number.isFinite(positions.getFloat32(start + i * ps + c * 4, true)), 'nonfinite POSITION payload');
             for (const a of Object.values(p.attributes)) index(a, doc.accessors, 'attribute');
-            const count = p.indices === undefined ? position.count : doc.accessors[index(p.indices, doc.accessors, 'indices')].count;
+            let count = position.count;
+            if (p.indices !== undefined) {
+                const a = doc.accessors[index(p.indices, doc.accessors, 'indices')];
+                assert(a.type === 'SCALAR' && [5121, 5123, 5125].includes(a.componentType) && (a.normalized === undefined || a.normalized === false), 'non-normalized unsigned SCALAR indices required');
+                const v = doc.bufferViews[a.bufferView], size = sizes[a.componentType], offset = a.byteOffset ?? 0;
+                // Index streams are tightly packed; interleaving is supported only for vertex POSITION.
+                assert(v.byteStride === undefined, 'index byteStride unsupported');
+                assert(offset % size === 0 && ((v.byteOffset ?? 0) + offset) % size === 0, 'index alignment unsupported');
+                const data = payloads[v.buffer], start = (v.byteOffset ?? 0) + offset;
+                for (let i = 0; i < a.count; i++) {
+                    const at = start + i * size;
+                    const value = size === 1 ? data.getUint8(at) : size === 2 ? data.getUint16(at, true) : data.getUint32(at, true);
+                    assert(value < position.count && value < 2 ** (8 * size) - 1, 'index payload outside POSITION range / reserved restart index');
+                }
+                count = a.count;
+            }
             assert(count >= 3 && count % 3 === 0, 'triangle count');
             if (p.material !== undefined) index(p.material, doc.materials, 'material');
         }
