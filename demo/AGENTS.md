@@ -14,6 +14,6 @@ Scene materials are not chrome colors; keep the subject brighter and more satura
 
 `src/live.ts` resets the entire mesh registry on geometry replacement. Do not add another mesh producer without revisiting that ownership. Serialize replacements between completed frames and submitted GPU work as in `src/main.ts`; `src/reset.gpu.test.ts` and `src/live.gpu.test.ts` check release and retained state.
 
-Construction is app-local, not a shared asset or sweep contract. The profile and instance gates are restricted subsets, not full glTF validators. Parametric clearance checks do not qualify Blitz, train clearance, engineering attachments or ride safety.
+`../construction-contract.md` owns shared construction meaning and qualified limits. The demo adapts paths, renderer packing and force colors; it does not define another placement or sweep policy. The profile and instance gates are restricted subsets, not full glTF validators. Parametric clearance checks do not qualify Blitz, train clearance, engineering attachments or ride safety.
 
 Loop authoring and record changes: read `tools/AGENTS.md`.

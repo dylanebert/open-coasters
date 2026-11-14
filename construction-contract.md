@@ -1,22 +1,24 @@
 # Construction
 
-Implemented provisional construction meaning and qualified limits. Assets remain
-independent of construction: [instance](instance-contract.md) and
-[profile](profile-contract.md) contribution contracts are unchanged. Human demo
+Provisional construction contract. Assets remain independent of construction:
+[instance](instance-contract.md) and [profile](profile-contract.md) contribution
+contracts are unchanged. Human demo
 validation and broader release qualification remain open.
 
 ## Shared execution
 
 The renderer-independent [kernel](construction/kernel.ts) owns graph data types,
 original-text JSON parsing, immutable registries, exact nominal/list typing and
-complete-call demand. Graph structure is closed and validated throughout, including
-unused definitions. Only demanded calls require installed operations/types; every
+complete-call demand. Runtime data uses dense arrays and plain records with own
+enumerable data properties. Accessors, hidden or symbol properties, functions and
+mutable host objects are refused. Graph structure is closed and validated
+throughout, including unused definitions. Only demanded calls require installed operations/types; every
 input and output of a demanded group is checked. Errors distinguish structure,
 unsupported, type, input, evaluation and resource failure. No partial result,
 coercion, implicit list broadcast, environment query, recursion, solver or baked
 fallback is supplied.
 
-Derivable interfaces live with the implementation, not a mirrored schema here:
+Types, signatures and examples:
 
 - [Geometry types and primitive signatures](construction/geometry.ts)
 - [Ties source](construction/ties.json) and [invocation helper](construction/ties.ts)
@@ -27,7 +29,7 @@ Derivable interfaces live with the implementation, not a mirrored schema here:
   [installed extension](construction/plane-supports.ts) and
   [static composition source](construction/static-switch.json)
 
-NormalTrack actually composes station frames, local rail offsets, two sweeps and
+NormalTrack composes station frames, local rail offsets, two sweeps and
 the Ties group. A station exclusion filters the original phase sequence; custom
 parts are explicitly owned placements. The static-switch group concatenates
 already selected approach, left, right and custom constructions in that order.
@@ -49,8 +51,7 @@ componentwise linear positions and shortest-arc SLERP rotations. Unit-input
 acceptance is `abs(norm(q)-1) <= 1e-12`; copies are normalized and canonicalized by
 the first nonzero component in W,X,Y,Z order. A negative dot flips the second
 endpoint; a zero dot retains it. The dot is clamped to `[0,1]`; only a rounded dot
-of one uses normalized linear weights as the small-angle limit. This is not the
-legacy demo's clamped nlerp. Transform order is
+of one uses normalized linear weights as the small-angle limit. Transform order is
 `path × local adjustment × authored native hierarchy × point`, with no placement
 scale or recentering.
 
@@ -74,8 +75,8 @@ The separately installed plane-support extension accepts only upright identity
 attachments exactly 1.5 m above a horizontal +Y plane and the
 [checked diagnostic box post](construction/support-native.ts): 0.1 × 1.5 × 0.1 m,
 identity-authored, nonindexed twelve-triangle box. It rejects incompatible height,
-orientation, geometry and terrain rather than scale or solve them. This is not a
-new general contributed-asset kind or arbitrary terrain support generator.
+orientation, geometry and terrain rather than scale or solve them. It is not an
+arbitrary terrain support generator.
 
 ## Native snapshots and results
 
@@ -128,6 +129,5 @@ serializes replacements between completed frames/submitted work. CPU fixtures
 cover graph/result/adapter/control and camera decisions. The selected lifecycle
 GPU fixture covers release, bounded repeated resources and retained camera;
 one headless assembly subject covers built-page controls, history, framing and
-phone layout. These checks do not close human judgment, qualify all geometry or
-native importers, or establish hosted CI/release slow tiers. No asset-delivery UX,
-node editor, broad profile, texture or dynamic-switch capability is implied.
+phone layout. They do not qualify other native importers or establish hosted CI
+and release-tier results.

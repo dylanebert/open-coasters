@@ -2,7 +2,7 @@
 
 `README.md` is reserved for the person's front page. Keep agent instructions here or in scoped `AGENTS.md` files, not parallel user guides.
 
-The provisional asset meanings and restrictions live in `instance-contract.md` and `profile-contract.md`; source evidence, reproduction and notices live with each asset under `assets/`.
+The provisional asset meanings and restrictions live in `instance-contract.md` and `profile-contract.md`; `construction-contract.md` owns construction meaning and qualified limits. Source evidence, reproduction and notices live with each asset under `assets/`.
 
 ## Development and checks
 
