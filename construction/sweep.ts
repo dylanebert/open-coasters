@@ -30,7 +30,9 @@ export function sweepConvex(section: SampledSection, source: readonly Frame[], w
     sectionValue(section); wall = materialValue(wall); cap = materialValue(cap);
     if (!Array.isArray(source) || source.length < 2) throw Error('at least two frames required');
     const frames = source.map(frame);
-    const rings = frames.map(f => section.map(([x, y]) => rotate(f.rotation, [x, y, 0]).map((v, i) => v + f.translation[i])));
+    // POSITION is native float32: validate and derive normals from those exact
+    // emitted coordinates, not from a binary64 surrogate that rounding can collapse.
+    const rings = frames.map(f => section.map(([x, y]) => rotate(f.rotation, [x, y, 0]).map((v, i) => Math.fround(v + f.translation[i]))));
     const positions: number[][] = [[], []], normals: number[][] = [[], []];
     function triangle(kind: number, a: number[], b: number[], c: number[]) {
         const u = b.map((x, i) => x - a[i]), v = c.map((x, i) => x - a[i]);

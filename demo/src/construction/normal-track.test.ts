@@ -88,3 +88,45 @@ test('published NormalTrack interface, defaults and composition remain explicit 
  expect(g.nodes.at(-1).inputs.constructions).toEqual({list:[{node:'leftRail',output:'construction'},{node:'rightRail',output:'construction'},{node:'ties',output:'construction'}]});
  expect(g.outputs).toEqual([{name:'construction',type:{id:'cc.construction@1'},binding:{node:'join',output:'construction'}}]);
 },1000);
+
+test('native float32 precision collapse refuses atomically at ordinary and translated coordinates',()=>{
+ // Exact review counterexample, then the same representability failure on other axes/scales.
+ for (const [a,b] of [
+  [[0,0,1],[0,0,1+1e-8]],
+  [[0,0,1e8],[0,0,1e8+1]],
+  [[2**24,0,0],[2**24,0,6]],
+  [[0,2**24,0],[0,2**24,6]],
+ ]) {
+  let published: unknown;
+  expect(()=>{published=sweepConvex(section,[frame({translation:a,rotation:I}),frame({translation:b,rotation:I})],wall,cap);}).toThrow('degenerate sweep triangle');
+  expect(published).toBeUndefined();
+ }
+ // Finiteness is also an emitted-coordinate property.
+ expect(()=>sweepConvex(section,[frame({translation:[0,0,1e39],rotation:I}),frame({translation:[0,0,2e39],rotation:I})],wall,cap)).toThrow('nonfinite');
+},1000);
+
+test('native accessor positions own degeneracy and directed normals on banked nonplanar and precision-boundary sweeps',()=>{
+ for (const frames of [
+  [frame({translation:[.13,.27,1],rotation:I}),frame({translation:[.19,.31,1+1e-6],rotation:[0,0,Math.sin(.2),Math.cos(.2)]})],
+  [frame({translation:[.13,.27,1],rotation:I}),frame({translation:[.19,.31,3.1],rotation:[Math.sin(.13),0,0,Math.cos(.13)]})],
+  [frame({translation:[0,0,1],rotation:I}),frame({translation:[0,0,1+2**-23],rotation:I})],
+ ]) {
+  const placement=sweepConvex(section,frames,wall,cap).placements[0];
+  // Generated native node and placement are identity: raw accessors are world coordinates.
+  expect(placement.frame).toEqual({translation:[0,0,0],rotation:I});
+  expect(placement.content.snapshot.document.nodes).toEqual([{mesh:0}]);
+  const s=placement.content.snapshot;
+  for(const [pi,ni] of [[0,1],[2,3]]) {
+   const ps=read(s,pi), ns=read(s,ni);
+   for(let i=0;i<ps.length;i+=3) {
+    const [a,b,c]=ps.slice(i,i+3),u=b.map((x,j)=>x-a[j]),v=c.map((x,j)=>x-a[j]);
+    const cross=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]], length=Math.hypot(...cross);
+    expect([...a,...b,...c,...ns[i]].every(Number.isFinite)).toBe(true);
+    expect(length).toBeGreaterThan(1e-12);
+    // Exactly the float32 encoding of the native POSITION directed cross normal.
+    expect(ns[i]).toEqual(cross.map(x=>Math.fround(x/length)));
+    expect(ns[i+1]).toEqual(ns[i]);expect(ns[i+2]).toEqual(ns[i]);
+   }
+  }
+ }
+},1000);
