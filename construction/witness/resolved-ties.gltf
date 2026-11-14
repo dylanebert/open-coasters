@@ -1,0 +1,20 @@
+{
+  "asset": {"version":"2.0"},
+  "scene": 0,
+  "scenes": [{"nodes":[0,4]}],
+  "nodes": [
+    {"translation":[0,1.5,2],"rotation":[0,0,0,1],"children":[1,3]},
+    {"name":"authored group","children":[2]},
+    {"mesh":0},
+    {"mesh":0,"translation":[1,0,0]},
+    {"translation":[2,0,0],"rotation":[0,0.7071067811865475,0,0.7071067811865475],"children":[5,7]},
+    {"name":"authored group","children":[6]},
+    {"mesh":0},
+    {"mesh":0,"translation":[1,0,0]}
+  ],
+  "meshes": [{"primitives":[{"attributes":{"POSITION":0},"material":0}]}],
+  "materials": [{"pbrMetallicRoughness":{"baseColorFactor":[0.2,0.3,0.4,1],"metallicFactor":0,"roughnessFactor":0.8}}],
+  "accessors": [{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0.1,0.2,0.4],"max":[0.4,0.5,0.4]}],
+  "bufferViews": [{"buffer":0,"byteOffset":0,"byteLength":36}],
+  "buffers": [{"byteLength":36,"uri":"data:application/octet-stream;base64,zczMPc3MTD7NzMw+zczMPs3MTD7NzMw+zczMPQAAAD/NzMw+"}]
+}
