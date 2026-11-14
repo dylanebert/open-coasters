@@ -115,12 +115,13 @@ a native result never proves another tool can execute its source recipe.
 
 ## Demo consumer and qualification
 
-The existing Circular rails controls call the reusable NormalTrack graph through
+The demo calls the reusable NormalTrack graph through
 [a bounded app adapter](demo/src/construction-demo.ts). Analytic and recorded poses
 become explicit sampled data in [assembly.ts](demo/src/assembly.ts); the displayed
 rails use 97 stations (a bounded visualization approximation). Recorded source
-poses/physics are unchanged. Normal track, station gap, rigid posts and static
-part composition are inspectable using existing controls. The static example has
+poses/physics are unchanged. Repeated ties, gaps, explicitly positioned posts and
+static part composition are separate examples in one chooser. Post distances are
+independent of tie spacing. The static example has
 seven owned parts, not a generated switch. Force coloring is consumer-only native
 mesh packing. Legacy spine-track behavior is not thereby construction conformance.
 
