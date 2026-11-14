@@ -1,0 +1,186 @@
+import { beforeAll, afterAll, expect, test } from 'bun:test';
+import { MeshMaterial, StandardMaterial, Camera, DirectionalLight, Materials, Meshes, StandardRenderer, Transform, lookAtRotation, type Plugin } from '@dylanebert/shallot';
+import { DepthPrepass, Views, attachTexture, captureTexture } from '@dylanebert/shallot/rendering';
+import { openGpuApp } from '@dylanebert/shallot/testing/gpu';
+import { TIMEOUT } from '@dylanebert/shallot/testing';
+import { decodePos } from '@dylanebert/shallot/mesh';
+import { octDecodeNormal } from '@dylanebert/shallot/utils';
+import { framesAt, path, adjustFrames, type Frame } from '../../construction/geometry';
+import { sampledSection } from '../../construction/section';
+import { sweepConvex } from '../../construction/sweep';
+import { nativeSnapshot } from '../../construction/native';
+import { railGpu, RailGpu } from './rail-gpu';
+
+const evidence=process.env.RAIL_GPU_EVIDENCE;
+async function save(name:string, data:Parameters<typeof Bun.write>[1]) {
+    if(evidence) await Bun.write(`${evidence.replace(/\/$/,'')}/${name}`,data);
+}
+let lowImage:Uint8Array;
+let app: Awaited<ReturnType<typeof openGpuApp>>, camera=0;
+let frames:readonly Frame[], section:ReturnType<typeof sampledSection>;
+const warnings:string[]=[];
+const warn=console.warn;
+// Y-axis arc, constant local Z bank: independent analytic basis below.
+const bank=.37, angle=.8, radius=8;
+const positions:number[][]=[], rotations:number[][]=[];
+for(let i=0;i<97;i++) {
+    const t=angle*i/96, sy=Math.sin(t/2), cy=Math.cos(t/2), sz=Math.sin(bank/2), cz=Math.cos(bank/2);
+    positions.push([radius*(1-Math.cos(t)),0,radius*Math.sin(t)]);
+    rotations.push([sy*sz,sy*cz,cy*sz,cy*cz]);
+}
+const sampled=path({distances:Array.from({length:97},(_,i)=>radius*angle*i/96),positions,rotations});
+let material: {snapshot:ReturnType<typeof nativeSnapshot>;material:number};
+
+beforeAll(async()=>{
+    console.warn=(...args)=>{warnings.push(args.map(String).join(' '));warn(...args);};
+    const json=await Bun.file(new URL('../public/assets/assembly-section.gltf',import.meta.url)).json();
+    const bytes=await Bun.file(new URL('../public/assets/assembly-section.bin',import.meta.url)).arrayBuffer();
+    section=sampledSection(json,[bytes]); frames=framesAt(sampled,sampled.distances);
+    const doc=await Bun.file(new URL('../../construction/witness/resolved-ties.gltf',import.meta.url)).json();
+    const raw=new Float32Array([.1,.2,.4,.4,.2,.4,.1,.5,.4]);
+    doc.buffers=[{byteLength:raw.byteLength}]; doc.materials=[{pbrMetallicRoughness:{baseColorFactor:[.8,.4,.1,1]}}];
+    material={snapshot:nativeSnapshot(doc,[new Uint8Array(raw.buffer)]),material:0};
+    expect(section.length).toBe(16);
+    expect(Math.max(...section.map(p=>Math.hypot(...p)))).toBeCloseTo(.06,7);
+    const scene:Plugin={name:'rail-proof-view',dependencies:[railGpu(frames,section,w=>w.resource(Materials).add(StandardMaterial({baseColor:[.8,.4,.1,1]})))],initialize(w){
+        camera=w.create(); w.add(camera,Camera,{clearColor:0x121212}); w.add(camera,StandardRenderer); w.add(camera,DepthPrepass);
+        w.add(camera,Transform,{translation:[10,8,12],rotation:lookAtRotation(10,8,12,1,0,3)});
+        const sun=w.create(); w.add(sun,Transform,{rotation:lookAtRotation(0,0,0,1,-1,-1)});
+        w.add(sun,DirectionalLight,{illuminance:6000,shadowMapsEnabled:1});
+    }};
+    app=await openGpuApp({plugins:[scene]});
+    attachTexture(app.world,camera,{width:128,height:96});
+    app.world.step(0); lowImage=(await captureTexture(app.world,camera)).rgba.slice(); await app.world.frameFence;
+    expect(app.world.resource(Views).get(camera)?.depth).toBeTruthy();
+    await save('image-low-control.rgba',lowImage);
+    await save('device.json',JSON.stringify({runtime:Bun.version,adapter:app.world.gpu.adapter,limits:Object.fromEntries(Object.getOwnPropertyNames(Object.getPrototypeOf(app.world.gpu.device.limits)).filter(k=>k!=='constructor').map(k=>[k,(app.world.gpu.device.limits as any)[k]]))},null,2));
+},TIMEOUT.startup);
+afterAll(async()=>{
+    try {
+        if(!app) return;
+        await app.world.gpu.device.queue.onSubmittedWorkDone();
+        const s=app.world.resource(RailGpu);
+        const owned=[...s.buffers,app.world.gpu.root.unwrap(s.mesh.quant!)];
+        const destroyed=new Map<GPUBuffer,number>();
+        for(const buffer of owned) {const destroy=buffer.destroy.bind(buffer);buffer.destroy=()=>{destroyed.set(buffer,(destroyed.get(buffer)??0)+1);destroy();};}
+        app.dispose();
+        expect(owned.map(b=>destroyed.get(b))).toEqual(owned.map(()=>1));
+    } finally {console.warn=warn;}
+});
+
+function cpu(separation:number) {
+    const out:number[]=[];
+    for(const sign of [-1,1]) {
+        const shifted=adjustFrames(frames,{translation:[sign*separation/2,0,0],rotation:[0,0,0,1]});
+        const result=sweepConvex(section,shifted,material,material);
+        const snap=result.placements[0].content.snapshot;
+        const bytes=Buffer.from(snap.buffers[0],'base64');
+        // Native sweep has wall POSITION/NORMAL then cap POSITION/NORMAL.
+        for(const id of [0,2]) {
+            const a=snap.document.accessors[id], v=snap.document.bufferViews[a.bufferView];
+            out.push(...new Float32Array(bytes.buffer,bytes.byteOffset+v.byteOffset,a.count*3));
+        }
+    }
+    return out;
+}
+function normal(a:number[],b:number[],c:number[]) {
+    const u=b.map((v,i)=>v-a[i]),v=c.map((x,i)=>x-a[i]);
+    const n=[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],l=Math.hypot(...n);
+    return n.map(x=>x/l);
+}
+async function read(buffer:GPUBuffer) {
+    const {device}=app.world.gpu;
+    const staging=device.createBuffer({size:buffer.size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
+    try {
+        const encoder=device.createCommandEncoder(); encoder.copyBufferToBuffer(buffer,0,staging,0,buffer.size); device.queue.submit([encoder.finish()]);
+        await staging.mapAsync(GPUMapMode.READ); return new Uint32Array(staging.getMappedRange().slice(0));
+    } finally {staging.destroy();}
+}
+test('retained banked rails: low/interior/high, shared f32 sweep, analytic oracle, streams and shadows',async()=>{
+    const w=app.world,s=w.resource(RailGpu), mesh=s.mesh, buffers=[...s.buffers], registry=[...w.resource(Meshes)];
+    expect(s.dispatches).toBe(1);
+    expect(buffers.length).toBe(8); // plus the independently retained MeshQuant allocation
+    expect(mesh.indexBase).toBe(0);
+    const quant=(await mesh.quant!.read())[0];
+    const quantError=Math.max(quant.posScale.x,quant.posScale.y,quant.posScale.z)/65535;
+    const materialRow=w.storage(MeshMaterial).material.get(s.entity), entity=s.entity;
+    const summary:any[]=[];
+    let previous:Uint32Array|undefined, previousImage:Uint8Array|undefined;
+    for(const separation of [.6,1.1,1.6]) {
+        s.separation=separation;
+        let allocations=0;
+        const create=w.gpu.device.createBuffer.bind(w.gpu.device);
+        w.gpu.device.createBuffer=(...args)=>{allocations++;return create(...args);};
+        try {w.step(0);} finally {w.gpu.device.createBuffer=create;}
+        expect(allocations).toBe(0);
+        const image=await captureTexture(w,camera); await w.frameFence;
+        expect(w.resource(Views).get(camera)?.depth).toBeTruthy();
+        const changedFromLow=image.rgba.reduce((n,v,i)=>n+Number(v!==lowImage[i]),0);
+        const changedFromPrevious=previousImage ? image.rgba.reduce((n,v,i)=>n+Number(v!==previousImage![i]),0) : 0;
+        if(separation===.6) expect(changedFromLow).toBe(0);
+        else {expect(changedFromLow).toBeGreaterThan(0); expect(changedFromPrevious).toBeGreaterThan(0);}
+        await save(`image-${separation}.rgba`,image.rgba);
+        previousImage=image.rgba.slice();
+        const actual=await read(buffers[0]), position=await read(buffers[1]), indices=await read(buffers[2]);
+        await save(`main-${separation}.bin`,actual);
+        await save(`position-${separation}.bin`,position);
+        await save(`indices-${separation}.bin`,indices);
+        expect(actual.length/4).toBe(mesh.indexCount);
+        expect(mesh.indexCount).toBe(2*((96*16*2)+(14*2))*3);
+        const raw=await read(buffers[7]);
+        const emittedF32=new Float32Array(raw.buffer);
+        await save(`emitted-${separation}.bin`,raw);
+        const reference=cpu(separation), decoded:number[][]=[];
+        let maxPosition=0,maxNormal=0,maxQuantNormal=0,topologyErrors=0,streamErrors=0,boundsErrors=0,analyticError=0,f32Error=0,quantizationError=0;
+        for(let i=0;i<indices.length;i++) {
+            if(indices[i]!==i || (actual[i*4+1]>>>16)!==0) topologyErrors++;
+            if(position[i*2]!==actual[i*4] || position[i*2+1]!==actual[i*4+1]) streamErrors++;
+            const p=decodePos(actual[i*4],actual[i*4+1],quant), a=[p.x,p.y,p.z]; decoded.push(a);
+            for(let axis=0;axis<3;axis++) {
+                maxPosition=Math.max(maxPosition,Math.abs(a[axis]-reference[i*3+axis]));
+                f32Error=Math.max(f32Error,Math.abs(emittedF32[i*4+axis]-reference[i*3+axis]));
+                quantizationError=Math.max(quantizationError,Math.abs(a[axis]-emittedF32[i*4+axis]));
+            }
+            const center=mesh.bounds!; if(Math.hypot(...a.map((v,j)=>v-center[j]))>center[3]+quantError*2) boundsErrors++;
+        }
+        for(let i=0;i<indices.length;i+=3) {
+            const a=Array.from(emittedF32.subarray(i*4,i*4+3)),b=Array.from(emittedF32.subarray((i+1)*4,(i+1)*4+3)),c=Array.from(emittedF32.subarray((i+2)*4,(i+2)*4+3));
+            const n=normal(a,b,c), q=normal(decoded[i],decoded[i+1],decoded[i+2]);
+            if(actual[i*4+2]!==actual[(i+1)*4+2] || actual[i*4+2]!==actual[(i+2)*4+2]) topologyErrors++;
+            const packed=octDecodeNormal(actual[i*4+2]);
+            const emitted=[packed.x,packed.y,packed.z];
+            maxNormal=Math.max(maxNormal,Math.hypot(...n.map((v,k)=>v-emitted[k])));
+            maxQuantNormal=Math.max(maxQuantNormal,Math.hypot(...q.map((v,k)=>v-emitted[k])));
+        }
+        // Independent closed-form banked arc, first corner of each wall quad.
+        for(let rail=0;rail<2;rail++) for(let station=0;station<96;station++) for(let j=0;j<16;j++) {
+            const t=angle*station/96, x=section[j][0]+(rail?1:-1)*separation/2,y=section[j][1];
+            const bx=Math.cos(bank)*x-Math.sin(bank)*y, by=Math.sin(bank)*x+Math.cos(bank)*y;
+            const expected=[radius*(1-Math.cos(t))+Math.cos(t)*bx,by,radius*Math.sin(t)-Math.sin(t)*bx];
+            const index=rail*(96*16*6+28*3)+(station*16+j)*6;
+            analyticError=Math.max(analyticError,...expected.map((v,k)=>Math.abs(v-decoded[index][k])));
+        }
+        expect(topologyErrors+streamErrors+boundsErrors).toBe(0);
+        expect(analyticError).toBeLessThan(quantError+3e-6);
+        expect(maxPosition).toBeLessThan(quantError+3e-6);
+        expect(f32Error).toBeLessThan(3e-6);
+        expect(quantizationError).toBeLessThan(quantError);
+        expect(maxNormal).toBeLessThan(.0001);
+        if(previous) {
+            expect(actual).not.toEqual(previous);
+            const stale=decodePos(previous[0],previous[1],quant);
+            expect(Math.hypot(stale.x-reference[0],stale.y-reference[1],stale.z-reference[2])).toBeGreaterThan(.1);
+        }
+        // Wrong-separation/stale oracle must exceed the position acceptance limit.
+        const wrong=cpu(separation===.6?1.6:.6);
+        expect(Math.max(...decoded[0].map((v,k)=>Math.abs(v-wrong[k])))).toBeGreaterThan(.1);
+        expect(image.rgba.some((v,i)=>i%4!==3 && v!==image.rgba[i%4])).toBe(true);
+        expect(s.buffers.every((b,i)=>b===buffers[i])).toBe(true); expect(s.mesh).toBe(mesh);
+        expect(s.entity).toBe(entity); expect(w.storage(MeshMaterial).material.get(entity)).toBe(materialRow);
+        expect([...w.resource(Meshes)]).toEqual(registry);
+        summary.push({separation,depthPrepass:true,changedFromLow,changedFromPrevious,maxPosition,maxNormal,maxQuantNormal,quantError,f32Error,quantizationError,ownedBuffers:buffers.length+1}); previous=actual;
+    }
+    const count=s.dispatches; w.step(0); await w.frameFence; expect(s.dispatches).toBe(count);
+    expect(warnings).toEqual([]);
+    await save('results.json',JSON.stringify(summary,null,2));
+},TIMEOUT.gpu);
