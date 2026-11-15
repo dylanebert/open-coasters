@@ -144,12 +144,22 @@ test('retained banked rails: low/interior/high, shared f32 sweep, analytic oracl
             const center=mesh.bounds!; if(Math.hypot(...a.map((v,j)=>v-center[j]))>center[3]+quantError*2) boundsErrors++;
         }
         for(let i=0;i<indices.length;i+=3) {
-            const a=Array.from(emittedF32.subarray(i*4,i*4+3)),b=Array.from(emittedF32.subarray((i+1)*4,(i+1)*4+3)),c=Array.from(emittedF32.subarray((i+2)*4,(i+2)*4+3));
+            // Independent shared sweep f32 coordinates, not the producer's own
+            // diagnostic output. A coordinate perturbation <=3e-6 per axis gives
+            // edge perturbation e=2*sqrt(3)*3e-6 and cross perturbation
+            // e*(|u|+|v|)+e^2. Normalization costs at most twice that / |u x v|.
+            const a=reference.slice(i*3,i*3+3),b=reference.slice((i+1)*3,(i+1)*3+3),c=reference.slice((i+2)*3,(i+2)*3+3);
+            const u=b.map((v,k)=>v-a[k]),v=c.map((x,k)=>x-a[k]);
+            const area=Math.hypot(u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]);
+            const e=2*Math.sqrt(3)*3e-6;
+            const normalBound=2*(e*(Math.hypot(...u)+Math.hypot(...v))+e*e)/area+.0001;
             const n=normal(a,b,c), q=normal(decoded[i],decoded[i+1],decoded[i+2]);
             if(actual[i*4+2]!==actual[(i+1)*4+2] || actual[i*4+2]!==actual[(i+2)*4+2]) topologyErrors++;
             const packed=octDecodeNormal(actual[i*4+2]);
             const emitted=[packed.x,packed.y,packed.z];
-            maxNormal=Math.max(maxNormal,Math.hypot(...n.map((v,k)=>v-emitted[k])));
+            const error=Math.hypot(...n.map((v,k)=>v-emitted[k]));
+            expect(error).toBeLessThan(normalBound);
+            maxNormal=Math.max(maxNormal,error);
             maxQuantNormal=Math.max(maxQuantNormal,Math.hypot(...q.map((v,k)=>v-emitted[k])));
         }
         // Independent closed-form banked arc, first corner of each wall quad.
@@ -165,7 +175,7 @@ test('retained banked rails: low/interior/high, shared f32 sweep, analytic oracl
         expect(maxPosition).toBeLessThan(quantError+3e-6);
         expect(f32Error).toBeLessThan(3e-6);
         expect(quantizationError).toBeLessThan(quantError);
-        expect(maxNormal).toBeLessThan(.0001);
+
         if(previous) {
             expect(actual).not.toEqual(previous);
             const stale=decodePos(previous[0],previous[1],quant);
