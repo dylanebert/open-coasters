@@ -2,7 +2,7 @@
 
 ## Interface
 
-Keep the view primary and the inspector bounded, below the view on phones. Labels and units identify controls; add no explanatory copy or help control without a concrete need. Use the asset contract's terminology, including Color rather than Paint.
+Keep the scene full-view, example navigation at the bottom and contextual controls bounded at the top right on desktop and phones. Labels and units identify controls; add no explanatory copy or help control without a concrete need. Use the asset contract's terminology, including Color rather than Paint.
 
 `src/style.css` owns the chrome's palette, type, spacing and state roles. Reuse those roles, not per-control variants. Fonts and OFL notices live in `public/fonts/`; import no other example's styles.
 
