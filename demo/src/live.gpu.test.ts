@@ -12,11 +12,7 @@ import { readMesh } from './gpu-probe';
 import { effective, initialConfiguration, selectExample } from './configuration';
 const url = (name: string) =>
   new URL(`../public/assets/${name}.gltf`, import.meta.url);
-const selection: Selection = {
-  parameters: defaults,
-  isolated: false,
-  asset: "wheel-carrier",
-};
+const selection: Selection = effective(initialConfiguration);
 
 test(
   "live scene bounds GPU bytes, entities and registrations through repeated parameter/component/example changes",

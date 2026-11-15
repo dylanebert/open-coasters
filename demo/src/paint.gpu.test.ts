@@ -4,7 +4,7 @@ import { Orbit } from '@dylanebert/shallot/extras';
 import { openGpuApp } from '@dylanebert/shallot/testing/gpu';
 import { TIMEOUT } from '@dylanebert/shallot/testing';
 import { attachTexture, captureTexture } from '@dylanebert/shallot/rendering';
-import { liveScene } from './live';
+import { paintScene as liveScene } from '../fixtures/paint-scene';
 import { initialConfiguration as initialState, effective } from './configuration';
 const initialConfiguration = effective({...initialState, selected:'track'});
 import { Scene } from './scene';
