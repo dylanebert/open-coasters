@@ -9,6 +9,7 @@ import { Scene, createScene } from "./scene";
 import { assemblyDefaults } from './assembly';
 import { defaults } from "./track";
 import { readMesh } from './gpu-probe';
+import { effective, initialConfiguration, selectExample } from './configuration';
 const url = (name: string) =>
   new URL(`../public/assets/${name}.gltf`, import.meta.url);
 const selection: Selection = {
@@ -62,23 +63,17 @@ test(
         for (let mode = 0; mode < 17; mode++) {
           const previous = currentBuffers();
           for (const buffer of previous) families.add(buffer);
-          const next: Selection = {
-            parameters: {
-              ...defaults,
-              configuration:
-                mode >= 8 ? (['straight', 'curve', 'loop'] as const)[(mode - 8) % 3] : mode === 0 ? "straight" : mode === 1 ? "curve" : "loop",
-              spacing: mode % 2 ? 0.3 : 1.5,
-              separation: mode === 7 ? 1.6 : 1,
-              width: mode % 2 ? 0.6 : 0.15,
-              depth: mode === 7 ? 0.8 : 0.35,
-              fixed: mode === 3 || mode >= 8,
-              secondSpine: mode >= 11,
-            },
-            example: mode >= 14 ? 'assembly' : undefined,
-            assembly: {...assemblyDefaults, path: mode === 14 ? 'loop' : 'straight', witness: (['normal','station','supports'] as const)[mode-14] ?? 'normal'},
-            isolated: mode === 4 || mode === 5,
-            asset: mode === 4 ? "blitz-tie" : "wheel-carrier",
-          };
+          const model=structuredClone(initialConfiguration);
+          const selected=mode<15 ? (['ties','station','supports','assembly','track'] as const)[mode%5] : 'witness';
+          const configured=selectExample(model,selected);
+          configured.values.ties.path=(['straight','curve','loop'] as const)[Math.floor(mode/5)%3];
+          configured.values.ties.spacing=mode%2 ? .3 : 1.5;
+          configured.values.assembly.path=(['straight','curve','loop'] as const)[Math.floor(mode/5)%3];
+          configured.values.assembly.separation=mode%2 ? .6 : 1.6;
+          configured.values.track.path=(['straight','curve','loop'] as const)[Math.floor(mode/5)%3];
+          configured.values.track.secondSpine=mode%2===0;
+          configured.values.witness.asset=mode%2 ? 'blitz-tie' : 'wheel-carrier';
+          const next: Selection=effective(configured);
           await scene.update(next);
           await frame();
           const current = currentBuffers();

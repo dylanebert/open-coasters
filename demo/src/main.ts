@@ -1,5 +1,6 @@
-import { createApp, Meshes, Transform, shallotDark } from "@dylanebert/shallot";
-import type { Mesh, MeshData } from "@dylanebert/shallot/mesh";
+import { createApp, MeshInstance, Meshes, Transform, shallotDark } from "@dylanebert/shallot";
+import { readMesh } from './gpu-probe';
+import type { MeshHandle } from '@dylanebert/shallot/mesh';
 import { blurCanvas } from "@dylanebert/shallot/input";
 import { worldToViewport, attachCanvas } from "@dylanebert/shallot/rendering";
 import { Orbit } from "@dylanebert/shallot/extras";
@@ -45,6 +46,7 @@ try {
     if (inspector) void unmount(inspector);
     app.dispose();
   }, { once: true });
+  let observe: (() => Promise<void>) | undefined;
   let serial = Promise.resolve();
   function step(dt: number) {
     serial = serial.then(async () => {
@@ -60,23 +62,27 @@ try {
       if (disposed) return;
       app.world.step(dt);
       await app.world.frameFence;
+      await observe?.();
     });
     return serial;
   }
   await step(0);
   if (query.has("stepped")) {
-    // Test-only positions from subsequent track registration inputs.
-    // Keep only the current assembly's raw positions, not a computed target.
+    // Stepped qualification reads selected public GPU inputs after submission.
+    // No expected geometry or producer staging arrays enter this observation.
     const trackPositions: { name: string; positions: number[] }[] = [];
-    const meshes = app.world.resource(Meshes), add = meshes.add.bind(meshes);
-    meshes.add = (mesh: MeshData | Mesh) => {
-      const handle = mesh.vertices instanceof Float32Array ? add(mesh as MeshData) : add(mesh as Mesh);
-      if (mesh.vertices instanceof Float32Array && (mesh.name.startsWith("Track ") || mesh.name === "Circular rails")) {
-        if (mesh.name === "Track rails" || mesh.name === "Circular rails") trackPositions.length = 0;
-        trackPositions.push({ name: mesh.name, positions: Array.from(mesh.vertices).filter((_, i) => i % 8 < 3) });
+    const meshes = app.world.resource(Meshes);
+    observe = async () => {
+      trackPositions.length=0;
+      const instances=app.world.storage(MeshInstance);
+      const handles=new Set(app.world.resource(Scene).instances.flat().map(e=>instances.mesh.get(e)));
+      for(const handle of handles) {
+        const mesh=meshes.get(handle as MeshHandle);
+        if(mesh && (mesh.name.startsWith('Track ') || mesh.name==='Circular rails'))
+          trackPositions.push({name:mesh.name,positions:(await readMesh(app.world,mesh)).points.flat()});
       }
-      return handle;
     };
+    await observe();
     Object.assign(window, { step: (dt = 1 / 60) => step(dt), demo: {
       app,
       trackPositions: () => trackPositions,
