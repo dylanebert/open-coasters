@@ -100,7 +100,7 @@ test('recorded adapter retains source station poses, explicit SLERP and closed-d
  expect(p.distances).toEqual(recorded.map(r=>r[0]));
  expect(p.positions[i][1]).toBe(raw[2]+1.5);
  const apex=recorded.reduce((a,b)=>b[2]>a[2]?b:a)[1];
- expect(p.positions[i]).toEqual([-raw[1]+apex,raw[2]+1.5,-raw[3]-5.3998784515]);
+ expect(p.positions[i]).toEqual([-raw[1]+apex,raw[2]+1.5,-raw[3]-14.1325386361]);
  // Independent basis landmark from the recorded quaternion; adaptation conjugates Y half-turn.
  const q=raw.slice(4),norm=Math.hypot(...q),[x,y,z,w]=q.map(v=>v/norm);
  const expected=[1-2*(y*y+z*z),-2*(x*y+z*w),2*(x*z-y*w)];

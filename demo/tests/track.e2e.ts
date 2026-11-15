@@ -10,7 +10,7 @@ test('contributed native composition changes actual mesh topology, caches source
  for(const path of ['straight','curve','loop']){
   const before=await page.evaluate(()=>(window as any).demo.orbit());
   await page.locator('[name=configuration]').selectOption(path);await step(page);
-  const view=await page.evaluate(()=>(window as any).demo.orbit());expect(view.yaw).toBe(before.yaw);expect(view.pitch).toBe(before.pitch);expect(view.distance).toBe(path==='loop'?26:19);
+  const view=await page.evaluate(()=>(window as any).demo.orbit());expect(view.yaw).toBe(before.yaw);expect(view.pitch).toBe(before.pitch);expect(view.distance).toBe(path==='loop'?68:19);
   for(const composition of ['single','double']){
    await page.locator('[name=spineAssembly]').selectOption(composition);await step(page);
    expect(await page.evaluate(()=>(window as any).demo.orbit())).toEqual(view);

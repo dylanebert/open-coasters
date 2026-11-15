@@ -10,7 +10,7 @@ const dot = (a: number[], b: number[]) =>
 const sub = (a: number[], b: number[]) => a.map((x, i) => x - b[i]);
 const norm = (a: number[]) => Math.hypot(...a);
 // Independently recorded crown source X; no production placement import.
-const world = (p: number[]) => [-1.3319609173 - p[1], 1.5 + p[2], -5.3998784515 - p[3]];
+const world = (p: number[]) => [-3.4596492374 - p[1], 1.5 + p[2], -14.1325386361 - p[3]];
 // Independent source quaternion matrix columns, rigidly placed in world space.
 const axes = (p: number[]) => {
   const [x, y, z, w] = p.slice(4);
@@ -427,9 +427,9 @@ for (const configuration of ["straight", "curve", "loop"] as const)
 
 test("loop: independent component dimensions, midpoint landmark, and parameter isolation", () => {
   // Independent matrix reconstruction at the new metric midpoint.
-  const origin = [3.527941183591029 - 3.5319609173, 14.846686750720252, 1.112765669446995];
-  const across = [0.9546375921092585, 0.000945326610554788, 0.2977686586755503];
-  const up = [0.0010066066297183312, -0.9999994919958399, -5.245145321893793e-05];
+  const origin = [0.005083691226635434, 36.310550792859026, -0.016298279516535175];
+  const across = [0.9546382648603395, 0.0005853517557573065, 0.2977674270765061];
+  const up = [0.0006232962416661279, -0.9999998052234784, -0.00003247769908396031];
   const railVertices = 192 * 12 * 6;
   const components = (overrides: Partial<typeof defaults> = {}) => {
     const mesh = generate({ ...defaults, configuration: 'loop', ...overrides });
@@ -473,7 +473,7 @@ test("loop: independent component dimensions, midpoint landmark, and parameter i
   const tie = (overrides: Partial<typeof defaults>) => {
     const p={...defaults,configuration:"loop" as const,...overrides};
     const bodies=groups(generate(p),p);
-    expect(bodies.length).toBe(Math.ceil(42.0726940244/p.spacing));
+    expect(bodies.length).toBe(Math.ceil(109.7358630474/p.spacing));
     for (let i=0;i<bodies.length;i++) {
       expect(bodies[i].length).toBeGreaterThan(0);
       const b=localBounds(bodies[i],p,i);

@@ -39,7 +39,7 @@ export function frameTrack(world: World, parameters: Parameters, vertices: Float
   const orbit = world.storage(Orbit);
   const camera = world.resource(Scene).camera;
   orbit.pan.set(camera, ...geometryCenter(vertices));
-  orbit.distance.set(camera, parameters.configuration === "loop" ? 26 : 19);
+  orbit.distance.set(camera, parameters.configuration === "loop" ? 68 : 19);
 }
 export function initializeView(world: World, parameters?: Parameters) {
   const refs = world.resource(Scene);

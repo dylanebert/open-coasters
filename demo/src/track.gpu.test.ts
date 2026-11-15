@@ -36,7 +36,7 @@ for (const configuration of ["straight", "curve", "loop"] as Configuration[])
           p.fixed ? (secondSpine ? 80 : 56) * 192 * 6 + (secondSpine ? 432 : 300) : generate(p).indices.length,
         );
         if (p.fixed) {
-          const count = Math.ceil((configuration === 'straight' ? 12 : configuration === 'curve' ? 4 * Math.PI : 42.0726940244) / p.spacing);
+          const count = Math.ceil((configuration === 'straight' ? 12 : configuration === 'curve' ? 4 * Math.PI : 109.7358630474) / p.spacing);
           expect(s.instances.length).toBe(1 + count * (secondSpine ? 2 : 1));
           for (const [i, group] of s.instances.slice(1).entries()) {
             const handle = w.storage(MeshInstance).mesh.get(group[0]);

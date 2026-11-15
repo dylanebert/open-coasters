@@ -28,12 +28,12 @@ test('station/speed integration agrees with unequal recorded times and rejects i
   const original = timing(state.samples);
   expect(original.worstRatio).toBeLessThan(1);
   expect(Math.abs(original.integrated-original.elapsed)).toBeLessThan(original.bound);
-  const crown = timing(state.samples.slice(0,367));
+  const crown = timing(state.samples.slice(0,591));
   expect(Math.abs(crown.integrated-crown.elapsed)).toBeLessThan(crown.bound);
   expect(crown.worstRatio).toBeLessThan(1);
-  expect(state.samples[366][0]).toBe(1.83);
-  expect(state.samples[366][1]).toBeCloseTo(5.8290506301,10);
-  expect(state.samples.at(-1)![0]).toBeCloseTo(3.655670273076393,10);
+  expect(state.samples[590][0]).toBe(2.95);
+  expect(state.samples[590][1]).toBeCloseTo(9.4139133554,10);
+  expect(state.samples.at(-1)![0]).toBeCloseTo(5.903929269300871,10);
   for (const [timeScale,speedScale] of [[1.1,1],[1,1.1]]) {
     const bad = timing(state.samples.map(r => r.map((x,i) => i===0?x*timeScale:i===1?x*speedScale:x)));
     expect(Math.abs(bad.integrated-bad.elapsed)).toBeGreaterThan(100*bad.bound);

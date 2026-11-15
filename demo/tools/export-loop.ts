@@ -15,14 +15,14 @@ if (git("diff", "HEAD", "--", "src", "package.json", "bun.lock")) throw new Erro
 const { policy } = await import(resolve(checkout, "src/trajectory/policies.ts"));
 const { step } = await import(resolve(checkout, "src/trajectory/integrator.ts"));
 const { rotate } = await import(resolve(checkout, "src/path/path.ts"));
-const rate = 1000, stride = 5, entrySpeed = 17.2, rollAmplitude = 0.32;
+const rate = 1000, stride = 5, entrySpeed = 100 / 3.6, rollAmplitude = 0.32;
 const constants = { g: 9.81, heartToCom: 0, mass: 500, friction: 0, drag: 0 };
 const initial = { position: [0, 0, 0], rotation: [0, 0, 0, 1], speed: entrySpeed, distance: 0 };
 const supportWidth = 1.65 * Math.PI, supportStart = (2 * Math.PI - supportWidth) / 2;
 function simulate(trims: number[]) {
   const states: any[] = [initial], inputs: any[] = [], intents: any[] = [];
   const history = { rate, constants, states, inputs };
-  for (let tick = 0; tick < 5000; tick++) {
+  for (let tick = 0; tick < 10 * rate; tick++) {
     const s = states.at(-1), f = rotate(s.rotation, [0, 0, -1]), up = rotate(s.rotation, [0, 1, 0]);
     const angle = Math.atan2(f[1], -f[2]), theta = angle < 0 ? angle + 2 * Math.PI : angle;
     const x = (theta - supportStart) * Math.PI / supportWidth;

@@ -10,11 +10,13 @@ for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 
     await step();
     await page.locator('[name=configuration]').selectOption('loop');
     await step();
+    // Present the new camera transform, not the preceding straight-path view.
+    await step();
     const initialOrbit = await page.evaluate(() => (window as any).demo.orbit());
     // Reduce actual registered native-profile mesh positions, not a framing helper.
     const positions:number[][]=await page.evaluate(()=>(window as any).demo.trackPositions().map((m:any)=>m.positions));
     for(let axis=0;axis<3;axis++) {const values=positions.flatMap(p=>p.filter((_,i)=>i%3===axis));expect(initialOrbit.pan[axis]).toBeCloseTo((Math.min(...values)+Math.max(...values))/2,5);}
-    expect(initialOrbit.distance).toBe(26);
+    expect(initialOrbit.distance).toBe(68);
     await expect(page.getByRole('button', { name: /Undo|Redo|Build/ })).toHaveCount(0);
     const canvas = (await page.locator('canvas').boundingBox())!;
     const rgba = await pixels(page);
