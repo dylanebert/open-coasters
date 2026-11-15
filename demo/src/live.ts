@@ -68,6 +68,12 @@ function trs(matrix:Float32Array,node:string) {
 async function cacheAsset(world:World,name:string,url:URL,supplied?:ImmutableNativeSnapshot) {
   const snapshot=supplied??await readNative(url),data=await loadGltf(nativeURL(snapshot.document));
   if(data.unsupported.length)throw Error(`Unsupported glTF: ${data.unsupported.join(', ')}`);
+  // Display-only contact adaptation: the loaded bar underside is y=-.18,
+  // at the flat path's y=1.5. The diagnostic source remains an identity
+  // 1.5m box; do not feed these display vertices back to its classifier.
+  // 2um covers eight f32 epsilons at 1.5m plus the packed endpoint error.
+  if(name==='diagnostic-box-post')for(const mesh of data.meshes)
+    for(let i=1;i<mesh.vertices.length;i+=8)mesh.vertices[i]-=.180002;
   const materials=new Map<string,MaterialHandle>();
   const primitives=data.instances.map(instance=>{
     const mesh=data.meshes[instance.mesh],source=data.materials[mesh.material],t=trs(instance.matrix,String(instance.node));

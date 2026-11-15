@@ -1,5 +1,6 @@
 import { beforeAll, afterAll, expect, test } from 'bun:test';
 import { Materials, Meshes, MeshInstance, MeshMaterial } from '@dylanebert/shallot';
+import type { MeshHandle } from '@dylanebert/shallot/mesh';
 import { globalTransformTable, attachTexture } from '@dylanebert/shallot/rendering';
 import { octDecodeNormal } from '@dylanebert/shallot/utils';
 import { openGpuApp } from '@dylanebert/shallot/testing/gpu';
@@ -98,9 +99,27 @@ test('spacing/gaps and support edits affect only owned rows; zero-tick and ordin
   const ties=refs.instances.slice(1,-2).map(g=>[...g]),posts=refs.instances.slice(-2).map(g=>[...g]);
   const material=posts.map(g=>w.storage(MeshMaterial).material.get(g[0]));
   const tieMeshes=ties.map(g=>w.storage(MeshInstance).mesh.get(g[0]));
+  const postMeshes=posts.map(g=>w.storage(MeshInstance).mesh.get(g[0]));
+  const trackMaterials=refs.instances.slice(0,-2).map(g=>w.storage(MeshMaterial).material.get(g[0]));
+  const meshFor=(handle:typeof postMeshes[number])=>w.resource(Meshes).get(handle as MeshHandle)!;
+  const tieBefore=await readMesh(w,meshFor(tieMeshes[0]));
+  const railBefore=await readMesh(w,s.mesh);
+  const support=await readMesh(w,meshFor(postMeshes[0]));
+  const yBounds=(points:number[][])=>[Math.min(...points.map(p=>p[1])),Math.max(...points.map(p=>p[1]))];
+  const contact=yBounds(tieBefore.points)[0]+(await gpuPose(ties[0][0]))[1],actual=yBounds(support.points);
+  const bounds=(points:number[][])=>[0,1,2].map(a=>[Math.min(...points.map(p=>p[a])),Math.max(...points.map(p=>p[a]))]);
+  console.log('support contact',{support:bounds(support.points),tieLocal:bounds(tieBefore.points),tiePose:await gpuPose(ties[0][0]),rail:bounds(railBefore.points),contact});
+  expect(actual[1]).toBeLessThanOrEqual(contact);
+  // Tight contact, not an arbitrary terrain/height policy; one float envelope.
+  expect(contact-actual[1]).toBeLessThan(4e-6);
   for(const dt of [0,1/60]) {
     await update({...assemblyDefaults,path:'straight',witness:'supports',post1:3.125,post2:9.125},dt);
     expect(s.dispatches).toBe(count);
+    expect(posts.map(g=>w.storage(MeshInstance).mesh.get(g[0]))).toEqual(postMeshes);
+    expect(refs.instances.slice(0,-2).map(g=>w.storage(MeshMaterial).material.get(g[0]))).toEqual(trackMaterials);
+    expect((await readMesh(w,meshFor(postMeshes[0]))).main).toEqual(support.main);
+    expect((await readMesh(w,meshFor(tieMeshes[0]))).main).toEqual(tieBefore.main);
+    expect((await readMesh(w,s.mesh)).main).toEqual(railBefore.main);
     expect(refs.instances.slice(1,-2)).toEqual(ties);expect(refs.instances.slice(-2)).toEqual(posts);
     expect(posts.map(g=>w.storage(MeshMaterial).material.get(g[0]))).toEqual(material);
     expect(ties.map(g=>w.storage(MeshInstance).mesh.get(g[0]))).toEqual(tieMeshes);

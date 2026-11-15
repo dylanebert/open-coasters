@@ -11,4 +11,5 @@ for(const phone of [false,true])test(`independent support distances ${phone?'pho
  const edited=await groups();await page.locator('[name=assembly-post2]').press('ControlOrMeta+z');await step();expect((await groups()).at(-1)).toEqual(initial.at(-1));expect((await groups()).at(-2)).toEqual(edited.at(-2));
  expect(await page.evaluate(()=>(window as any).demo.orbit())).toEqual(camera);
  await expect(page.locator('[name=assembly-spacing],[name=assembly-separation],[name=assembly-path]')).toHaveCount(0);
+ if(process.env.SUPPORT_CONTACT_EVIDENCE)await page.screenshot({path:`${process.env.SUPPORT_CONTACT_EVIDENCE}/supports-${phone?'phone':'desktop'}.png`});
 });
