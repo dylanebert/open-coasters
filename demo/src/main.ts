@@ -62,7 +62,7 @@ try {
       if (disposed) return;
       app.world.step(dt);
       await app.world.frameFence;
-      await observe?.();
+      if (observe) await observe();
     });
     return serial;
   }
