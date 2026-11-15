@@ -1,270 +1,233 @@
 import {
-  Camera,
-  Materials,
-  Meshes,
-  MeshInstance,
-  MeshMaterial,
-  StandardMaterial,
-  Transform,
-  type Plugin,
-  type World,
-} from "@dylanebert/shallot";
-import type { MaterialHandle } from "@dylanebert/shallot/standard/rendering";
-import { MeshPlugin } from "@dylanebert/shallot/mesh";
-import { loadGltf } from "@dylanebert/shallot/gltf";
-import {
-  composeMat4,
-  decomposeMat4,
-  multiplyMat4,
-} from "@dylanebert/shallot/utils";
-import { Orbit, OrbitPlugin } from "@dylanebert/shallot/extras";
-import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
-import { frameTrack, initializeView, Scene } from "./scene";
+  Camera, Materials, Meshes, MeshInstance, MeshMaterial, StandardMaterial, Transform,
+  type Plugin, type World, type Resource,
+} from '@dylanebert/shallot';
+import type { MaterialHandle } from '@dylanebert/shallot/standard/rendering';
+import type { MeshHandle } from '@dylanebert/shallot/mesh';
+import { loadGltf } from '@dylanebert/shallot/gltf';
+import { composeMat4, decomposeMat4, multiplyMat4 } from '@dylanebert/shallot/utils';
+import { resetInterpolation } from '@dylanebert/shallot/transform';
+import { Orbit, OrbitPlugin } from '@dylanebert/shallot/extras';
+import { Grid, GridPlugin } from '@dylanebert/shallot-grid';
+import { frameTrack, initializeView, Scene } from './scene';
 import { normalForce, forceColor } from './loop-force';
-import { assemblyDefaults, packRails } from './assembly';
-import { geometryKey, changesSubject } from './selection';
-import { constructDemo, diagnosticPost } from './construction-demo';
-import { contentValue, readNative, nativeURL, type ImmutableNativeSnapshot } from '../../construction/native';
+import { assemblyDefaults, assemblyPath, gapDefaults, postDefaults, type Assembly } from './assembly';
+import { changesSubject } from './selection';
+import { diagnosticPost } from './construction-demo';
+import { readNative, nativeURL, type ImmutableNativeSnapshot } from '../../construction/native';
+import { fixedDistances, framesAt, path, rotate, type Frame, type Path } from '../../construction/geometry';
 import { loadSampledSection, type SampledSection } from './sampled-section';
-import { placements } from "./instance";
-import { ties, rotation, type Parameters } from "./track";
+import { placements } from './instance';
+import { ties, rotation, type Parameters } from './track';
 import { trackGeometry, modernTies } from './modern-track';
-import { linearColor, defaultPaint, type Paint, type Example } from "./configuration";
+import { linearColor, defaultPaint, type Paint, type Example } from './configuration';
+import { initializeRailGeometry, RailGpu, RailGpuPlugin } from './rail-gpu';
 
-export type Selection = {
-  parameters: Parameters;
-  isolated: boolean;
-  example?: 'track' | 'assembly';
-  subject?: Example;
-  assembly?: import('./assembly').Assembly;
-  asset: "blitz-tie" | "wheel-carrier";
-  paint?: Paint;
-  appearance?: 'material' | 'normal-force';
+export type Selection={
+  parameters:Parameters; isolated:boolean; example?:'track'|'assembly'; subject?:Example;
+  assembly?:Assembly; asset:'blitz-tie'|'wheel-carrier'; paint?:Paint; appearance?:'material'|'normal-force';
 };
-type Placement = {
-  translation: readonly [number, number, number];
-  rotation?: readonly [number, number, number, number];
+type Placement={translation:readonly number[];rotation?:readonly number[]};
+type Bounds={low:number[];high:number[]};
+type Asset={data:Awaited<ReturnType<typeof loadGltf>>;handles:MeshHandle[];primitives:{mesh:number;matrix:Float32Array;material:MaterialHandle}[]};
+type Row={entities:number[];pose:Placement};
+type Role={name:string;key:string;rows:Row[]};
+type TrackVariant={parts:{name:'rails'|'spine'|'ties';mesh:MeshHandle}[];vertices:Float32Array};
+type State={
+  previous?:Selection;assets:Map<string,Asset>;paints:Record<keyof Paint,MaterialHandle>;
+  paint?:Paint;railMaterial:MaterialHandle;forceMaterial:MaterialHandle;section:SampledSection;
+  paths:Path[];frames:(readonly Frame[])[];roles:Map<string,Role>;
+  tracks:Map<string,TrackVariant>;railEntity?:number;trackEntities:number[];
 };
-
-/** The caller serializes updates BETWEEN completed frames. Static validated CPU data
- * and material registrations outlive the public whole-mesh-plugin reset. */
-export function liveScene(initial: Selection, assetUrl: (name: string) => URL, aspect = () => 1) {
-  let world: World;
-  const geometryFor = trackGeometry(assetUrl);
-  const assets = new Map<string, Awaited<ReturnType<typeof cacheAsset>>>();
-  const paintHandles = {} as Record<keyof Paint, MaterialHandle>;
-  let previous: Selection | undefined;
-  let section: SampledSection;
-  let railMaterial: MaterialHandle;
-  let forceMaterial: MaterialHandle;
-  type Bounds = { low: number[]; high: number[] };
-  function frameBounds({low, high}: Bounds) {
-    const camera = world.resource(Scene).camera, orbit = world.storage(Orbit);
-    const center = low.map((value, a) => (value + high[a]) / 2);
-    const radius = Math.hypot(...high.map((value, a) => (value - low[a]) / 2));
-    const vertical = world.storage(Camera).fov.get(camera) * Math.PI / 360;
-    const halfAngle = Math.atan(Math.tan(vertical) * Math.min(1, aspect()));
-    orbit.pan.set(camera, center[0], center[1], center[2]);
-    orbit.distance.set(camera, Math.max(orbit.minDistance.get(camera), radius * 1.1 / Math.sin(halfAngle)));
+export const Live:Resource<State>={create:()=>({} as State)};
+const kinds=['straight','curve','loop'] as const;
+const variantKey=(p:Parameters)=>`${p.configuration}:${!!p.fixed}:${!!p.secondSpine}`;
+function include(bounds:Bounds,p:readonly number[]) {
+  for(let a=0;a<3;a++){bounds.low[a]=Math.min(bounds.low[a],p[a]);bounds.high[a]=Math.max(bounds.high[a],p[a]);}
+}
+function emptyBounds():Bounds{return {low:[Infinity,Infinity,Infinity],high:[-Infinity,-Infinity,-Infinity]};}
+function frameBounds(world:World,{low,high}:Bounds,aspect:number) {
+  const camera=world.resource(Scene).camera,orbit=world.storage(Orbit);
+  const center=low.map((v,a)=>(v+high[a])/2),radius=Math.hypot(...high.map((v,a)=>(v-low[a])/2));
+  const vertical=world.storage(Camera).fov.get(camera)*Math.PI/360;
+  const halfAngle=Math.atan(Math.tan(vertical)*Math.min(1,aspect));
+  orbit.pan.set(camera,center[0],center[1],center[2]);
+  orbit.distance.set(camera,Math.max(orbit.minDistance.get(camera),radius*1.1/Math.sin(halfAngle)));
+}
+function paint(world:World,colors:Paint) {
+  const s=world.resource(Live);
+  for(const part of ['rails','ties','spine'] as const)
+    if(s.paint?.[part]!==colors[part])world.resource(Materials).update(s.paints[part],{baseColor:linearColor(colors[part])});
+  s.paint={...colors};
+}
+function trs(matrix:Float32Array,node:string) {
+  const t=decomposeMat4(matrix),rebuilt=composeMat4(t[0],t[1],t[2],t[3],t[4],t[5],t[6],t[7],t[8],t[9]);
+  if(matrix.some((v,i)=>!Number.isFinite(v)||Math.abs(v-rebuilt[i])>1e-5*Math.max(1,Math.abs(v))))throw Error(`Static instance ${node}: non-TRS transform`);
+  return t;
+}
+async function cacheAsset(world:World,name:string,url:URL,supplied?:ImmutableNativeSnapshot) {
+  const snapshot=supplied??await readNative(url),data=await loadGltf(nativeURL(snapshot.document));
+  if(data.unsupported.length)throw Error(`Unsupported glTF: ${data.unsupported.join(', ')}`);
+  const materials=new Map<string,MaterialHandle>();
+  const primitives=data.instances.map(instance=>{
+    const mesh=data.meshes[instance.mesh],source=data.materials[mesh.material],t=trs(instance.matrix,String(instance.node));
+    const inverted=t[7]*t[8]*t[9]<0,key=`${mesh.material}:${inverted}`;
+    if(!materials.has(key))materials.set(key,world.resource(Materials).add(StandardMaterial({baseColor:source?.color??[1,1,1,1],metallic:source?.metallic??1,perceptualRoughness:source?.roughness??1,emissive:source?.emissive??[0,0,0],doubleSided:source?.doubleSided??false,unlit:source?.unlit??false}),{cullMode:source?.doubleSided?'none':inverted?'front':'back'}));
+    return {...instance,material:materials.get(key)!};
+  });
+  world.resource(Live).assets.set(name,{data,primitives,handles:data.meshes.map(mesh=>world.resource(Meshes).add(mesh))});
+}
+function samePose(a:Placement,b:Placement) {
+  return a.translation.every((v,i)=>v===b.translation[i])&&(a.rotation??[0,0,0,1]).every((v,i)=>v===(b.rotation??[0,0,0,1])[i]);
+}
+function setPose(world:World,entity:number,matrix:Float32Array) {
+  const t=trs(matrix,'composed'),store=world.storage(Transform);
+  store.translation.set(entity,t[0],t[1],t[2]);store.rotation.set(entity,t[3],t[4],t[5],t[6]);store.scale.set(entity,t[7],t[8],t[9]);
+  resetInterpolation(world,entity);
+}
+function removeRole(world:World,key:string) {
+  const s=world.resource(Live),role=s.roles.get(key);
+  if(role)for(const row of role.rows)for(const entity of row.entities)world.destroy(entity);
+  s.roles.delete(key);
+}
+function place(world:World,roleKey:string,name:string,poses:readonly Placement[],key:string,override?:MaterialHandle,bounds?:Bounds) {
+  const s=world.resource(Live),asset=s.assets.get(name)!;
+  let role=s.roles.get(roleKey);
+  if(role?.name!==name){removeRole(world,roleKey);role={name,key:'',rows:[]};s.roles.set(roleKey,role);}
+  if(role.key===key&&!bounds)return;
+  while(role.rows.length>poses.length)for(const entity of role.rows.pop()!.entities)world.destroy(entity);
+  for(let i=0;i<poses.length;i++) {
+    const pose=poses[i],matrix=composeMat4(...pose.translation as [number,number,number],...(pose.rotation??[0,0,0,1]) as [number,number,number,number],1,1,1);
+    let row=role.rows[i],changed=!row||!samePose(row.pose,pose);
+    if(!row){row={entities:[],pose};role.rows.push(row);}
+    for(let j=0;j<asset.primitives.length;j++) {
+      const primitive=asset.primitives[j],composed=multiplyMat4(matrix,primitive.matrix);
+      if(bounds) {
+        const vertices=asset.data.meshes[primitive.mesh].vertices;
+        for(let k=0;k<vertices.length;k+=8)include(bounds,[0,1,2].map(a=>composed[a]*vertices[k]+composed[a+4]*vertices[k+1]+composed[a+8]*vertices[k+2]+composed[a+12]));
+      }
+      let entity=row.entities[j];
+      if(entity===undefined){entity=world.create();row.entities.push(entity);world.add(entity,Transform);world.add(entity,MeshInstance,{mesh:asset.handles[primitive.mesh]});changed=true;}
+      if(changed)setPose(world,entity,composed);
+      const material=override??primitive.material;
+      if(!world.has(entity,MeshMaterial))world.add(entity,MeshMaterial,material);
+      else if(world.storage(MeshMaterial).material.get(entity)!==material.material||world.storage(MeshMaterial).type.get(entity)!==material.type)world.add(entity,MeshMaterial,material);
+    }
+    row.pose={translation:[...pose.translation],rotation:pose.rotation?[...pose.rotation]:undefined};
   }
-  function paint(colors: Paint) {
-    for (const part of ["rails", "ties", "spine"] as const)
-      world.resource(Materials).update(paintHandles[part], { baseColor: linearColor(colors[part]) });
+  role.key=key;
+}
+function clearTrackEntities(world:World) {
+  const s=world.resource(Live);for(const e of s.trackEntities)world.destroy(e);s.trackEntities=[];
+}
+function validateAssembly(a:Assembly) {
+  if(!kinds.includes(a.path)||!['assembly-tie-bar','assembly-tie-fork'].includes(a.tie)||!['normal','station','supports'].includes(a.witness??assemblyDefaults.witness)||!Number.isFinite(a.separation)||a.separation<.6||a.separation>1.6||!Number.isFinite(a.spacing)||a.spacing<.3||a.spacing>1.5)throw Error('Invalid assembly');
+  for(const key of ['post1','post2'] as const){const v=a[key]??postDefaults[key];if(!Number.isFinite(v)||v<0||v>12)throw Error('Invalid support station');}
+  const start=a.gapStart??gapDefaults.start,end=a.gapEnd??gapDefaults.end;
+  if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end>12||start>end)throw Error('Invalid gap interval');
+}
+function railBounds(s:State,index:number,separation:number,bounds:Bounds) {
+  for(const f of s.frames[index])for(const side of [-1,1])for(const xy of s.section) {
+    const offset=rotate(f.rotation,[xy[0]+side*separation/2,xy[1],0]);
+    include(bounds,f.translation.map((v,a)=>v+offset[a]));
   }
-  async function cacheAsset(name: string, supplied?: ImmutableNativeSnapshot) {
-    const snapshot = supplied ?? await readNative(assetUrl(name));
-    const data = await loadGltf(nativeURL(snapshot.document));
-    if (data.unsupported.length)
-      throw new Error(`Unsupported glTF: ${data.unsupported.join(", ")}`);
-    // The contribution gate excludes images, animation, skins and non-opaque modes.
-    // Register only material variants used by these immutable static instances, once.
-    const materials = new Map<string, MaterialHandle>();
-    const primitives = data.instances.map((instance) => {
-      const mesh = data.meshes[instance.mesh];
-      const source = data.materials[mesh.material];
-      const scale = decomposeMat4(instance.matrix).subarray(7, 10);
-      const inverted = scale[0] * scale[1] * scale[2] < 0;
-      const key = `${mesh.material}:${inverted}`;
-      if (!materials.has(key))
-        materials.set(
-          key,
-          world.resource(Materials).add(
-            StandardMaterial({
-              baseColor: source?.color ?? [1, 1, 1, 1],
-              metallic: source?.metallic ?? 1,
-              perceptualRoughness: source?.roughness ?? 1,
-              emissive: source?.emissive ?? [0, 0, 0],
-              doubleSided: source?.doubleSided ?? false,
-              unlit: source?.unlit ?? false,
-            }),
-            {
-              cullMode: source?.doubleSided
-                ? "none"
-                : inverted
-                  ? "front"
-                  : "back",
-            },
-          ),
-        );
-      return { ...instance, material: materials.get(key)! };
-    });
-    return { data, primitives, snapshot };
-  }
-  function place(name: string, positions: readonly Placement[], override?: MaterialHandle, frame = false, bounds?: Bounds) {
-    const {low, high} = bounds ?? {low: [Infinity, Infinity, Infinity], high: [-Infinity, -Infinity, -Infinity]};
-    const cached = assets.get(name)!;
-    const handles = cached.data.meshes.map((mesh) =>
-      world.resource(Meshes).add(mesh),
-    );
-    for (const placement of positions) {
-      const matrix = composeMat4(
-        ...placement.translation,
-        ...(placement.rotation ?? [0, 0, 0, 1]),
-        1,
-        1,
-        1,
-      );
-      const entities = cached.primitives.map((primitive) => {
-        const composed = multiplyMat4(matrix, primitive.matrix);
-        if (frame) {
-          const vertices = cached.data.meshes[primitive.mesh].vertices;
-          for (let i = 0; i < vertices.length; i += 8)
-            for (let a = 0; a < 3; a++) {
-              const value = composed[a] * vertices[i] + composed[a + 4] * vertices[i + 1] + composed[a + 8] * vertices[i + 2] + composed[a + 12];
-              low[a] = Math.min(low[a], value);
-              high[a] = Math.max(high[a], value);
-            }
+}
+function publishInstances(world:World) {
+  const s=world.resource(Live),refs=world.resource(Scene);
+  refs.instances=[...(s.railEntity===undefined?[]:[[s.railEntity]]),...s.trackEntities.map(e=>[e]),...[...s.roles.values()].flatMap(r=>r.rows.map(row=>row.entities))];
+}
+function updateScene(world:World,selection:Selection,aspect:number) {
+  const s=world.resource(Live),previous=s.previous,newSubject=changesSubject(previous,selection);
+  if(!selection.isolated)paint(world,selection.paint??defaultPaint);
+  const assembly=selection.example==='assembly'&&!selection.isolated;
+  const wantedRoles=new Set<string>();
+  if(assembly) {
+    const a:Assembly=selection.assembly??assemblyDefaults;validateAssembly(a);
+    const witness=a.witness??assemblyDefaults.witness;
+    const kind=witness==='normal'?a.path:'straight',index=kinds.indexOf(kind),source=s.paths[index],total=source.distances.at(-1)!;
+    const gpu=world.resource(RailGpu);gpu.path=index;gpu.separation=a.separation;gpu.colored=selection.appearance==='normal-force'&&kind==='loop';
+    clearTrackEntities(world);
+    if(s.railEntity===undefined){s.railEntity=world.create();world.add(s.railEntity,Transform);world.add(s.railEntity,MeshInstance,{mesh:gpu.handle});}
+    const material=gpu.colored?s.forceMaterial:s.railMaterial;
+    if(!world.has(s.railEntity,MeshMaterial))world.add(s.railEntity,MeshMaterial,material);
+    else if(world.storage(MeshMaterial).material.get(s.railEntity)!==material.material||world.storage(MeshMaterial).type.get(s.railEntity)!==material.type)world.add(s.railEntity,MeshMaterial,material);
+    const bounds=newSubject?emptyBounds():undefined;if(bounds)railBounds(s,index,a.separation,bounds);
+    const start=a.gapStart??gapDefaults.start,end=a.gapEnd??gapDefaults.end;
+    const tieKey=`${index}:${a.spacing}:${witness==='station'?`${start}:${end}`:''}:${a.tie}`;
+    wantedRoles.add('ties');
+    if(s.roles.get('ties')?.key!==tieKey||bounds) {
+      const excluded=witness==='station'&&start!==end?[{start,end}]:[];
+      const poses=framesAt(source,fixedDistances(total,a.spacing,0,[{start:0,end:total}],excluded));
+      place(world,'ties',a.tie,poses,tieKey,undefined,bounds);
+    }
+    if(witness==='supports') {
+      wantedRoles.add('posts');const distances=[a.post1??postDefaults.post1,a.post2??postDefaults.post2],key=distances.join(':');
+      if(s.roles.get('posts')?.key!==key||bounds) {
+        // This witness is qualified only for the unchanged upright straight/flat
+        // 1.5m post. Distances and sampled poses remain binary64 shared operations.
+        const poses=framesAt(source,distances).map(f=>({translation:[f.translation[0],0,f.translation[2]],rotation:f.rotation}));
+        place(world,'posts','diagnostic-box-post',poses,key,undefined,bounds);
+      }
+    }
+    if(bounds)frameBounds(world,bounds,aspect);
+  } else {
+    if(s.railEntity!==undefined){world.destroy(s.railEntity);s.railEntity=undefined;}
+    if(selection.isolated) {
+      clearTrackEntities(world);wantedRoles.add('witness');
+      place(world,'witness',selection.asset,placements,selection.asset);
+      if(newSubject){const camera=world.resource(Scene).camera;world.storage(Orbit).pan.set(camera,0,0,0);world.storage(Orbit).distance.set(camera,8);}
+    } else {
+      const p=selection.parameters,variant=s.tracks.get(variantKey(p));
+      if(!variant)throw Error('Unsupported prepared track variant');
+      if(!previous||previous.isolated||previous.example==='assembly'||variantKey(previous.parameters)!==variantKey(p)) {
+        while(s.trackEntities.length>variant.parts.length)world.destroy(s.trackEntities.pop()!);
+        for(let i=0;i<variant.parts.length;i++) {
+          const part=variant.parts[i];let entity=s.trackEntities[i];
+          if(entity===undefined){entity=world.create();s.trackEntities.push(entity);world.add(entity,Transform);world.add(entity,MeshInstance,{mesh:part.mesh});world.add(entity,MeshMaterial,s.paints[part.name]);}
+          else if(world.storage(MeshInstance).mesh.get(entity)!==part.mesh)world.storage(MeshInstance).mesh.set(entity,part.mesh);
         }
-        const t = decomposeMat4(composed);
-        const rebuilt = composeMat4(
-          t[0],
-          t[1],
-          t[2],
-          t[3],
-          t[4],
-          t[5],
-          t[6],
-          t[7],
-          t[8],
-          t[9],
-        );
-        if (
-          composed.some(
-            (value, i) =>
-              !Number.isFinite(value) ||
-              Math.abs(value - rebuilt[i]) >
-                1e-5 * Math.max(1, Math.abs(value)),
-          )
-        )
-          throw new Error(
-            `Static instance ${primitive.node}: non-TRS transform`,
-          );
-        const eid = world.create();
-        world.add(eid, Transform, {
-          translation: [t[0], t[1], t[2]],
-          rotation: [t[3], t[4], t[5], t[6]],
-          scale: [t[7], t[8], t[9]],
-        });
-        world.add(eid, MeshInstance, { mesh: handles[primitive.mesh] });
-        world.add(eid, MeshMaterial, override ?? primitive.material);
-        return eid;
+      }
+      if(newSubject)frameTrack(world,p,variant.vertices);
+      for(const name of modernTies(p)) {
+        wantedRoles.add(name);const key=`${p.configuration}:${p.spacing}`;
+        if(s.roles.get(name)?.key!==key)place(world,name,name,ties(p).map(f=>({translation:f.p,rotation:rotation(f)})),key,s.paints.ties);
+      }
+    }
+  }
+  for(const key of s.roles.keys())if(!wantedRoles.has(key))removeRole(world,key);
+  publishInstances(world);
+  s.previous={...selection,parameters:{...selection.parameters},assembly:selection.assembly?{...selection.assembly}:undefined};
+}
+/** A small adapter facade; all scene/content/producer state is world-local plain data. */
+export function liveScene(initial:Selection,assetUrl:(name:string)=>URL,aspect=()=>1) {
+  let world:World;
+  const plugin:Plugin={name:'LiveScene',dependencies:[OrbitPlugin,GridPlugin,RailGpuPlugin],async initialize(w){
+    world=w;const s=w.resource(Live);
+    Object.assign(s,{assets:new Map(),paints:{},roles:new Map(),tracks:new Map(),trackEntities:[],paths:[],frames:[]});
+    initializeView(w,initial.isolated?undefined:initial.parameters);
+    w.storage(Grid).opacity.set(w.resource(Scene).grid,.12);
+    for(const part of ['rails','ties','spine'] as const)s.paints[part]=w.resource(Materials).add(StandardMaterial({baseColor:linearColor((initial.paint??defaultPaint)[part]),metallic:.4,perceptualRoughness:.35}));
+    s.paint={...(initial.paint??defaultPaint)};
+    s.forceMaterial=w.resource(Materials).add(StandardMaterial({baseColor:[.8,.8,.8,1],metallic:.7,perceptualRoughness:.25}));
+    s.railMaterial=w.resource(Materials).add(StandardMaterial({baseColor:[.06,.7,.78,1],metallic:.7,perceptualRoughness:.25}));
+    s.section=await loadSampledSection(assetUrl('assembly-section'));
+    for(const name of ['blitz-tie','wheel-carrier','ModernTie_Med','ModernTie_Dense','assembly-tie-bar','assembly-tie-fork'])await cacheAsset(w,name,assetUrl(name));
+    await cacheAsset(w,'diagnostic-box-post',assetUrl('diagnostic-box-post'),diagnosticPost);
+    for(const kind of kinds) {
+      const source=assemblyPath(kind),total=source.distances.at(-1)!,distances=Array.from({length:97},(_,i)=>total*i/96),frames=framesAt(source,distances);
+      s.frames.push(frames);s.paths.push(path({distances,positions:frames.map(f=>f.translation),rotations:frames.map(f=>f.rotation)}));
+    }
+    initializeRailGeometry(w,s.frames,s.section,s.paths.map(p=>p.distances.map(distance=>forceColor(normalForce(distance)))));
+    const geometryFor=trackGeometry(assetUrl);
+    for(const configuration of kinds)for(const secondSpine of [false,true]) {
+      const p={...initial.parameters,configuration,fixed:true,secondSpine},mesh=await geometryFor(p);
+      const parts=mesh.parts.filter(part=>part.index!==part.endIndex).map(part=>{
+        const shared=secondSpine&&part.name==='rails'?s.tracks.get(variantKey({...p,secondSpine:false}))!.parts.find(p=>p.name==='rails')!.mesh:undefined;
+        return {name:part.name,mesh:shared??w.resource(Meshes).add({name:`Track ${part.name}`,vertices:mesh.vertices.subarray(part.vertex*8,part.endVertex*8),indices:mesh.indices.slice(part.index,part.endIndex).map(i=>i-part.vertex)})};
       });
-      world.resource(Scene).instances.push(entities);
+      s.tracks.set(variantKey(p),{parts,vertices:mesh.vertices});
     }
-    if (frame && !bounds) frameBounds({low, high});
-  }
-  async function update(selection: Selection) {
-    const assembly = selection.example === 'assembly';
-    const isolatedView = selection.isolated;
-    if (!isolatedView) paint(selection.paint ?? defaultPaint);
-    if (previous && geometryKey(previous) === geometryKey(selection)) { previous = selection; return; }
-    const newSubject = changesSubject(previous, selection);
-    const refs = world.resource(Scene);
-    for (const group of refs.instances)
-      for (const entity of group) world.destroy(entity);
-    refs.instances = [];
-    // Public lifecycle resets packed families AND re-stages the default cube.
-    // The demo owns the entire registry; no other mesh producer is installed.
-    await MeshPlugin.initialize!(world);
-    const { parameters, asset } = selection;
-    const isolated = isolatedView;
-    if (isolated && newSubject) {
-      world.storage(Orbit).pan.set(refs.camera, 0, 0, 0);
-      world.storage(Orbit).distance.set(refs.camera, 8);
-    }
-    if (assembly) {
-      const a = selection.assembly ?? assemblyDefaults;
-      const resolved = constructDemo(a, section, contentValue({snapshot:assets.get(a.tie)!.snapshot}), contentValue({snapshot:assets.get('diagnostic-box-post')!.snapshot}));
-      const mesh = packRails(resolved.rails, resolved.stations, section.length, selection.appearance === 'normal-force' && a.path === 'loop' && a.witness !== 'supports' ? s => forceColor(normalForce(s)) : undefined);
-      if (mesh.indices.length) {
-        const eid = world.create();
-        world.add(eid, Transform);
-        world.add(eid, MeshInstance, {mesh: world.resource(Meshes).add(mesh)});
-        world.add(eid, MeshMaterial, mesh.color ? forceMaterial : railMaterial);
-        refs.instances.push([eid]);
-      }
-      const bounds = {low: [Infinity, Infinity, Infinity], high: [-Infinity, -Infinity, -Infinity]};
-      if (newSubject) for (let i = 0; i < mesh.vertices.length; i += 8) for (let a = 0; a < 3; a++) {
-        bounds.low[a] = Math.min(bounds.low[a], mesh.vertices[i+a]);
-        bounds.high[a] = Math.max(bounds.high[a], mesh.vertices[i+a]);
-      }
-      for (const part of resolved.parts) if (part.placements.length) place(part.name, part.placements as Placement[], undefined, newSubject, bounds);
-      if (newSubject) frameBounds(bounds);
-      previous = selection;
-      return;
-    }
-    if (!isolated) {
-      const mesh = await geometryFor(parameters);
-      if (newSubject) frameTrack(world, parameters, mesh.vertices);
-      for (const part of mesh.parts) {
-        if (part.index === part.endIndex) continue;
-        const eid = world.create();
-        world.add(eid, Transform);
-        world.add(eid, MeshInstance, { mesh: world.resource(Meshes).add({
-          name: `Track ${part.name}`,
-          vertices: mesh.vertices.subarray(part.vertex * 8, part.endVertex * 8),
-          indices: mesh.indices.slice(part.index, part.endIndex).map(i => i - part.vertex),
-        }) });
-        world.add(eid, MeshMaterial, paintHandles[part.name]);
-        refs.instances.push([eid]);
-      }
-    }
-    for (const name of isolated ? [asset] : parameters.fixed ? modernTies(parameters) : [])
-      place(
-        name,
-        isolated
-          ? placements
-          : ties(parameters).map((f) => ({
-              translation: f.p,
-              rotation: rotation(f),
-            })),
-        isolated ? undefined : paintHandles.ties,
-        false,
-      );
-    previous = selection;
-  }
-  const plugin: Plugin = {
-    name: "LiveScene",
-    dependencies: [OrbitPlugin, GridPlugin],
-    async initialize(w) {
-      world = w;
-      initializeView(world, initial.isolated ? undefined : initial.parameters);
-      const refs = world.resource(Scene);
-      world.storage(Grid).opacity.set(refs.grid, 0.12);
-      for (const part of ["rails", "ties", "spine"] as const)
-        paintHandles[part] = world.resource(Materials).add(StandardMaterial({
-          baseColor: linearColor((initial.paint ?? defaultPaint)[part]),
-          metallic: 0.4,
-          perceptualRoughness: 0.35,
-        }));
-      forceMaterial = world.resource(Materials).add(StandardMaterial({baseColor: [.8, .8, .8, 1], metallic: .7, perceptualRoughness: .25}));
-      section = await loadSampledSection(assetUrl('assembly-section'));
-      railMaterial = world.resource(Materials).add(StandardMaterial({baseColor: [.06, .7, .78, 1], metallic: .7, perceptualRoughness: .25}));
-      for (const name of ["blitz-tie", "wheel-carrier", 'ModernTie_Med', 'ModernTie_Dense', 'assembly-tie-bar', 'assembly-tie-fork'])
-        assets.set(name, await cacheAsset(name));
-      assets.set('diagnostic-box-post', await cacheAsset('diagnostic-box-post', diagnosticPost));
-      await update(initial);
-    },
-  };
-  return { plugin, update };
+    updateScene(w,initial,aspect());
+  }};
+  return {plugin,async update(selection:Selection){updateScene(world,selection,aspect());}};
 }

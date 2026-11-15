@@ -1,0 +1,23 @@
+import { test, expect } from '@playwright/test';
+for(const phone of [false,true])test(`ordinary retained rail edit ${phone?'phone':'desktop'}`,async({page})=>{
+  if(phone)await page.setViewportSize({width:390,height:844});
+  const errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));
+  await page.goto('./?example=assembly');
+  await page.locator('body[data-ready=true]').waitFor();
+  const input=page.locator('[name=assembly-separation]'),canvas=page.locator('canvas');
+  await expect(input).toHaveValue('1.2');
+  const before=await canvas.screenshot();
+  const label=input.locator('..'),bounds=(await label.boundingBox())!;
+  await page.mouse.move(bounds.x+8,bounds.y+bounds.height/2);await page.mouse.down();
+  for(let i=1;i<=8;i++)await page.mouse.move(bounds.x+8+40*i/8,bounds.y+bounds.height/2);
+  await page.mouse.up();await expect(input).toHaveValue('1.6');
+  await expect.poll(async()=>Buffer.compare(await canvas.screenshot(),before)).not.toBe(0);
+  await input.focus();await input.press('ControlOrMeta+z');await expect(input).toHaveValue('1.2');
+  await input.press('ControlOrMeta+Shift+z');await expect(input).toHaveValue('1.6');
+  await input.fill('1.1');await input.press('Enter');await expect(input).toHaveValue('1.1');
+  await expect.poll(async()=>Buffer.compare(await canvas.screenshot(),before)).not.toBe(0);
+  await expect(page.locator('[name=example]')).toHaveValue('assembly');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  if(process.env.PLACEMENT_LIVE_EVIDENCE)await page.screenshot({path:`${process.env.PLACEMENT_LIVE_EVIDENCE}/${phone?'phone':'desktop'}.png`,fullPage:true});
+  expect(errors).toEqual([]);
+});
