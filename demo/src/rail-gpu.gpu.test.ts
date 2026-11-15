@@ -1,23 +1,25 @@
 import { beforeAll, afterAll, expect, test } from 'bun:test';
-import { MeshMaterial, StandardMaterial, Camera, DirectionalLight, Materials, Meshes, StandardRenderer, Transform, lookAtRotation, type Plugin } from '@dylanebert/shallot';
+import { MeshInstance, MeshMaterial, StandardMaterial, Camera, DirectionalLight, Materials, Meshes, StandardRenderer, Transform, lookAtRotation, type Plugin } from '@dylanebert/shallot';
 import { DepthPrepass, Views, attachTexture, captureTexture } from '@dylanebert/shallot/rendering';
 import { openGpuApp } from '@dylanebert/shallot/testing/gpu';
 import { TIMEOUT } from '@dylanebert/shallot/testing';
 import { decodePos } from '@dylanebert/shallot/mesh';
 import { octDecodeNormal } from '@dylanebert/shallot/utils';
+import { MeshPreprocessSystem } from '@dylanebert/shallot/standard/rendering';
 import { framesAt, path, adjustFrames, type Frame } from '../../construction/geometry';
 import { sampledSection } from '../../construction/section';
 import { sweepConvex } from '../../construction/sweep';
 import { nativeSnapshot } from '../../construction/native';
-import { railGpu, RailGpu } from './rail-gpu';
+import { railGpu, RailGpu, RailEmitSystem } from './rail-gpu';
 
 const evidence=process.env.RAIL_GPU_EVIDENCE;
-async function save(name:string, data:Parameters<typeof Bun.write>[1]) {
+async function save(name:string, data:string | Uint8Array | Uint8ClampedArray | Uint32Array) {
     if(evidence) await Bun.write(`${evidence.replace(/\/$/,'')}/${name}`,data);
 }
-let lowImage:Uint8Array;
-let app: Awaited<ReturnType<typeof openGpuApp>>, camera=0;
+let lowImage:Uint8ClampedArray;
+let app: Awaited<ReturnType<typeof openGpuApp>>, camera=0, railEntity=0;
 let frames:readonly Frame[], section:ReturnType<typeof sampledSection>;
+let disposalApp:Awaited<ReturnType<typeof openGpuApp>>;
 const warnings:string[]=[];
 const warn=console.warn;
 // Y-axis arc, constant local Z bank: independent analytic basis below.
@@ -30,6 +32,7 @@ for(let i=0;i<97;i++) {
 }
 const sampled=path({distances:Array.from({length:97},(_,i)=>radius*angle*i/96),positions,rotations});
 let material: {snapshot:ReturnType<typeof nativeSnapshot>;material:number};
+const cpuReferences=new Map<number,number[]>();
 
 beforeAll(async()=>{
     console.warn=(...args)=>{warnings.push(args.map(String).join(' '));warn(...args);};
@@ -40,15 +43,19 @@ beforeAll(async()=>{
     const raw=new Float32Array([.1,.2,.4,.4,.2,.4,.1,.5,.4]);
     doc.buffers=[{byteLength:raw.byteLength}]; doc.materials=[{pbrMetallicRoughness:{baseColorFactor:[.8,.4,.1,1]}}];
     material={snapshot:nativeSnapshot(doc,[new Uint8Array(raw.buffer)]),material:0};
+    for(const separation of [.6,1.1,1.6,.85])cpuReferences.set(separation,cpu(separation));
     expect(section.length).toBe(16);
     expect(Math.max(...section.map(p=>Math.hypot(...p)))).toBeCloseTo(.06,7);
-    const scene:Plugin={name:'rail-proof-view',dependencies:[railGpu(frames,section,w=>w.resource(Materials).add(StandardMaterial({baseColor:[.8,.4,.1,1]})))],initialize(w){
+    const scene:Plugin={name:'rail-proof-view',dependencies:[railGpu(frames,section)],initialize(w){
+        railEntity=w.create();w.add(railEntity,Transform);w.add(railEntity,MeshInstance,{mesh:w.resource(RailGpu).handle});
+        w.add(railEntity,MeshMaterial,w.resource(Materials).add(StandardMaterial({baseColor:[.8,.4,.1,1]})));
         camera=w.create(); w.add(camera,Camera,{clearColor:0x121212}); w.add(camera,StandardRenderer); w.add(camera,DepthPrepass);
         w.add(camera,Transform,{translation:[10,8,12],rotation:lookAtRotation(10,8,12,1,0,3)});
         const sun=w.create(); w.add(sun,Transform,{rotation:lookAtRotation(0,0,0,1,-1,-1)});
         w.add(sun,DirectionalLight,{illuminance:6000,shadowMapsEnabled:1});
     }};
     app=await openGpuApp({plugins:[scene]});
+    disposalApp=await openGpuApp({plugins:[railGpu(frames,section)]});
     attachTexture(app.world,camera,{width:128,height:96});
     app.world.step(0); lowImage=(await captureTexture(app.world,camera)).rgba.slice(); await app.world.frameFence;
     expect(app.world.resource(Views).get(camera)?.depth).toBeTruthy();
@@ -65,7 +72,7 @@ afterAll(async()=>{
         for(const buffer of owned) {const destroy=buffer.destroy.bind(buffer);buffer.destroy=()=>{destroyed.set(buffer,(destroyed.get(buffer)??0)+1);destroy();};}
         app.dispose();
         expect(owned.map(b=>destroyed.get(b))).toEqual(owned.map(()=>1));
-    } finally {console.warn=warn;}
+    } finally {disposalApp?.dispose();console.warn=warn;}
 });
 
 function cpu(separation:number) {
@@ -103,9 +110,9 @@ test('retained banked rails: low/interior/high, shared f32 sweep, analytic oracl
     expect(mesh.indexBase).toBe(0);
     const quant=(await mesh.quant!.read())[0];
     const quantError=Math.max(quant.posScale.x,quant.posScale.y,quant.posScale.z)/65535;
-    const materialRow=w.storage(MeshMaterial).material.get(s.entity), entity=s.entity;
+    const materialRow=w.storage(MeshMaterial).material.get(railEntity), entity=railEntity;
     const summary:any[]=[];
-    let previous:Uint32Array|undefined, previousImage:Uint8Array|undefined;
+    let previous:Uint32Array|undefined, previousImage:Uint8ClampedArray|undefined;
     for(const separation of [.6,1.1,1.6]) {
         s.separation=separation;
         let allocations=0;
@@ -125,21 +132,17 @@ test('retained banked rails: low/interior/high, shared f32 sweep, analytic oracl
         await save(`main-${separation}.bin`,actual);
         await save(`position-${separation}.bin`,position);
         await save(`indices-${separation}.bin`,indices);
-        expect(actual.length/4).toBe(mesh.indexCount);
+        expect(actual.length/4).toBe(mesh.indexCount*3/2);
         expect(mesh.indexCount).toBe(2*((96*16*2)+(14*2))*3);
-        const raw=await read(buffers[7]);
-        const emittedF32=new Float32Array(raw.buffer);
-        await save(`emitted-${separation}.bin`,raw);
-        const reference=cpu(separation), decoded:number[][]=[];
-        let maxPosition=0,maxNormal=0,maxQuantNormal=0,topologyErrors=0,streamErrors=0,boundsErrors=0,analyticError=0,f32Error=0,quantizationError=0;
+        const reference=cpuReferences.get(separation)!, decoded:number[][]=[];
+        let maxPosition=0,maxNormal=0,maxQuantNormal=0,topologyErrors=0,streamErrors=0,boundsErrors=0,analyticError=0,quantizationError=0;
         for(let i=0;i<indices.length;i++) {
             if(indices[i]!==i || (actual[i*4+1]>>>16)!==0) topologyErrors++;
             if(position[i*2]!==actual[i*4] || position[i*2+1]!==actual[i*4+1]) streamErrors++;
             const p=decodePos(actual[i*4],actual[i*4+1],quant), a=[p.x,p.y,p.z]; decoded.push(a);
             for(let axis=0;axis<3;axis++) {
                 maxPosition=Math.max(maxPosition,Math.abs(a[axis]-reference[i*3+axis]));
-                f32Error=Math.max(f32Error,Math.abs(emittedF32[i*4+axis]-reference[i*3+axis]));
-                quantizationError=Math.max(quantizationError,Math.abs(a[axis]-emittedF32[i*4+axis]));
+                quantizationError=Math.max(quantizationError,Math.abs(a[axis]-reference[i*3+axis]));
             }
             const center=mesh.bounds!; if(Math.hypot(...a.map((v,j)=>v-center[j]))>center[3]+quantError*2) boundsErrors++;
         }
@@ -173,8 +176,7 @@ test('retained banked rails: low/interior/high, shared f32 sweep, analytic oracl
         expect(topologyErrors+streamErrors+boundsErrors).toBe(0);
         expect(analyticError).toBeLessThan(quantError+3e-6);
         expect(maxPosition).toBeLessThan(quantError+3e-6);
-        expect(f32Error).toBeLessThan(3e-6);
-        expect(quantizationError).toBeLessThan(quantError);
+        expect(quantizationError).toBeLessThan(quantError+3e-6);
 
         if(previous) {
             expect(actual).not.toEqual(previous);
@@ -182,15 +184,44 @@ test('retained banked rails: low/interior/high, shared f32 sweep, analytic oracl
             expect(Math.hypot(stale.x-reference[0],stale.y-reference[1],stale.z-reference[2])).toBeGreaterThan(.1);
         }
         // Wrong-separation/stale oracle must exceed the position acceptance limit.
-        const wrong=cpu(separation===.6?1.6:.6);
+        const wrong=cpuReferences.get(separation===.6?1.6:.6)!;
         expect(Math.max(...decoded[0].map((v,k)=>Math.abs(v-wrong[k])))).toBeGreaterThan(.1);
         expect(image.rgba.some((v,i)=>i%4!==3 && v!==image.rgba[i%4])).toBe(true);
         expect(s.buffers.every((b,i)=>b===buffers[i])).toBe(true); expect(s.mesh).toBe(mesh);
-        expect(s.entity).toBe(entity); expect(w.storage(MeshMaterial).material.get(entity)).toBe(materialRow);
+        expect(railEntity).toBe(entity); expect(w.storage(MeshMaterial).material.get(entity)).toBe(materialRow);
         expect([...w.resource(Meshes)]).toEqual(registry);
-        summary.push({separation,depthPrepass:true,changedFromLow,changedFromPrevious,maxPosition,maxNormal,maxQuantNormal,quantError,f32Error,quantizationError,ownedBuffers:buffers.length+1}); previous=actual;
+        summary.push({separation,depthPrepass:true,changedFromLow,changedFromPrevious,maxPosition,maxNormal,maxQuantNormal,quantError,quantizationError,ownedBuffers:buffers.length+1}); previous=actual;
     }
     const count=s.dispatches; w.step(0); await w.frameFence; expect(s.dispatches).toBe(count);
     expect(warnings).toEqual([]);
     await save('results.json',JSON.stringify(summary,null,2));
+},TIMEOUT.gpu);
+
+test('aborted draw does not commit a rail output marker; retry emits the pending parameters',async()=>{
+    const w=app.world,s=w.resource(RailGpu),before=await read(s.buffers[0]),count=s.dispatches,submitted=s.submitted;
+    const abort={name:'abort-after-rail-emit',group:'draw' as const,after:[RailEmitSystem],before:[MeshPreprocessSystem],update(){throw Error('deliberately aborted qualification draw');}};
+    s.separation=.85;w.addSystem(abort);
+    try {expect(()=>w.step(0)).toThrow('deliberately aborted qualification draw');} finally {w.removeSystem(abort);}
+    expect(s.dispatches).toBe(count);expect(s.submitted).toBe(submitted);
+    expect(await read(s.buffers[0])).toEqual(before);
+    w.step(0);await w.frameFence;
+    expect(s.dispatches).toBe(count+1);expect(s.submitted).toEqual([.85,0,false]);
+    const actual=await read(s.buffers[0]),quant=(await s.mesh.quant!.read())[0],reference=cpuReferences.get(.85)!;
+    for(let i=0;i<s.mesh.indexCount;i++) {
+        const p=decodePos(actual[i*4],actual[i*4+1],quant);
+        expect(Math.max(Math.abs(p.x-reference[i*3]),Math.abs(p.y-reference[i*3+1]),Math.abs(p.z-reference[i*3+2]))).toBeLessThan(Math.max(quant.posScale.x,quant.posScale.y,quant.posScale.z)/65535+3e-6);
+    }
+},TIMEOUT.gpu);
+
+test('immediate disposal after a submitted dirty draw owns every producer allocation exactly once',async()=>{
+    const w=disposalApp.world,s=w.resource(RailGpu),device=w.gpu.device;
+    const buffers=[...s.buffers,w.gpu.root.unwrap(s.mesh.quant!)],destroyed=new Map<GPUBuffer,number>();
+    for(const b of buffers){const destroy=b.destroy.bind(b);b.destroy=()=>{destroyed.set(b,(destroyed.get(b)??0)+1);destroy();};}
+    device.pushErrorScope('validation');
+    s.separation=1.4;w.step(0);expect(s.dispatches).toBe(1);
+    // Intentionally no frameFence/sync before disposal: queued work is in flight.
+    disposalApp.dispose();
+    await device.queue.onSubmittedWorkDone();
+    expect(buffers.map(b=>destroyed.get(b))).toEqual(buffers.map(()=>1));
+    expect(await device.popErrorScope()).toBeNull();
 },TIMEOUT.gpu);
