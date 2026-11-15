@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { beforeAll, afterAll, expect, test } from 'bun:test';
 import { Transform, Meshes, Materials, MeshMaterial } from '@dylanebert/shallot';
 import { Orbit } from '@dylanebert/shallot/extras';
 import { openGpuApp } from '@dylanebert/shallot/testing/gpu';
@@ -10,10 +10,22 @@ const initialConfiguration = effective({...initialState, selected:'track'});
 import { assemblyDefaults } from './assembly';
 import { readMesh } from './gpu-probe';
 
-for (const aspect of [920/800,390/338]) test(`assembly reuses native assets/materials, frames every component and retains camera at ${aspect}`, async () => {
+const aspects=[920/800,390/338];
+const fixtures=new Map<number,{live:ReturnType<typeof liveScene>;app:Awaited<ReturnType<typeof openGpuApp>>}>();
+let retained:{live:ReturnType<typeof liveScene>;app:Awaited<ReturnType<typeof openGpuApp>>};
+beforeAll(async()=>{
+  for(const aspect of aspects) {
+    const initial={...initialConfiguration,example:'assembly' as const,assembly:{...assemblyDefaults,path:'straight' as const,spacing:1.5,separation:1.4}};
+    const live=liveScene(initial,name=>new URL(`../public/assets/${name}.gltf`,import.meta.url),()=>aspect);
+    fixtures.set(aspect,{live,app:await openGpuApp({plugins:[live.plugin]})});
+  }
+  const live=liveScene({...initialConfiguration,example:'assembly',assembly:{...assemblyDefaults}},name=>new URL(`../public/assets/${name}.gltf`,import.meta.url));
+  retained={live,app:await openGpuApp({plugins:[live.plugin]})};
+},TIMEOUT.startup);
+afterAll(()=>{for(const {app} of fixtures.values())app.dispose();retained?.app.dispose();});
+for (const aspect of aspects) test(`assembly reuses native assets/materials, frames every component and retains camera at ${aspect}`, async () => {
   const initial = {...initialConfiguration, example:'assembly' as const, assembly:{...assemblyDefaults,path:'straight' as const,spacing:1.5,separation:1.4}};
-  const live = liveScene(initial, name => new URL(`../public/assets/${name}.gltf`,import.meta.url), () => aspect);
-  const app = await openGpuApp({plugins:[live.plugin]});
+  const {live,app}=fixtures.get(aspect)!;
   try {
     const w = app.world, refs = w.resource(Scene), camera = refs.camera, t = w.storage(Transform), orbit = w.storage(Orbit);
     const position = (e: number) => [t.translation.x.get(e),t.translation.y.get(e),t.translation.z.get(e)];
@@ -67,8 +79,7 @@ for (const aspect of [920/800,390/338]) test(`assembly reuses native assets/mate
 
 test('separation updates retain rail and unchanged native placement work', async () => {
   const initial={...initialConfiguration,example:'assembly' as const,assembly:{...assemblyDefaults}};
-  const live=liveScene(initial,name=>new URL(`../public/assets/${name}.gltf`,import.meta.url));
-  const app=await openGpuApp({plugins:[live.plugin]});
+  const {live,app}=retained;
   try {
     const w=app.world, registry=w.resource(Meshes), refs=w.resource(Scene);
     w.step(0);await w.frameFence;await w.gpu.sync();

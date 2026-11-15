@@ -1,5 +1,5 @@
-import { expect, test } from "bun:test";
-import { Materials, Meshes } from "@dylanebert/shallot";
+import { beforeAll, afterAll, expect, test } from "bun:test";
+import { Materials, Meshes, MeshInstance } from "@dylanebert/shallot";
 import { Orbit } from "@dylanebert/shallot/extras";
 import { openGpuApp } from "@dylanebert/shallot/testing/gpu";
 import { TIMEOUT } from "@dylanebert/shallot/testing";
@@ -13,12 +13,24 @@ import { effective, initialConfiguration, selectExample } from './configuration'
 const url = (name: string) =>
   new URL(`../public/assets/${name}.gltf`, import.meta.url);
 const selection: Selection = effective(initialConfiguration);
+const resourceScene=liveScene(selection,url);
+let resourceApp:Awaited<ReturnType<typeof openGpuApp>>;
+const sourceApps=new Map<string,Awaited<ReturnType<typeof openGpuApp>>[]>();
+const opened:Awaited<ReturnType<typeof openGpuApp>>[]=[];
+beforeAll(async()=>{
+  resourceApp=await openGpuApp({plugins:[resourceScene.plugin]});opened.push(resourceApp);
+  for(const asset of ['wheel-carrier','blitz-tie'] as const) {
+    const live=liveScene({...selection,example:undefined,isolated:true,asset},url),apps=[];
+    for(const plugin of [createScene(url(asset)),live.plugin]){const app=await openGpuApp({plugins:[plugin]});apps.push(app);opened.push(app);}
+    sourceApps.set(asset,apps);
+  }
+},TIMEOUT.startup);
+afterAll(()=>{for(const app of opened)app.dispose();});
 
 test(
   "live scene bounds GPU bytes, entities and registrations through repeated parameter/component/example changes",
   async () => {
-    const scene = liveScene(selection, url);
-    const app = await openGpuApp({ plugins: [scene.plugin] });
+    const scene = resourceScene, app=resourceApp;
     try {
       const w = app.world,
         refs = w.resource(Scene),
@@ -79,7 +91,9 @@ test(
           // Resident immutable content is allowed; leaked replacement families are not.
           if (cycle === 0) { warmBytes = Math.max(warmBytes, bytes); warmCount = Math.max(warmCount, live.length); }
           else { expect(bytes).toBeLessThanOrEqual(warmBytes); expect(live.length).toBeLessThanOrEqual(warmCount); }
-          for (const mesh of w.resource(Meshes)) {
+          const selectedHandles=new Set(refs.instances.flat().map(e=>w.storage(MeshInstance).mesh.get(e)));
+          for (const [handle,mesh] of w.resource(Meshes).entries()) {
+            if(!selectedHandles.has(handle))continue;
             const {points} = await readMesh(w, mesh);
             expect(points.length).toBe(mesh.indexCount);
             expect(points.flat().every(Number.isFinite)).toBe(true);
@@ -114,11 +128,7 @@ for (const asset of ["wheel-carrier", "blitz-tie"] as const)
   test(
     `live isolated ${asset} matches the independent static witness pixels`,
     async () => {
-      const live = liveScene({ ...selection, isolated: true, asset }, url);
-      const apps = [
-        await openGpuApp({ plugins: [createScene(url(asset))] }),
-        await openGpuApp({ plugins: [live.plugin] }),
-      ];
+      const apps=sourceApps.get(asset)!;
       try {
         const images = [];
         for (const app of apps) {

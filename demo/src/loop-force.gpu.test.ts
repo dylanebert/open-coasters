@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { beforeAll, afterAll, expect, test } from 'bun:test';
 import { Materials, Meshes, MeshMaterial, Transform } from '@dylanebert/shallot';
 import { decodeColor } from '@dylanebert/shallot/mesh';
 import { packUnorm2 } from '@dylanebert/shallot/utils';
@@ -14,10 +14,18 @@ import { initialConfiguration as initialState, effective } from './configuration
 const initialConfiguration = effective({...initialState, selected:'track'});
 import { assemblyDefaults } from './assembly';
 
-for(const proof of ['field controls','native material multiplication'] as const) test(`recorded support renders along unchanged rails: ${proof}`, async () => {
+const proofs=['field controls','native material multiplication'] as const;
+const fixtures=new Map<string,{live:ReturnType<typeof liveScene>;app:Awaited<ReturnType<typeof openGpuApp>>}>();
+beforeAll(async()=>{
+  for(const key of [...proofs,'bounds']) {
+    const live=liveScene({...initialConfiguration,example:'assembly',assembly:{...assemblyDefaults,path:'loop'}},name=>new URL(`../public/assets/${name}.gltf`,import.meta.url));
+    fixtures.set(key,{live,app:await openGpuApp({plugins:[live.plugin]})});
+  }
+},TIMEOUT.startup);
+afterAll(()=>{for(const {app} of fixtures.values())app.dispose();});
+for(const proof of proofs) test(`recorded support renders along unchanged rails: ${proof}`, async () => {
   const initial={...initialConfiguration,example:'assembly' as const,assembly:{...assemblyDefaults,path:'loop' as const}};
-  const live=liveScene(initial,name=>new URL(`../public/assets/${name}.gltf`,import.meta.url));
-  const app=await openGpuApp({plugins:[live.plugin]});
+  const {live,app}=fixtures.get(proof)!;
   try {
     const w=app.world, refs=w.resource(Scene), camera=refs.camera, orbit=w.storage(Orbit);
     attachTexture(w,camera,{width:512,height:512});
@@ -85,8 +93,7 @@ for(const proof of ['field controls','native material multiplication'] as const)
 
 test('appearance changes retain camera and bound resident meshes/material registrations', async () => {
   const initial={...initialConfiguration,example:'assembly' as const,assembly:{...assemblyDefaults,path:'loop' as const}};
-  const live=liveScene(initial,name=>new URL(`../public/assets/${name}.gltf`,import.meta.url));
-  const app=await openGpuApp({plugins:[live.plugin]});
+  const {live,app}=fixtures.get('bounds')!;
   try {
     const w=app.world, refs=w.resource(Scene), camera=refs.camera, orbit=w.storage(Orbit);
     orbit.yaw.set(camera,1.1);orbit.pitch.set(camera,-.4);

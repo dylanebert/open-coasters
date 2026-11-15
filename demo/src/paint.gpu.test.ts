@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test';
+import { beforeAll, afterAll, expect, test } from 'bun:test';
 import { Materials, Meshes, MeshMaterial } from '@dylanebert/shallot';
 import { Orbit } from '@dylanebert/shallot/extras';
 import { openGpuApp } from '@dylanebert/shallot/testing/gpu';
@@ -9,9 +9,11 @@ import { initialConfiguration as initialState, effective } from './configuration
 const initialConfiguration = effective({...initialState, selected:'track'});
 import { Scene } from './scene';
 
+const scene = liveScene(initialConfiguration, name => new URL(`../public/assets/${name}.gltf`, import.meta.url));
+let app:Awaited<ReturnType<typeof openGpuApp>>;
+beforeAll(async()=>{app=await openGpuApp({plugins:[scene.plugin]});},TIMEOUT.startup);
+afterAll(()=>app?.dispose());
 test('paint uses stable material updates without mesh allocation, registration or camera changes', async () => {
-  const scene = liveScene(initialConfiguration, name => new URL(`../public/assets/${name}.gltf`, import.meta.url));
-  const app = await openGpuApp({ plugins: [scene.plugin] });
   try {
     const w = app.world, refs = w.resource(Scene), camera = refs.camera;
     attachTexture(w, camera, { width: 128, height: 96 });
