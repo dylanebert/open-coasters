@@ -44,6 +44,10 @@ for(const path of kinds)test(`retained ${path}: complete low/interior/high GPU p
       await Promise.all([Bun.write(`${prefix}-main.bin`,actual.main),Bun.write(`${prefix}-position.bin`,actual.position),Bun.write(`${prefix}-indices.bin`,actual.indices),Bun.write(`${prefix}-quant.bin`,actual.quant),Bun.write(`${prefix}-cpu-f32.bin`,expected)]);
     }
     const quants=await mesh.quant!.read(),quant=quants[kinds.indexOf(path)];
+    // Eight f32 epsilon envelopes cover source/parameter conversion, two
+    // multiplies/two adds and the reference's final f32 conversion. Unit bases,
+    // the <=.86m local envelope and the symmetric rail pair bound intermediate
+    // magnitudes by this path's coordinate envelope (at least one metre).
     const coordinateBound=8*2**-23*Math.max(1,...expected.filter((_,i)=>i%8<3).map(Math.abs));
     const quantBound=Math.max(quant.posScale.x,quant.posScale.y,quant.posScale.z)/65535;
     expect(actual.points.length).toBe(expected.length/8);
