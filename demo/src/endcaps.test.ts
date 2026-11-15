@@ -43,7 +43,7 @@ function endpoint(kind:Configuration,end:number) {
   if(kind==='curve') { const a=(end?1:-1)*Math.PI/4; return {p:[8*Math.cos(a)-6,1.5,8*Math.sin(a)],n:[-Math.sin(a),0,Math.cos(a)].map(v=>v*(end?1:-1))}; }
   const row=loop[end?loop.length-1:0], [x,y,z,w]=row.slice(4);
   const apex=loop.reduce((a,b)=>a[2]>b[2]?a:b)[1];
-  return {p:[-row[1]+apex,row[2]+1.5,-row[3]-9.2212609908],n:[-2*(x*z+w*y),2*(y*z-w*x),1-2*(x*x+y*y)].map(v=>v*(end?1:-1))};
+  return {p:[-row[1]+apex,row[2]+1.5,-row[3]-11.6974685775],n:[-2*(x*z+w*y),2*(y*z-w*x),1-2*(x*x+y*y)].map(v=>v*(end?1:-1))};
 }
 // Convex clipping is deliberately different from the ear-clipping implementation.
 // It detects positive-area overlap even if an equal gap conserves total area.

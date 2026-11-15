@@ -15,14 +15,20 @@ if (git("diff", "HEAD", "--", "src", "package.json", "bun.lock")) throw new Erro
 const { policy } = await import(resolve(checkout, "src/trajectory/policies.ts"));
 const { step } = await import(resolve(checkout, "src/trajectory/integrator.ts"));
 const { rotate } = await import(resolve(checkout, "src/path/path.ts"));
-const rate = 2000, stride = 10, entrySpeed = 100 / 3.6, rollAmplitude = 0.26;
+const rate = 2000, stride = 10, entrySpeed = 100 / 3.6, rollAmplitude = 0.08;
 const constants = { g: 9.81, heartToCom: 0, mass: 500, friction: 0, drag: 0 };
 const initial = { position: [0, 0, 0], rotation: [0, 0, 0, 1], speed: entrySpeed, distance: 0 };
 const supportWidth = 2 * Math.PI, supportStart = (2 * Math.PI - supportWidth) / 2;
-const normalGuide = { shoulder: 4, crown: 0, notchHalfWidth: 2 * Math.PI / 5 };
-const normalAt = (theta: number) => Math.abs(theta - Math.PI) >= normalGuide.notchHalfWidth
-  ? normalGuide.shoulder
-  : normalGuide.shoulder * Math.sin(Math.PI * (theta - Math.PI) / (2 * normalGuide.notchHalfWidth)) ** 2;
+const normalGuide = { kind: "early-C1-Hermite-to-cosine", shoulder: 4, crown: 0, holdEnd: Math.PI/4, cosineStart: 5*Math.PI/12 };
+const normalAt = (theta: number) => {
+  const xi = Math.min(theta, 2*Math.PI-theta);
+  const a = normalGuide.holdEnd, b = normalGuide.cosineStart;
+  if (xi <= a) return 4;
+  if (xi >= b) return 2 + 2*Math.cos(xi);
+  const h = b-a, u = (xi-a)/h;
+  const value = 2+2*Math.cos(b), derivative = -2*Math.sin(b);
+  return (2*u**3-3*u**2+1)*4 + (-2*u**3+3*u**2)*value + (u**3-u**2)*h*derivative;
+};
 function simulate(trims: number[]) {
   const states: any[] = [initial], inputs: any[] = [], intents: any[] = [];
   const history = { rate, constants, states, inputs };

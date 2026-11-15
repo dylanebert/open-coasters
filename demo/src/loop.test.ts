@@ -8,7 +8,7 @@ const dot = (a: number[], b: number[]) =>
 const sub = (a: number[], b: number[]) => a.map((x, i) => x - b[i]);
 const norm = (a: number[]) => Math.hypot(...a);
 // Independently recorded crown source X/Z; no production placement import.
-const world = (p: number[]) => [-6.0293982646 - p[1], 1.5 + p[2], -9.2212609908 - p[3]];
+const world = (p: number[]) => [-2.2646225098 - p[1], 1.5 + p[2], -11.6974685775 - p[3]];
 // Independent source quaternion matrix columns, rigidly placed in world space.
 const axes = (p: number[]) => {
   const [x, y, z, w] = p.slice(4);
@@ -81,17 +81,16 @@ test("loop: explicit 100 km/h entry", () => {
   expect(state.constants).toEqual({ g: 9.81, heartToCom: 0, mass: 500, friction: 0, drag: 0 });
   expect(state.rate).toBe(2000);
   expect(state.recordedStride).toBe(10);
-  expect(state.rollAmplitude).toBe(0.26);
+  expect(state.rollAmplitude).toBe(0.08);
   expect(state.supportWidth).toBe(2*Math.PI);
   expect(state.supportStart).toBe(0);
-  expect(state.normalGuide).toEqual({ shoulder: 4, crown: 0, notchHalfWidth: 2*Math.PI/5 });
+  expect(state.normalGuide).toEqual({ kind: 'early-C1-Hermite-to-cosine', shoulder: 4, crown: 0, holdEnd: Math.PI/4, cosineStart: 5*Math.PI/12 });
   for (let i=0;i<path.length-1;i++) {
     const f=axes(path[i]).tangent, theta=Math.atan2(f[1],f[2]);
     expect(state.samples[i][2]).toBeGreaterThanOrEqual(0);
     expect(state.samples[i][2]).toBeLessThanOrEqual(4);
-    const offset = Math.abs(Math.abs(theta)-Math.PI);
-    const normal = offset >= 2*Math.PI/5 ? 4 : 4*Math.sin(5*offset/4)**2;
-    expect(state.samples[i][2]).toBeCloseTo(normal,8);
+    // Detailed independent selected-guide reconstruction lives in loop-hold.test.ts.
+    expect(Number.isFinite(theta)).toBe(true);
     expect(state.samples[i][3]).toBe(0);
   }
 });
@@ -103,13 +102,13 @@ test("loop: highest recorded centerline point is at world X zero", () => {
 
 test("recorded geometry: metric arc stations, rigid landmarks, proper continuous tangent frames", () => {
   expect(path.length).toBe(state.samples.length);
-  expect(length("loop")).toBeCloseTo(99.1912231532, 9);
-  expect(frame("loop", 0).p).toEqual([-6.0293982646, 1.5, -9.2212609908]);
+  expect(length("loop")).toBeCloseTo(108.5071019065, 9);
+  expect(frame("loop", 0).p).toEqual([-2.2646225098, 1.5, -11.6974685775]);
   const apex = path.reduce(
     (best, p, i) => (p[2] > path[best][2] ? i : best),
     0,
   );
-  expect(world(path[apex])[1]).toBeCloseTo(28.4866316669, 9);
+  expect(world(path[apex])[1]).toBeCloseTo(36.1375274566, 9);
   expect(norm(sub(world(path[0]), world(path.at(-1)!)))).toBeGreaterThan(8);
   let previous = frame("loop", 0);
   for (let i = 1; i < path.length; i++) {
@@ -147,7 +146,7 @@ test("recorded geometry: metric arc stations, rigid landmarks, proper continuous
   }
   for (const spacing of [0.3, 0.7, 1.5]) {
     const stations = ties({ ...defaults, configuration: "loop", spacing });
-    expect(stations.length).toBe(Math.ceil(99.1912231532 / spacing));
+    expect(stations.length).toBe(Math.ceil(108.5071019065 / spacing));
     for (const [i, f] of stations.entries()) {
       const s = i * spacing;
       expect(f.s).toBe(s);
@@ -257,12 +256,12 @@ test("independent recorded velocity differences and geometry/state recover autho
   expect(state.samples[entry][1]).toBeGreaterThan(15.4);
   expect(state.samples[apex][1]).toBeLessThan(15.57);
   expect(state.samples[exit][1]).toBeGreaterThan(15.4);
-  expect(state.samples[apex][1]).toBeCloseTo(15.5604378141, 6);
+  expect(state.samples[apex][1]).toBeCloseTo(9.5925309264, 6);
 });
 
 const scale = (a: number[], k: number) => a.map((x) => x * k);
 
-test("noncircular spatial loop: independently measured chord curvature and nonplanarity", () => {
+test("selected D spatial loop: independently measured chord curvature and plane departure", () => {
   const tangent = (i: number) => {
     const d = sub(world(path[i + 1]), world(path[i - 1]));
     return scale(d, 1 / norm(d));
@@ -275,10 +274,10 @@ test("noncircular spatial loop: independently measured chord curvature and nonpl
   // Same centered position-only stencil over ALL records of base 5841663:
   // minimum .09886412384832682, maximum .36294102465411104 per meter.
   expect(Math.max(...curvatures)).toBeLessThan(0.36294102465411104);
-  expect(Math.min(...curvatures)).toBeCloseTo(0.03529977292513821, 9);
-  expect(Math.max(...curvatures)).toBeCloseTo(0.12213869793915219, 9);
-  // The held-positive guide changes where curvature peaks; still noncircular.
-  expect(curvature(crown) / Math.min(...curvatures)).toBeCloseTo(1.1478243269843325, 9);
+  expect(Math.min(...curvatures)).toBeCloseTo(0.03434970964411073, 9);
+  expect(Math.max(...curvatures)).toBeCloseTo(0.10661124226653172, 9);
+  // Selected D has a narrow crown and broader lower body; not circular.
+  expect(curvature(crown) / Math.min(...curvatures)).toBeCloseTo(3.1037014103206624, 9);
   const a = sub(world(path[crown]), world(path[0])),
     b = sub(world(path.at(-1)!), world(path[0]));
   const n = [
@@ -291,7 +290,7 @@ test("noncircular spatial loop: independently measured chord curvature and nonpl
       (p) => Math.abs(dot(sub(world(p), world(path[0])), n)) / norm(n),
     ),
   );
-  expect(departure).toBeGreaterThan(2);
+  expect(departure).toBeCloseTo(4.122772470500991,9);
 });
 
 test("localized level terminal: complete frames, fixed-rate records, whole-tick negative control", () => {
@@ -341,9 +340,10 @@ test("supported smooth roll makes a modest signed paired bank and returns uprigh
     bankMirrorRms: Math.sqrt(dot(errors, errors) / errors.length) });
   const paired = (b: number[]) => {
     const entry = Math.min(...b.slice(0, crown)), exit = Math.max(...b.slice(crown));
-    return entry < -.2 && exit > .2 && Math.abs(entry + exit) < .002 &&
+    return Math.abs(entry - (-4.4242293343736*Math.PI/180)) < 1e-8 &&
+      Math.abs(exit - 4.420154459414641*Math.PI/180) < 1e-8 && Math.abs(entry + exit) < .002 &&
       Math.max(...b.map(Math.abs)) < .3 && Math.abs(b[0]) < 1e-7 && Math.abs(b.at(-1)!) < 1e-7 &&
-      // .002 rad (0.115 degrees) is under 1% of either bank peak. This bounds
+      // .002 rad (0.115 degrees) retains the original mirror tolerance. This bounds
       // approximate phase mirroring over BOTH complete recorded lobes, not
       // exact symmetry of the causal, discretely stepped source policies.
       Math.max(...mirrorErrors(b).map(Math.abs)) < .002;

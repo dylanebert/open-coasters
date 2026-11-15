@@ -10,7 +10,7 @@ const dot = (a: number[], b: number[]) =>
 const sub = (a: number[], b: number[]) => a.map((x, i) => x - b[i]);
 const norm = (a: number[]) => Math.hypot(...a);
 // Independently recorded crown source X; no production placement import.
-const world = (p: number[]) => [-6.0293982646 - p[1], 1.5 + p[2], -9.2212609908 - p[3]];
+const world = (p: number[]) => [-2.2646225098 - p[1], 1.5 + p[2], -11.6974685775 - p[3]];
 // Independent source quaternion matrix columns, rigidly placed in world space.
 const axes = (p: number[]) => {
   const [x, y, z, w] = p.slice(4);
@@ -36,6 +36,57 @@ const add = (a: number[], b: number[]) => a.map((x, i) => x + b[i]);
 const scale = (a: number[], k: number) => a.map((x) => x * k);
 const clearanceMesh = (overrides: Partial<typeof defaults> = {}) =>
   generate({ ...defaults, configuration: "loop", ...overrides });
+
+// Verification-only Green-kernel envelope. The smooth maximum is separate:
+// the jump tents are piecewise affine, but the full smooth+tents need not be.
+const chordEnvelope = (a: number, b: number, second: number, jumps: {s:number; weight:number}[]) => {
+  const interior=jumps.filter(j=>j.s>a && j.s<b);
+  const kernel=(t:number,s:number)=>(Math.min(t,s)-a)*(b-Math.max(t,s))/(b-a);
+  const hinge=Math.max(...[a,...interior.map(j=>j.s),b].map(t=>
+    interior.reduce((sum,j)=>sum+kernel(t,j.s)*j.weight,0)));
+  return second*(b-a)**2/8 + hinge;
+};
+const knotJump = (end: number[], sign: number, start: number[]) => norm(sub(start,scale(end,sign)));
+
+test('exact chord envelope: uneven positive hinges attain the bound, not the coarse sum', () => {
+  const jumps=[{s:.1,weight:2},{s:.6,weight:3},{s:.9,weight:1}];
+  // F(t)=sum weight*(t-s)+. At .6 its chord error attains the envelope.
+  const f=(t:number)=>jumps.reduce((sum,j)=>sum+j.weight*Math.max(0,t-j.s),0);
+  const error=.6*f(1)-f(.6);
+  expect(error).toBeCloseTo(.86,12);
+  expect(chordEnvelope(0,1,0,jumps)).toBeCloseTo(error,12);
+  expect(chordEnvelope(0,1,0,jumps)).toBeLessThan(jumps.reduce((sum,j)=>sum+j.weight,0)/4);
+}, TIMEOUT.cheap);
+test('exact chord envelope: smooth quadratic and midpoint kink prohibit a half factor', () => {
+  const quadratic=(t:number)=>3*t*t;
+  const smoothError=(quadratic(-1)+quadratic(2))/2-quadratic(.5);
+  expect(smoothError).toBe(6.75);
+  expect(chordEnvelope(-1,2,6,[])).toBe(smoothError);
+  const kink=(t:number)=>4*Math.max(0,t-.5);
+  const kinkError=kink(1)/2-kink(.5);
+  expect(kinkError).toBe(1);
+  expect(chordEnvelope(0,1,0,[{s:.5,weight:4}])).toBe(kinkError);
+  expect(kinkError).toBeGreaterThan(1/2);
+}, TIMEOUT.cheap);
+test('exact chord envelope: signed and vector hinges retain triangle inequality', () => {
+  const scalar=[{s:-1.8,v:[2]},{s:-.3,v:[-5]},{s:2.7,v:[3]}];
+  const vector=[{s:.1,v:[2,-3,1]},{s:.9,v:[-4,0,2]},{s:1.7,v:[1,2,-2]}];
+  for(const [a,b,hinges] of [[-2,3,scalar],[0,2,vector]] as const) {
+    const bound=chordEnvelope(a,b,0,hinges.map(j=>({s:j.s,weight:norm(j.v)})));
+    for(const t of [a,...hinges.map(j=>j.s),b]) {
+      const actual=hinges[0].v.map((_,k)=>hinges.reduce((sum,j)=>sum+j.v[k]*((t-a)/(b-a)*(b-j.s)-Math.max(0,t-j.s)),0));
+      expect(norm(actual)).toBeLessThanOrEqual(bound+1e-12);
+    }
+  }
+  expect(chordEnvelope(-2,3,0,scalar.map(j=>({s:j.s,weight:norm(j.v)})))).toBeCloseTo(6.18,12);
+}, TIMEOUT.cheap);
+test('exact knot gauge: flipped endpoint with reversing derivative cannot cancel the jump', () => {
+  // Previous interval ended at -q in raw knot gauge; its aligned derivative
+  // equals next start numerically, but physical one-sided derivatives reverse.
+  expect(knotJump([0,2,0,0],-1,[0,2,0,0])).toBe(4);
+  expect(knotJump([0,2,0,0],-1,[0,-2,0,0])).toBe(0);
+  expect(knotJump([0,2,0,0],1,[0,-2,0,0])).toBe(4);
+}, TIMEOUT.cheap);
 
 test("nonlocal emitted envelope: whole-interval ball separation", () => {
   // Reference curve: C1 cubic Hermite through recorded centers, with recorded
@@ -310,11 +361,13 @@ for (const configuration of ["straight", "curve", "loop"] as const)
   // A normalized quaternion chord rotates about a fixed axis. With D=|q_raw'|
   // and eta=max|norm(q_raw)'|/D, |R''| <= 4(1+eta)D²/min|q_raw|².
   // Linear interpolation error also includes derivative jumps at source knots:
-  // h² M/8 + h sum(jump)/4. This bounds finite 192-ring chords at ALL phases,
+  // h² M/8 plus the maximum Green-kernel weighted jump sum. This bounds
+  // finite 192-ring chords at ALL phases,
   // rather than estimating conformance from a few generated ties.
   const derivatives = path.slice(0,-1).map((a,i) => {
     const b=path[i+1], h=b[0]-a[0], qa=a.slice(4), qb=b.slice(4);
-    if (dot(qa,qb)<0) for (let k=0;k<4;k++) qb[k]*=-1;
+    const sign=dot(qa,qb)<0?-1:1;
+    if (sign<0) for (let k=0;k<4;k++) qb[k]*=-1;
     const d=sub(qb,qa).map(x=>x/h);
     const derivative=(q:number[]) => {
       const n=norm(q), u=q.map(x=>x/n);
@@ -323,20 +376,21 @@ for (const configuration of ["straight", "curve", "loop"] as const)
     const cosine=Math.abs(dot(qa,qb))/(norm(qa)*norm(qb));
     const minimum=Math.min(norm(qa),norm(qb))*Math.sqrt((1+cosine)/2);
     const eta=Math.max(Math.abs(dot(qa,d))/norm(qa),Math.abs(dot(qb,d))/norm(qb))/norm(d);
-    return { velocity:scale(sub(world(b),world(a)),1/h), start:derivative(qa), end:derivative(qb), second:4*(1+eta)*norm(d)**2/minimum**2 };
+    return { velocity:scale(sub(world(b),world(a)),1/h), sign, start:derivative(qa), end:derivative(qb), second:4*(1+eta)*norm(d)**2/minimum**2 };
   });
   let chordError=0;
   for (let segment=0;segment<192;segment++) {
     const lo=segment*step, hi=(segment+1)*step;
-    let second=0, jumps=0;
+    let second=0;
+    const jumps:{s:number;weight:number}[]=[];
     for (let i=0;i<derivatives.length;i++) {
       if (path[i+1][0]<lo || path[i][0]>hi) continue;
       second=Math.max(second,derivatives[i].second);
       if (i>0 && path[i][0]>lo && path[i][0]<hi)
-        jumps+=norm(sub(derivatives[i].velocity,derivatives[i-1].velocity))+
-          4*radius*norm(sub(derivatives[i].start,derivatives[i-1].end));
+        jumps.push({s:path[i][0],weight:norm(sub(derivatives[i].velocity,derivatives[i-1].velocity))+
+          4*radius*knotJump(derivatives[i-1].end,derivatives[i-1].sign,derivatives[i].start)});
     }
-    chordError=Math.max(chordError,radius*second*step**2/8+step*jumps/4);
+    chordError=Math.max(chordError,chordEnvelope(lo,hi,radius*second,jumps));
   }
   // Triangulated facets differ from bilinear interpolation by at most a
   // quarter of the endpoint edge-vector change. The rail facet has length
@@ -427,9 +481,9 @@ for (const configuration of ["straight", "curve", "loop"] as const)
 
 test("loop: independent component dimensions, midpoint landmark, and parameter isolation", () => {
   // Independent matrix reconstruction at the new metric midpoint.
-  const origin = [0.010202293377065352, 28.486616029186294, -0.025325063143382565];
-  const across = [0.9275611684423744, 0.00017970121892221734, 0.3736713081108705];
-  const up = [0.0001282562678317949, -0.99999997856591, 0.0001625377172451967];
+  const origin = [-0.0014217977414636655, 36.13751361993066, 0.008978361473160494];
+  const across = [0.9876923418627487, 0.0000818493005904895, 0.15640917852342057];
+  const up = [0.00007061021164939924, -0.9999999945106972, 0.00007741319884217268];
   const railVertices = 192 * 12 * 6;
   const components = (overrides: Partial<typeof defaults> = {}) => {
     const mesh = generate({ ...defaults, configuration: 'loop', ...overrides });
@@ -473,7 +527,7 @@ test("loop: independent component dimensions, midpoint landmark, and parameter i
   const tie = (overrides: Partial<typeof defaults>) => {
     const p={...defaults,configuration:"loop" as const,...overrides};
     const bodies=groups(generate(p),p);
-    expect(bodies.length).toBe(Math.ceil(99.1912231532/p.spacing));
+    expect(bodies.length).toBe(Math.ceil(108.5071019065/p.spacing));
     for (let i=0;i<bodies.length;i++) {
       expect(bodies[i].length).toBeGreaterThan(0);
       const b=localBounds(bodies[i],p,i);
