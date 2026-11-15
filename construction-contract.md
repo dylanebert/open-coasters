@@ -115,15 +115,17 @@ a native result never proves another tool can execute its source recipe.
 
 ## Demo consumer and qualification
 
-Path-based tie repetition calls the reusable NormalTrack graph through
-[a bounded app adapter](demo/src/construction-demo.ts). Analytic and recorded poses
-become explicit sampled data in [assembly.ts](demo/src/assembly.ts); the displayed
-rails use 97 stations (a bounded visualization approximation). Recorded source
-poses/physics are unchanged. Repeated ties, gaps, explicitly positioned posts and
-static part composition are separate examples in one chooser. Post distances are
-independent of tie spacing. Static composition has seven owned parts, not a
-generated switch. Force coloring is consumer-only native
-mesh packing. Legacy spine-track behavior is not thereby construction conformance.
+The [CPU app adapter](demo/src/construction-demo.ts) evaluates NormalTrack from
+explicit sampled data in [assembly.ts](demo/src/assembly.ts). It samples rails at
+97 stations, a bounded visualization approximation; recorded source
+poses/physics are unchanged.
+
+The ordinary suite separates repeated ties, gap filtering, explicit supports,
+rail offsets and contributed Blitz composition. Gap and support controls use a
+fixed straight path. Coincident gap boundaries select no exclusion, not a
+zero-length shared span. [Static-composition source/native qualification](demo/src/construction/counterexamples.test.ts)
+remains separate from the ordinary menu. Blitz profile assembly is an existing
+consumer, not NormalTrack conformance. Consumer fixtures exercise force coloring.
 
 `live.ts` still owns whole-mesh reset and stable material registrations; `main.ts`
 serializes replacements between completed frames/submitted work. CPU fixtures

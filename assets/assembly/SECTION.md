@@ -44,9 +44,9 @@ promises neither welding, watertight attachment nor engineering suitability.
 The asymmetric fitting remains a native source/import witness, not a public
 track component.
 
-The recorded-loop force display is a runtime consumer operation. It adds no
-force or appearance input to this section binding and makes no portable or
-export claim.
+Consumer fixtures exercise recorded-loop force coloring outside the ordinary
+example controls. It adds no force or appearance input to this section binding
+and makes no portable or export claim.
 
 This adds a scoped direct-section witness. It does not replace or tighten the
 legacy matching-end profile contract, Modern gate or existing source witnesses.

@@ -49,16 +49,16 @@ The example is not an upload service or a new general-purpose importer.
 ## Inspectable examples
 
 `assets/wheel-carrier/` contains original MIT Blender source and export instructions.
-The asymmetric nose faces +Z. The demo repeats the same asset at (-1.5, 0, 0)
-and (1.5, 0, 0), the latter rotated +90° about Y. Orbit and zoom expose both;
+The asymmetric nose faces +Z. The source witness at `?asset=wheel-carrier`
+repeats the asset at (-1.5, 0, 0) and (1.5, 0, 0), the latter rotated +90° about Y. Orbit and zoom expose both;
 there is no assembly rule or motion model. Tests and independent Blender import
 check the authored offset and metric landmarks, rather than treating two uses
 of the same decoder as independent evidence.
 
 `assets/blitz-tie/` preserves an archived MIT Modern track tie credited to Felix,
 its source notices, editable Blender contribution and rebuild instructions. The
-demo's Example selector retains wheel-carrier and adds this tie at the same two
-rigid placements. Raw OBJ positions independently anchor its metric landmarks
+source witness at `?asset=blitz-tie` uses the same two rigid placements. Its Asset
+selector switches between the two source witnesses. Raw OBJ positions independently anchor its metric landmarks
 and authored origin; no track-forward or assembly semantics are inferred.
 `assets/blitz-tie/place-twice.py` is a standalone Blender import-and-placement
 workflow, separate from its source-comparison oracle. This qualifies that static
