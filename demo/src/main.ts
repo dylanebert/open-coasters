@@ -70,7 +70,7 @@ try {
   if (query.has("stepped")) {
     // Stepped qualification reads selected public GPU inputs after submission.
     // No expected geometry or producer staging arrays enter this observation.
-    const trackPositions: { name: string; positions: number[]; positionError:number }[] = [];
+    const trackPositions: { name: string; positions: number[]; positionError:number; positionOffset:number[]; positionScale:number[] }[] = [];
     const meshes = app.world.resource(Meshes);
     const selectedMeshes=()=>{
       const instances=app.world.storage(MeshInstance);
@@ -84,7 +84,10 @@ try {
           const raw=await readMesh(app.world,mesh),words=new Uint32Array(raw.main),ids=new Uint32Array(raw.indices);
           const q=new DataView(raw.quant),row=words[ids[mesh.indexBase]*4+1]>>>16;
           const positionError=Math.max(...[0,1,2].map(a=>q.getFloat32(row*48+16+a*4,true)))/65535;
-          trackPositions.push({name:mesh.name,positions:raw.points.flat(),positionError});
+          trackPositions.push({name:mesh.name,positions:raw.points.flat(),positionError,
+            positionOffset:[0,1,2].map(a=>q.getFloat32(row*48+a*4,true)),
+            positionScale:[0,1,2].map(a=>q.getFloat32(row*48+16+a*4,true)),
+          });
         }
       }
     };
