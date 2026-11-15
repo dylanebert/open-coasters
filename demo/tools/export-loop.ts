@@ -19,6 +19,10 @@ const rate = 1000, stride = 5, entrySpeed = 100 / 3.6, rollAmplitude = 0.32;
 const constants = { g: 9.81, heartToCom: 0, mass: 500, friction: 0, drag: 0 };
 const initial = { position: [0, 0, 0], rotation: [0, 0, 0, 1], speed: entrySpeed, distance: 0 };
 const supportWidth = 1.65 * Math.PI, supportStart = (2 * Math.PI - supportWidth) / 2;
+const normalGuide = { shoulder: 4, crown: 0, notchHalfWidth: 2 * Math.PI / 5 };
+const normalAt = (theta: number) => Math.abs(theta - Math.PI) >= normalGuide.notchHalfWidth
+  ? normalGuide.shoulder
+  : normalGuide.shoulder * Math.sin(Math.PI * (theta - Math.PI) / (2 * normalGuide.notchHalfWidth)) ** 2;
 function simulate(trims: number[]) {
   const states: any[] = [initial], inputs: any[] = [], intents: any[] = [];
   const history = { rate, constants, states, inputs };
@@ -27,11 +31,19 @@ function simulate(trims: number[]) {
     const angle = Math.atan2(f[1], -f[2]), theta = angle < 0 ? angle + 2 * Math.PI : angle;
     const x = (theta - supportStart) * Math.PI / supportWidth;
     // Derivative of a supported signed bank guide, plus two smooth roll trims.
-    const ref = constants.g * (2 + up[1]) / s.speed * Math.PI / supportWidth;
+    const normal = normalAt(theta), right = rotate(s.rotation, [1, 0, 0]);
+    // Pinned force policy, h=0 and lateral=0: wx=g(N-upY)/v,
+    // wy=g*rightY/v. Forward derivative is wx*up-wy*right;
+    // roll about forward does not change forward instantaneously.
+    const wx = constants.g * (normal - up[1]) / s.speed;
+    const wy = constants.g * right[1] / s.speed;
+    const df = up.map((v: number, j: number) => wx*v - wy*right[j]);
+    const phaseRate = (-f[2]*df[1] + f[1]*df[2]) / (f[1]**2 + f[2]**2);
+    const ref = phaseRate * Math.PI / supportWidth;
     const roll = x > 0 && x < Math.PI ? -ref * (
       rollAmplitude * (Math.sin(2*x)**2 + 2*Math.sin(x)**2*Math.cos(2*x)) +
       trims[0]*Math.sin(x)**2 + trims[1]*Math.sin(x)**2*Math.cos(x)) : 0;
-    const intent = { shape: { kind: "forces", normal: 2 + 2*Math.cos(theta), lateral: 0, roll }, energy: { kind: "free" } };
+    const intent = { shape: { kind: "forces", normal, lateral: 0, roll }, energy: { kind: "free" } };
     const input = policy(history, intent);
     if ("reason" in input) throw new Error(JSON.stringify(input));
     const whole = step(s, input, 1/rate);
@@ -112,7 +124,7 @@ const metadata = {
   generation: "bun demo/tools/export-loop.ts /explicit/path/to/kexedit",
   rate, recordedStride: stride, constants, initial, rollAmplitude,
   forceFloor: 5, wholeTicks: end - 1, terminalDuration: result.duration, endTime: result.time,
-  supportWidth, supportStart, trims, shooting, wholeTickTerminal: result.whole,
+  normalGuide, supportWidth, supportStart, trims, shooting, wholeTickTerminal: result.whole,
   spike: { worstNormal, worstLateral, energyError, minSpeed: Math.min(...states.map((s: any) => s.speed)) },
   columns: ["time", "speed", "authoredNormal", "authoredLateral", "authoredRoll"],
   samples: audit,
