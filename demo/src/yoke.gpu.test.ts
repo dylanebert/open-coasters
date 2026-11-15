@@ -5,7 +5,7 @@ import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { attachTexture, captureTexture } from "@dylanebert/shallot/rendering";
 import { initialConfiguration as initialState, effective } from "./configuration";
 const initialConfiguration = effective({...initialState, selected:'track'});
-import { liveScene } from "./live";
+import { paintScene as liveScene } from '../fixtures/paint-scene';
 import { Scene } from "./scene";
 
 for (const configuration of ["straight","curve","loop"] as const)
