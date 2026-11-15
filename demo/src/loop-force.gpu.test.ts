@@ -1,6 +1,9 @@
 import { expect, test } from 'bun:test';
 import { Materials, Meshes, MeshMaterial, Transform } from '@dylanebert/shallot';
-import type { Mesh, MeshData } from '@dylanebert/shallot/mesh';
+import { decodeColor } from '@dylanebert/shallot/mesh';
+import { packUnorm2 } from '@dylanebert/shallot/utils';
+import * as d from 'typegpu/data';
+import { readMesh } from './gpu-probe';
 import { Orbit } from '@dylanebert/shallot/extras';
 import { openGpuApp } from '@dylanebert/shallot/testing/gpu';
 import { TIMEOUT } from '@dylanebert/shallot/testing';
@@ -25,29 +28,28 @@ for(const proof of ['field controls','native material multiplication'] as const)
     const materials=w.resource(Materials), addMaterial=materials.add.bind(materials);
     let registrations=0;
     materials.add=(...args)=>{registrations++;return addMaterial(...args);};
-    const registry=w.resource(Meshes), add=registry.add.bind(registry);
-    let raw:MeshData|undefined, control:'none'|'flat'|'transverse'|'baked'='none';
-    registry.add=(mesh:MeshData|Mesh)=>{
-      if(mesh.vertices instanceof Float32Array && mesh.name==='Circular rails') {
-        const data=mesh as MeshData;
-        raw={...data,vertices:data.vertices.slice(),indices:data.indices.slice(),color:data.color?.slice()};
-        if(data.color && control!=='none') {
-          const color=data.color.slice();
-          if(control==='flat') color.fill(1);
-          if(control==='transverse') for(let i=0;i<color.length/4;i++) color.set(i%6<3?[.1,.3,1,1]:[1,.1,.1,1],i*4);
-          if(control==='baked') for(let i=0;i<color.length;i++) if(i%4!==3) color[i]*=.8;
-          return add({...data,color});
-        }
-        return add(data);
-      }
-      return mesh.vertices instanceof Float32Array?add(mesh as MeshData):add(mesh as Mesh);
-    };
+    const registry=w.resource(Meshes);
     const update=async(appearance:'material'|'normal-force')=>{await w.gpu.device.queue.onSubmittedWorkDone();await live.update({...initial,appearance});};
     await update('material'); await capture();
-    // Force a registration after installing the independent capture hook.
     await update('normal-force');
-    const colored=raw!;
-    expect(colored.color).toBeDefined();
+    await capture();
+    const mesh=[...registry].find(m=>m.name==='Circular rails')!;
+    expect(mesh.streams?.color).toBe(true);
+    const colored=await readMesh(w,mesh);
+    const words=new Uint32Array(colored.main), quant=new DataView(colored.quant), ids=new Uint32Array(colored.indices);
+    // The public appended-stream layout uses absolute vertex indices. Mutate the
+    // actual renderer buffer for negative controls, not Meshes.add staging data.
+    const controls=async(control:'flat'|'transverse'|'baked'|'none')=>{
+      const changed=words.slice(), stride=(mesh.streams?.uv1?2:0)+(mesh.streams?.tangent?1:0)+2;
+      const prefix=stride-2;
+      for(const index of new Set(ids.slice(mesh.indexBase,mesh.indexBase+mesh.indexCount))) {
+        const row=words[index*4+1]>>>16, base=quant.getUint32(row*48+40,true)*4+index*stride+prefix;
+        const original=decodeColor(d.vec2u(words[base],words[base+1]));
+        const color=control==='flat'?[1,1,1,1]:control==='transverse'?(index%6<3?[.1,.3,1,1]:[1,.1,.1,1]):control==='baked'?[original.x*.8,original.y*.8,original.z*.8,original.w]:[original.x,original.y,original.z,original.w];
+        changed[base]=packUnorm2(color[0],color[1]);changed[base+1]=packUnorm2(color[2],color[3]);
+      }
+      w.gpu.device.queue.writeBuffer(w.gpu.root.unwrap(mesh.vertices),0,changed);
+    };
     const handle=w.storage(MeshMaterial).material.get(refs.instances[0][0]);
     const material=materials.get(handle)!;
     [...material.baseColor].forEach((v,i)=>expect(v).toBeCloseTo(i===3?1:.8,6));
@@ -58,15 +60,16 @@ for(const proof of ['field controls','native material multiplication'] as const)
     for(let i=0;i<image.length;i+=4){if(image[i]>image[i+2]*1.3 && image[i]>image[i+1]*1.3)red++;if(image[i+2]>image[i]*1.3 && image[i+2]>image[i+1]*1.1)blue++;}
     expect(red).toBeGreaterThan(20); expect(blue).toBeGreaterThan(20);
     if(proof==='field controls') for(const negative of ['flat','transverse'] as const) {
-      await update('material'); control=negative; await update('normal-force');
-      expect(raw!.vertices).toEqual(colored.vertices);
-      expect(raw!.indices).toEqual(colored.indices);
+      await controls(negative);
+      const actual=await readMesh(w,mesh);
+      expect(actual.position).toEqual(colored.position);
+      expect(actual.indices).toEqual(colored.indices);
       expect(await capture()).not.toEqual(image);
     }
     // Evaluate the documented linear multiplication independently at the input:
     // white native base × (0.8 × field color) must render like 0.8 base × field.
     if(proof==='native material multiplication') {
-    await update('material');control='baked';await update('normal-force');
+    await controls('baked');
     materials.update(handle,{baseColor:[1,1,1,1]});
     const baked=await capture();
     let maxError=0;
@@ -74,13 +77,13 @@ for(const proof of ['field controls','native material multiplication'] as const)
     expect(maxError).toBeLessThanOrEqual(1); // unorm16 packing / 8-bit capture
     materials.update(handle,{baseColor:[.8,.8,.8,1]});
     }
-    control='none';await update('material');await update('normal-force');
+    await controls('none');
     expect(await capture()).toEqual(image);
     expect(registrations).toBe(0);
   } finally {app.dispose();}
 },TIMEOUT.gpu);
 
-test('appearance replacement releases old meshes, retains camera and bounds registry/material registrations', async () => {
+test('appearance changes retain camera and bound resident meshes/material registrations', async () => {
   const initial={...initialConfiguration,example:'assembly' as const,assembly:{...assemblyDefaults,path:'loop' as const}};
   const live=liveScene(initial,name=>new URL(`../public/assets/${name}.gltf`,import.meta.url));
   const app=await openGpuApp({plugins:[live.plugin]});
@@ -92,17 +95,20 @@ test('appearance replacement releases old meshes, retains camera and bounds regi
     const materials=w.resource(Materials), add=materials.add.bind(materials);
     let registrations=0; materials.add=(...args)=>{registrations++;return add(...args);};
     w.gpu.device.pushErrorScope('validation');
+    let warmCount=baselineCount;
     for(let i=0;i<6;i++) {
-      const old=[...registry].flatMap(m=>[m.vertices,m.indices]);
       await w.gpu.device.queue.onSubmittedWorkDone();
       await live.update({...initial,appearance:i%2?'material':'normal-force'});
-      expect(old.every(b=>b.destroyed)).toBe(true);
-      expect(registry.size).toBe(baselineCount);
+
       expect(refs.camera).toBe(camera);
       expect([orbit.yaw.get(camera),orbit.pitch.get(camera),orbit.distance.get(camera),...orbit.pan.read(camera,new Float32Array(4))]).toEqual(view);
       const t=w.storage(Transform);
       for(const group of refs.instances)for(const e of group)for(const scale of [t.scale.x.get(e),t.scale.y.get(e),t.scale.z.get(e)])expect(scale).toBeCloseTo(1,6);
       w.step(0);await w.frameFence;
+      if(i<2) warmCount=Math.max(warmCount,registry.size);
+      else expect(registry.size).toBeLessThanOrEqual(warmCount);
+      const {points}=await readMesh(w,[...registry].find(m=>m.name==='Circular rails')!);
+      expect(points.flat().every(Number.isFinite)).toBe(true);
     }
     expect(registrations).toBe(0);
     await w.gpu.device.queue.onSubmittedWorkDone();

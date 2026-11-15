@@ -8,6 +8,7 @@ import { Scene } from './scene';
 import { initialConfiguration as initialState, effective } from './configuration';
 const initialConfiguration = effective({...initialState, selected:'track'});
 import { assemblyDefaults } from './assembly';
+import { readMesh } from './gpu-probe';
 
 for (const aspect of [920/800,390/338]) test(`assembly reuses native assets/materials, frames every component and retains camera at ${aspect}`, async () => {
   const initial = {...initialConfiguration, example:'assembly' as const, assembly:{...assemblyDefaults,path:'straight' as const,spacing:1.5,separation:1.4}};
@@ -33,15 +34,23 @@ for (const aspect of [920/800,390/338]) test(`assembly reuses native assets/mate
     let added = 0; materialResource.add = (...args) => { added++; return add(...args); };
     orbit.yaw.set(camera,1.1); orbit.pitch.set(camera,-.4);
     w.gpu.device.pushErrorScope('validation');
+    const counts = new Map<number, number>();
     for (let i=0;i<6;i++) {
-      const old = [...w.resource(Meshes)].flatMap(m => [m.vertices,m.indices]);
       await w.gpu.device.queue.onSubmittedWorkDone();
       await live.update({...initial,assembly:{...initial.assembly, separation:i%2 ? 1 : 1.6, spacing:i%2 ? .3 : 1.5, tie:i%2 ? 'assembly-tie-fork' : 'assembly-tie-bar'}});
-      expect(old.every(b => b.destroyed)).toBe(true);
       expect(refs.camera).toBe(camera); expect(orbit.distance.get(camera)).toBe(distance); expect(pan()).toEqual(center);
       for (const group of refs.instances) for (const e of group) for (const axis of ['x','y','z'] as const) expect(t.scale[axis].get(e)).toBeCloseTo(1,6);
       expect(added).toBe(0);
       w.step(0); await w.frameFence; await w.gpu.device.queue.onSubmittedWorkDone();
+      if (i < 2) counts.set(i % 2, w.resource(Meshes).size);
+      else expect(w.resource(Meshes).size).toBeLessThanOrEqual(Math.max(...counts.values()));
+      const rails = [...w.resource(Meshes)].find(m => m.name === 'Circular rails')!;
+      const {points} = await readMesh(w, rails);
+      const separation = i % 2 ? 1 : 1.6;
+      expect(Math.min(...points.map(p => p[0]))).toBeCloseTo(-separation / 2 - .06, 3);
+      expect(Math.max(...points.map(p => p[0]))).toBeCloseTo(separation / 2 + .06, 3);
+      expect(Math.min(...points.map(p => p[2]))).toBeCloseTo(-6, 3);
+      expect(Math.max(...points.map(p => p[2]))).toBeCloseTo(6, 3);
     }
     await live.update({...initial,assembly:{...assemblyDefaults,spacing:Math.PI/3,separation:1.6}});
     expect(refs.instances.length).toBe(13);
@@ -54,4 +63,27 @@ for (const aspect of [920/800,390/338]) test(`assembly reuses native assets/mate
     w.step(0); await w.frameFence; await w.gpu.device.queue.onSubmittedWorkDone();
     expect(await w.gpu.device.popErrorScope()).toBeNull();
   } finally { app.dispose(); }
+},TIMEOUT.gpu);
+
+test('separation updates retain rail and unchanged native placement work', async () => {
+  const initial={...initialConfiguration,example:'assembly' as const,assembly:{...assemblyDefaults}};
+  const live=liveScene(initial,name=>new URL(`../public/assets/${name}.gltf`,import.meta.url));
+  const app=await openGpuApp({plugins:[live.plugin]});
+  try {
+    const w=app.world, registry=w.resource(Meshes), refs=w.resource(Scene);
+    w.step(0);await w.frameFence;await w.gpu.sync();
+    const entries=[...registry.entries()], entities=refs.instances.map(g=>[...g]);
+    const create=w.gpu.device.createBuffer.bind(w.gpu.device), clear=registry.clear.bind(registry);
+    let allocations=0, clears=0;
+    w.gpu.device.createBuffer=(...args)=>{allocations++;return create(...args);};
+    registry.clear=()=>{clears++;return clear();};
+    await live.update({...initial,assembly:{...initial.assembly,separation:1.6}});
+    expect(clears).toBe(0); // Old path fails here: a whole registry reset for one scalar.
+    w.step(0);await w.frameFence;await w.gpu.sync();
+    expect(allocations).toBe(0);
+    expect([...registry.entries()]).toEqual(entries);
+    expect(refs.instances).toEqual(entities);
+    const {points}=await readMesh(w,[...registry].find(m=>m.name==='Circular rails')!);
+    expect(points.length).toBeGreaterThan(18000);
+  } finally {app.dispose();}
 },TIMEOUT.gpu);
