@@ -20,7 +20,6 @@ import {
 import { Orbit, OrbitPlugin } from "@dylanebert/shallot/extras";
 import { Grid, GridPlugin } from "@dylanebert/shallot-grid";
 import { frameTrack, initializeView, Scene } from "./scene";
-import { authoredPlacements } from './composition';
 import { normalForce, forceColor } from './loop-force';
 import { assemblyDefaults, packRails } from './assembly';
 import { geometryKey, changesSubject } from './selection';
@@ -30,14 +29,14 @@ import { loadSampledSection, type SampledSection } from './sampled-section';
 import { placements } from "./instance";
 import { ties, rotation, type Parameters } from "./track";
 import { trackGeometry, modernTies } from './modern-track';
-import { linearColor, initialConfiguration, type Paint } from "./configuration";
+import { linearColor, defaultPaint, type Paint, type Example } from "./configuration";
 
 export type Selection = {
   parameters: Parameters;
   isolated: boolean;
-  example?: 'track' | 'placed' | 'repeated' | 'assembly';
+  example?: 'track' | 'assembly';
+  subject?: Example;
   assembly?: import('./assembly').Assembly;
-  composition?: import('./configuration').Composition;
   asset: "blitz-tie" | "wheel-carrier";
   paint?: Paint;
   appearance?: 'material' | 'normal-force';
@@ -176,9 +175,8 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
   }
   async function update(selection: Selection) {
     const assembly = selection.example === 'assembly';
-    const authored = selection.example === 'placed' || selection.example === 'repeated';
-    const isolatedView = selection.isolated || authored;
-    if (!isolatedView) paint(selection.paint ?? initialConfiguration.paint);
+    const isolatedView = selection.isolated;
+    if (!isolatedView) paint(selection.paint ?? defaultPaint);
     if (previous && geometryKey(previous) === geometryKey(selection)) { previous = selection; return; }
     const newSubject = changesSubject(previous, selection);
     const refs = world.resource(Scene);
@@ -190,14 +188,14 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
     await MeshPlugin.initialize!(world);
     const { parameters, asset } = selection;
     const isolated = isolatedView;
-    if (isolated && !authored && newSubject) {
+    if (isolated && newSubject) {
       world.storage(Orbit).pan.set(refs.camera, 0, 0, 0);
       world.storage(Orbit).distance.set(refs.camera, 8);
     }
     if (assembly) {
       const a = selection.assembly ?? assemblyDefaults;
-      const resolved = constructDemo(a, section, contentValue({snapshot:assets.get(a.tie)!.snapshot}), contentValue({snapshot:assets.get('assembly-fitting')!.snapshot}), contentValue({snapshot:assets.get('diagnostic-box-post')!.snapshot}));
-      const mesh = packRails(resolved.rails, resolved.stations, section.length, selection.appearance === 'normal-force' && a.path === 'loop' && a.witness !== 'supports' && a.witness !== 'switch' ? s => forceColor(normalForce(s)) : undefined);
+      const resolved = constructDemo(a, section, contentValue({snapshot:assets.get(a.tie)!.snapshot}), contentValue({snapshot:assets.get('diagnostic-box-post')!.snapshot}));
+      const mesh = packRails(resolved.rails, resolved.stations, section.length, selection.appearance === 'normal-force' && a.path === 'loop' && a.witness !== 'supports' ? s => forceColor(normalForce(s)) : undefined);
       if (mesh.indices.length) {
         const eid = world.create();
         world.add(eid, Transform);
@@ -235,13 +233,13 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
       place(
         name,
         isolated
-          ? authored ? authoredPlacements(selection.example === 'repeated', selection.composition) : placements
+          ? placements
           : ties(parameters).map((f) => ({
               translation: f.p,
               rotation: rotation(f),
             })),
         isolated ? undefined : paintHandles.ties,
-        authored && newSubject,
+        false,
       );
     previous = selection;
   }
@@ -250,19 +248,19 @@ export function liveScene(initial: Selection, assetUrl: (name: string) => URL, a
     dependencies: [OrbitPlugin, GridPlugin],
     async initialize(w) {
       world = w;
-      initializeView(world, initial.isolated || initial.example === 'placed' || initial.example === 'repeated' ? undefined : initial.parameters);
+      initializeView(world, initial.isolated ? undefined : initial.parameters);
       const refs = world.resource(Scene);
       world.storage(Grid).opacity.set(refs.grid, 0.12);
       for (const part of ["rails", "ties", "spine"] as const)
         paintHandles[part] = world.resource(Materials).add(StandardMaterial({
-          baseColor: linearColor((initial.paint ?? initialConfiguration.paint)[part]),
+          baseColor: linearColor((initial.paint ?? defaultPaint)[part]),
           metallic: 0.4,
           perceptualRoughness: 0.35,
         }));
       forceMaterial = world.resource(Materials).add(StandardMaterial({baseColor: [.8, .8, .8, 1], metallic: .7, perceptualRoughness: .25}));
       section = await loadSampledSection(assetUrl('assembly-section'));
       railMaterial = world.resource(Materials).add(StandardMaterial({baseColor: [.06, .7, .78, 1], metallic: .7, perceptualRoughness: .25}));
-      for (const name of ["blitz-tie", "wheel-carrier", 'ModernTie_Med', 'ModernTie_Dense', 'assembly-tie-bar', 'assembly-tie-fork', 'assembly-fitting'])
+      for (const name of ["blitz-tie", "wheel-carrier", 'ModernTie_Med', 'ModernTie_Dense', 'assembly-tie-bar', 'assembly-tie-fork'])
         assets.set(name, await cacheAsset(name));
       assets.set('diagnostic-box-post', await cacheAsset('diagnostic-box-post', diagnosticPost));
       await update(initial);

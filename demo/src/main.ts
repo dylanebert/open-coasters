@@ -5,7 +5,7 @@ import { worldToViewport, attachCanvas } from "@dylanebert/shallot/rendering";
 import { Orbit } from "@dylanebert/shallot/extras";
 import { mount, unmount } from "svelte";
 import Inspector from "./Inspector.svelte";
-import { initialConfiguration, selectExample, effective, numericRanges, type Configuration } from "./configuration";
+import { initialConfiguration, selectExample, effective, type Configuration } from "./configuration";
 import { Scene } from "./scene";
 import { liveScene, type Selection } from "./live";
 
@@ -15,21 +15,18 @@ let inspector: ReturnType<typeof mount> | undefined;
 try {
   const query = new URLSearchParams(location.search);
   let initial: Configuration = structuredClone(initialConfiguration);
-  initial.isolated = query.has("asset");
-  if (!initial.isolated) initial = selectExample(initial, query.get('example') ?? 'track');
-  if (["blitz-tie", "wheel-carrier"].includes(query.get("asset")!)) initial.asset = query.get("asset") as Configuration['asset'];
-  if (["straight", "curve", "loop"].includes(query.get("configuration")!)) initial.parameters.configuration = query.get("configuration") as Configuration['parameters']['configuration'];
-  if (["local", "fixed"].includes(query.get("component")!)) initial.parameters.fixed = query.get("component") === "fixed";
-  for (const key of Object.keys(numericRanges) as (keyof typeof numericRanges)[]) {
-    const { min, max, step } = numericRanges[key];
-    const value = Number(query.get(key));
-    if (query.has(key) && Number.isFinite(value) && value >= min && value <= max && Math.abs((value - min) / step - Math.round((value - min) / step)) < 1e-7) initial.parameters[key] = value;
+  initial = selectExample(initial, query.has('asset') ? 'witness' : query.get('example') ?? 'ties');
+  if (["blitz-tie", "wheel-carrier"].includes(query.get("asset")!)) initial.values.witness.asset = query.get('asset') as Configuration['values']['witness']['asset'];
+  const path = query.get('configuration');
+  if (path === 'straight' || path === 'curve' || path === 'loop') {
+    const selected = initial.selected;
+    if (selected === 'ties' || selected === 'assembly' || selected === 'track') initial.values[selected].path = path;
   }
   let pending: Selection | undefined = effective(initial);
   const canvas = document.querySelector('canvas')!;
   const live = liveScene(pending, name => new URL(`assets/${name}.gltf`, document.baseURI), () => canvas.clientWidth / canvas.clientHeight);
   // Mount before async startup: the model, not the DOM, owns pending edits.
-  inspector = mount(Inspector, { target: document.querySelector("aside")!, props: { initial, changed: (value: Configuration) => { pending = value; } } });
+  inspector = mount(Inspector, { target: document.querySelector("aside")!, props: { initial, changed: (value: Selection) => { pending = value; } } });
   const app = await createApp({
     loading,
     plugins: [live.plugin, {

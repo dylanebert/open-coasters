@@ -1,53 +1,48 @@
 import { defaults, type Parameters } from "./track";
 import { assemblyDefaults } from './assembly';
+import type { Selection } from './live';
 
 export const numericRanges = {
   spacing: { min: .3, max: 1.5, step: .05 },
   separation: { min: .6, max: 1.6, step: .05 },
-  width: { min: .15, max: .6, step: .01 },
-  depth: { min: .15, max: .8, step: .05 },
 } as const;
 
-export const compositionDefaults = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, count: 3, spacing: 2, offset: -2 };
-export type Composition = typeof compositionDefaults;
-export const compositionRanges = {
-  x: [-10, 10, .1], y: [-10, 10, .1], z: [-10, 10, .1],
-  yaw: [-180, 180, 5], pitch: [-180, 180, 5], roll: [-180, 180, 5],
-  count: [1, 12, 1], spacing: [.1, 5, .1], offset: [-10, 10, .1],
-} as const;
+
 export type Paint = { rails: string; ties: string; spine: string };
-export type Configuration = {
-  parameters: Parameters;
-  paint: Paint;
-  appearance?: 'material' | 'normal-force';
-  isolated: boolean;
-  example?: 'track' | 'placed' | 'repeated' | 'assembly';
-  assembly?: import('./assembly').Assembly;
-  composition?: Composition;
-  asset: "blitz-tie" | "wheel-carrier";
-};
-export const initialConfiguration: Configuration = {
-  parameters: { ...defaults, fixed: true },
-  paint: { rails: "#50d3dd", ties: "#389faa", spine: "#339da5" },
-  isolated: false,
-  asset: "wheel-carrier",
-};
 export const exampleOptions = [
-  ['track', 'Spine track'], ['assembly', 'Repeat along a path'],
-  ['placed', 'Place an asset'], ['repeated', 'Repeat in a line'],
-  ['station', 'Gap in repeated ties'], ['supports', 'Place two supports'],
-  ['switch', 'Compose parts'],
+  ['ties', 'Repeated ties'], ['station', 'Gap in repeated ties'],
+  ['supports', 'Explicitly placed supports'], ['assembly', 'Rail offsets / separation'],
+  ['track', 'Contributed Blitz assembly'],
 ] as const;
 export type Example = typeof exampleOptions[number][0] | 'witness';
-export function selectedExample(c: Configuration): Example {
-  return c.isolated ? 'witness' : c.example === 'assembly' ? c.assembly?.witness === 'normal' || !c.assembly?.witness ? 'assembly' : c.assembly.witness : c.example ?? 'track';
-}
+type Path = Parameters['configuration'];
+export type Configuration = {
+  selected: Example;
+  values: {
+    ties: { path: Path; spacing: number };
+    station: { spacing: number; start: number; end: number };
+    supports: { post1: number; post2: number };
+    assembly: { path: Path; separation: number };
+    track: { path: Path; secondSpine: boolean };
+    witness: { asset: 'blitz-tie' | 'wheel-carrier' };
+  };
+};
+export const defaultPaint: Paint = { rails: '#50d3dd', ties: '#389faa', spine: '#339da5' };
+export const initialConfiguration: Configuration = {
+  selected: 'ties',
+  values: {
+    ties: { path: 'curve', spacing: .65 },
+    station: { spacing: .65, start: 4.2, end: 7.8 },
+    supports: { post1: 2, post2: 10 },
+    assembly: { path: 'curve', separation: 1.2 },
+    track: { path: 'straight', secondSpine: false },
+    witness: { asset: 'wheel-carrier' },
+  },
+};
+export function selectedExample(c: Configuration): Example { return c.selected; }
 export function selectExample(c: Configuration, value: string): Configuration {
-  if (value === 'witness') return { ...c, isolated: true, example: undefined };
-  if (!exampleOptions.some(([key]) => key === value)) return c;
-  const assembly = value === 'assembly' || ['station', 'supports', 'switch'].includes(value);
-  return { ...c, isolated: false, example: assembly ? 'assembly' : value as Configuration['example'],
-    ...(assembly ? { assembly: { ...(c.assembly ?? assemblyDefaults), witness: value === 'assembly' ? 'normal' : value as 'station' | 'supports' | 'switch' } } : {}) };
+  return value === 'witness' || exampleOptions.some(([key]) => key === value)
+    ? { ...c, selected: value as Example } : c;
 }
 export type History = { past: Configuration[]; present: Configuration; future: Configuration[]; origin?: Configuration };
 const same = (a: Configuration, b: Configuration) => JSON.stringify(a) === JSON.stringify(b);
@@ -77,6 +72,15 @@ export function linearColor(hex: string): [number, number, number, number] {
   const channels = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255);
   return [...channels.map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4), 1] as [number, number, number, number];
 }
-export function effective(c: Configuration) {
-  return { ...c, parameters: { ...c.parameters, ...(c.parameters.fixed ? { separation: 1.2, width: .533333, depth: .533333 } : {}) } };
+export function effective(c: Configuration): Selection & { paint: Paint } {
+  const { selected, values: v } = c;
+  const parameters = { ...defaults, fixed: true, configuration: selected === 'track' ? v.track.path : 'straight' as const, secondSpine: selected === 'track' && v.track.secondSpine, separation: 1.2, width: .533333, depth: .533333 };
+  const base = { parameters, paint: defaultPaint, asset: v.witness.asset, isolated: selected === 'witness' };
+  if (selected === 'witness' || selected === 'track') return { ...base, example: 'track' };
+  const assembly = { ...assemblyDefaults };
+  if (selected === 'ties') Object.assign(assembly, v.ties);
+  if (selected === 'assembly') Object.assign(assembly, v.assembly);
+  if (selected === 'station') Object.assign(assembly, { path: 'straight', witness: 'station', spacing: v.station.spacing, gapStart: v.station.start, gapEnd: v.station.end });
+  if (selected === 'supports') Object.assign(assembly, { path: 'straight', witness: 'supports', ...v.supports });
+  return { ...base, example: 'assembly', assembly, subject: selected };
 }

@@ -1,104 +1,64 @@
 <script lang="ts">
-  import { exampleOptions, selectedExample, selectExample, history, preview, commit, undo, redo, effective, numericRanges, compositionDefaults, compositionRanges, type Configuration } from './configuration';
+  import { exampleOptions, selectExample, history, preview, commit, undo, redo, effective, numericRanges, type Configuration } from './configuration';
   import NumericField from './NumericField.svelte';
-  import { postRange, postDefaults, assemblyDefaults, type Assembly } from './assembly';
   import { untrack } from 'svelte';
-  let { initial, changed }: { initial: Configuration; changed: (value: Configuration) => void } = $props();
+  import type { Selection } from './live';
+  let { initial, changed }: { initial: Configuration; changed: (value: Selection) => void } = $props();
   let h = $state(history(untrack(() => initial)));
   const c = $derived(h.present);
-  const assetView = $derived(c.isolated || c.example === 'placed' || c.example === 'repeated');
-  const composition = $derived(c.composition ?? compositionDefaults);
-  const assembly: Assembly = $derived(c.assembly ?? assemblyDefaults);
-  const assemblyView = $derived(c.example === 'assembly');
-  const compositionLabels = { x: 'X · m', y: 'Y · m', z: 'Z · m', yaw: 'Yaw · °', pitch: 'Pitch · °', roll: 'Roll · °', count: 'Count', spacing: 'Spacing · m', offset: 'Starting offset · m' };
-  const rendered = $derived(effective(c));
-  const fields = [
-    { key: 'spacing', label: 'Spacing · m', ...numericRanges.spacing },
-    { key: 'separation', label: 'Gauge · m', ...numericRanges.separation },
-    { key: 'width', label: 'Width · m', ...numericRanges.width },
-    { key: 'depth', label: 'Depth · m', ...numericRanges.depth },
-  ] as const;
+  const selected = $derived(c.selected);
+  const values = $derived(c.values);
+  const pathValue = $derived(selected === 'ties' || selected === 'assembly' || selected === 'track' ? values[selected].path : undefined);
+  const fields = $derived(selected === 'ties' ? [
+    { key: 'spacing', name: 'assembly-spacing', label: 'Tie spacing · m', value: values.ties.spacing, ...numericRanges.spacing },
+  ] : selected === 'station' ? [
+    { key: 'spacing', name: 'assembly-spacing', label: 'Tie spacing · m', value: values.station.spacing, ...numericRanges.spacing },
+    { key: 'start', name: 'gap-start', label: 'Gap start · m', value: values.station.start, min: 0, max: values.station.end, step: .05 },
+    { key: 'end', name: 'gap-end', label: 'Gap end · m', value: values.station.end, min: values.station.start, max: 12, step: .05 },
+  ] : selected === 'supports' ? [
+    { key: 'post1', name: 'assembly-post1', label: 'Support 1 from start · m', value: values.supports.post1, min: 0, max: 12, step: .05 },
+    { key: 'post2', name: 'assembly-post2', label: 'Support 2 from start · m', value: values.supports.post2, min: 0, max: 12, step: .05 },
+  ] : selected === 'assembly' ? [
+    { key: 'separation', name: 'assembly-separation', label: 'Rail separation · m', value: values.assembly.separation, ...numericRanges.separation },
+  ] : []);
   function show(next: typeof h) { h = next; changed(effective(h.present)); }
   function finish() { h = commit(h); }
-  function change(next: Configuration, immediate = false) {
-    show(preview(h, next));
-    if (immediate) finish();
-  }
-  function number(key: typeof fields[number]['key'], value: number) {
-    change({ ...c, parameters: { ...c.parameters, [key]: value } });
+  function change(next: Configuration, immediate = false) { show(preview(h, next)); if (immediate) finish(); }
+  function value(key: string, next: number | string | boolean, immediate = false) {
+    change({ ...c, values: { ...values, [selected]: { ...values[selected], [key]: next } } }, immediate);
   }
   function shortcut(event: KeyboardEvent) {
     if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
     const key = event.key.toLowerCase();
     if (key !== 'z' && !(key === 'y' && event.ctrlKey)) return;
-    // Native selection and typing stay native, but undo/redo operate on this
-    // inspector's session (including its live preview), not stale DOM values.
-    event.preventDefault();
-    show(key === 'y' || event.shiftKey ? redo(h) : undo(h));
+    event.preventDefault(); show(key === 'y' || event.shiftKey ? redo(h) : undo(h));
   }
 </script>
-
 <svelte:window onkeydown={shortcut} />
-<h1 id="identity">{#if c.isolated}<a href={location.pathname}>Open Coasters</a>{:else}Open Coasters{/if}</h1>
+<h1 id="identity">{#if selected === 'witness'}<a href={location.pathname}>Open Coasters</a>{:else}Open Coasters{/if}</h1>
 <form onsubmit={event => event.preventDefault()}>
   <section>
-    <label>Example<select name="example" value={selectedExample(c)} onchange={event => change(selectExample(c, event.currentTarget.value), true)}>
-      {#each exampleOptions as [value, label]}<option {value}>{label}</option>{/each}{#if c.isolated}<option value="witness">Source witness</option>{/if}
+    <label>Example<select name="example" value={selected} onchange={event => change(selectExample(c, event.currentTarget.value), true)}>
+      {#each exampleOptions as [value, label]}<option {value}>{label}</option>{/each}
+      {#if selected === 'witness'}<option value="witness">Source witness</option>{/if}
     </select></label>
-    <label id="configuration-row" hidden={assetView || assemblyView}>Track<select name="configuration" value={c.parameters.configuration} onchange={event => change({ ...c, parameters: { ...c.parameters, configuration: event.currentTarget.value as Configuration['parameters']['configuration'] } }, true)}>
-      <option value="straight">Straight</option><option value="curve">Banked curve</option><option value="loop">Vertical loop</option>
-    </select></label>
-    <label id="asset-row" hidden={!assetView}>Asset<select name="asset" value={c.asset} onchange={event => change({ ...c, asset: event.currentTarget.value as Configuration['asset'] }, true)}><option value="wheel-carrier">Wheel carrier</option><option value="blitz-tie">Blitz tie</option></select></label>
+    {#if pathValue !== undefined}
+      <label>Path<select name={selected === 'track' ? 'configuration' : 'assembly-path'} value={pathValue} onchange={event => value('path', event.currentTarget.value, true)}>
+        <option value="straight">Straight</option><option value="curve">Banked curve</option><option value="loop">Recorded loop</option>
+      </select></label>
+    {/if}
+    {#if selected === 'witness'}
+      <label>Asset<select name="asset" value={values.witness.asset} onchange={event => value('asset', event.currentTarget.value, true)}><option value="wheel-carrier">Wheel carrier</option><option value="blitz-tie">Blitz tie</option></select></label>
+    {/if}
   </section>
-  {#if assemblyView}
+  {#if fields.length}
     <section>
-      {#if assembly.witness !== 'supports' && assembly.witness !== 'switch'}
-      <label>Path<select name="assembly-path" value={assembly.path} onchange={event => change({ ...c, assembly: { ...assembly, path: event.currentTarget.value as typeof assembly.path } }, true)}><option value="straight">Straight</option><option value="curve">Banked curve</option><option value="loop">Recorded loop</option></select></label>
-      {/if}
-      {#if assembly.witness === 'supports'}
-        {#each (['post1', 'post2'] as const) as key, i}
-          <NumericField name={'assembly-' + key} label={'Support ' + (i + 1) + ' from start · m'} value={assembly[key] ?? postDefaults[key]} min={postRange.min} max={postRange.max} step="any" increment={0.05} preview={value => change({ ...c, assembly: { ...assembly, [key]: value } })} commit={finish} />
-        {/each}
-      {/if}
-      {#if assembly.path === 'loop' && assembly.witness !== 'supports' && assembly.witness !== 'switch'}
-        <label>Appearance<select name="appearance" value={c.appearance ?? 'material'} onchange={event => change({ ...c, appearance: event.currentTarget.value as Configuration['appearance'] }, true)}><option value="material">Native material</option><option value="normal-force">Normal support</option></select></label>
-        {#if c.appearance === 'normal-force'}
-          <figure class="force-scale" aria-label="Normal support derived from recorded motion"><figcaption>Derived · 1 g = 9.81 m/s²</figcaption><div class="force-ramp"></div><div class="force-ticks"><span>0</span><span>2</span><span>4</span></div></figure>
-        {/if}
-      {/if}
-      <label>Tie<select name="assembly-tie" value={assembly.tie} onchange={event => change({ ...c, assembly: { ...assembly, tie: event.currentTarget.value as typeof assembly.tie } }, true)}><option value="assembly-tie-bar">Bar</option><option value="assembly-tie-fork">Fork</option></select></label>
-      {#if assembly.witness !== 'switch'}
-      {#each (['separation', 'spacing'] as const) as key}
-        <NumericField name={'assembly-' + key} label={key === 'separation' ? 'Rail separation · m' : 'Tie spacing · m'} value={assembly[key]} {...numericRanges[key]} increment={numericRanges[key].step} preview={value => change({ ...c, assembly: { ...assembly, [key]: value } })} commit={finish} />
-      {/each}
-      {/if}
-    </section>
-  {/if}
-  {#if !c.isolated && assetView}
-    <section>
-      {#each (Object.keys(compositionRanges) as (keyof typeof compositionRanges)[]).filter(key => c.example === 'repeated' ? !['x', 'y', 'z'].includes(key) : !['count', 'spacing', 'offset'].includes(key)) as key}
-        <NumericField name={'placement-' + key} label={compositionLabels[key]} value={composition[key]} min={compositionRanges[key][0]} max={compositionRanges[key][1]} step={compositionRanges[key][2]} increment={compositionRanges[key][2]} preview={value => change({ ...c, composition: { ...composition, [key]: value } })} commit={finish} />
+      {#each fields as field (field.name)}
+        <NumericField name={field.name} label={field.label} value={field.value} min={field.min} max={field.max} step="any" increment={field.step} preview={next => value(field.key, next)} commit={finish} />
       {/each}
     </section>
   {/if}
-  {#each ['ties', 'spine'] as section}
-    <section id={section} hidden={assetView || assemblyView}>
-      <h2>{section === 'ties' ? 'Ties' : 'Spine'}</h2>
-      {#if section === 'ties'}
-        <label>Type<select name="component" value={c.parameters.fixed ? 'fixed' : 'local'} disabled={c.isolated} onchange={event => change({ ...c, parameters: { ...c.parameters, fixed: event.currentTarget.value === 'fixed' } }, true)}><option value="local">Parametric</option><option value="fixed">Blitz</option></select></label>
-      {/if}
-      {#if section === 'spine' && c.parameters.fixed}
-        <label>Assembly<select name="spineAssembly" value={c.parameters.secondSpine ? 'double' : 'single'} onchange={event => change({ ...c, parameters: { ...c.parameters, secondSpine: event.currentTarget.value === 'double' } }, true)}><option value="single">Spine 1</option><option value="double">Spines 1 + 2</option></select></label>
-      {/if}
-      {#each fields.filter(f => section === 'ties' ? ['spacing', 'separation'].includes(f.key) : ['width', 'depth'].includes(f.key)) as field}
-        <NumericField name={field.key} label={field.label} ariaLabel={field.key === 'separation' ? 'Gauge, rail center-to-center · m' : undefined} title={field.key === 'separation' ? 'Rail center-to-center · m' : undefined} value={rendered.parameters[field.key]} min={field.min} max={field.max} step={field.step} increment={field.step} disabled={c.isolated || (field.key !== 'spacing' && c.parameters.fixed)} preview={value => number(field.key, value)} commit={finish} />
-      {/each}
-    </section>
-  {/each}
-  <section hidden={assetView || assemblyView}>
-    <h2>Color</h2>
-    {#each (['rails', 'ties', 'spine'] as const) as part}
-      <label>{part[0].toUpperCase() + part.slice(1)}<input type="color" name={part + 'Color'} value={c.paint[part]} oninput={event => change({ ...c, paint: { ...c.paint, [part]: event.currentTarget.value } })} onchange={finish} onblur={finish} /></label>
-    {/each}
-  </section>
+  {#if selected === 'track'}
+    <section><label>Spine composition<select name="spineAssembly" value={values.track.secondSpine ? 'double' : 'single'} onchange={event => value('secondSpine', event.currentTarget.value === 'double', true)}><option value="single">Spine 1</option><option value="double">Spines 1 + 2</option></select></label></section>
+  {/if}
 </form>
