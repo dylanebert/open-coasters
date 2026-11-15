@@ -1,0 +1,51 @@
+import { test, expect } from '@playwright/test';
+import { exampleMenu } from './navigation';
+const root='/home/dylan/.local/share/open-coasters/placement-navigation';
+for(const phone of [false,true]) test(`navigation and gap paths ${phone?'phone':'desktop'}`,async({page})=>{
+ if(phone) await page.setViewportSize({width:390,height:844});
+ const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('./?example=ties&stepped');await page.locator('body[data-ready=true]').waitFor();
+ const current=page.getByRole('button',{name:'Example',exact:true}),menu=exampleMenu(page);
+ await page.getByRole('button',{name:'Previous example'}).click();await menu.value('track');
+ await page.getByRole('button',{name:'Next example'}).click();await menu.value('ties');
+ await current.click();await expect(current).toHaveAttribute('aria-expanded','true');
+ await expect(page.locator('#example-list [aria-current=true]')).toHaveText('Repeated ties');
+ await page.keyboard.press('Escape');await expect(current).toHaveAttribute('aria-expanded','false');
+ await current.focus();await current.press('ArrowDown');
+ await expect(page.locator('#example-list [aria-current=true]')).toBeFocused();
+ await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');await menu.value('station');
+ await current.click();await page.keyboard.press('Escape');
+ await current.click();await page.locator('h1').click();await expect(current).toHaveAttribute('aria-expanded','false');
+ await menu.selectOption('supports');await expect(page.locator('select')).toHaveCount(0);await expect(page.locator('input')).toHaveCount(2);
+ await menu.selectOption('station');
+ const spacing=page.locator('[name=assembly-spacing]'),start=page.locator('[name=gap-start]'),end=page.locator('[name=gap-end]');
+ for(const kind of ['straight','curve','loop']) {
+  await page.locator('[name=assembly-path]').selectOption(kind);
+  await spacing.fill('1');await spacing.press('Enter');await start.fill('2');await start.press('Enter');await end.fill('5');await end.press('Enter');
+  await page.evaluate(async()=>{await (window as any).step();});
+  const camera=await page.evaluate(()=>(window as any).demo.orbit());
+  const before=await page.evaluate(async()=>{await (window as any).step();return (window as any).demo.instances();});
+  await start.fill('2.125');await start.press('Enter');
+  const after=await page.evaluate(async()=>{await (window as any).step();return (window as any).demo.instances();});
+  expect(after.length).toBe(before.length+1);
+  expect(await page.evaluate(()=>(window as any).demo.orbit())).toEqual(camera);
+  await start.press('ControlOrMeta+z');await expect(start).toHaveValue('2');
+  await start.press('ControlOrMeta+Shift+z');await expect(start).toHaveValue('2.125');
+ }
+ await start.focus();await current.click();await expect(start).toBeFocused();await page.keyboard.press('Escape');await expect(start).toBeFocused();
+ const loopMax=await end.getAttribute('max');
+ await end.fill(loopMax!);await end.press('Enter');
+ await page.locator('[name=assembly-path]').selectOption('straight');
+ await expect(end).toHaveValue('12');await expect(end).toHaveAttribute('max','12');
+ await end.press('ControlOrMeta+z');await expect(page.locator('[name=assembly-path]')).toHaveValue('loop');await expect(end).toHaveValue(loopMax!);
+ await end.press('ControlOrMeta+z');await expect(end).toHaveValue('5');
+ await page.evaluate(async()=>{await (window as any).step();});
+ await page.screenshot({path:`${root}/${phone?'phone':'desktop'}-navigation.png`});
+ const bounds=await page.evaluate(()=>{
+  const a=document.querySelector('aside')!.getBoundingClientRect(),n=document.querySelector('nav')!.getBoundingClientRect(),m=document.querySelector('main')!.getBoundingClientRect();
+  return {right:a.right,top:a.top,left:a.left,bottom:a.bottom,navTop:n.top,navBottom:n.bottom,navLeft:n.left,navRight:n.right,width:innerWidth,height:innerHeight,sceneWidth:m.width,sceneHeight:m.height};
+ });
+ expect(bounds.right).toBeLessThanOrEqual(bounds.width);expect(bounds.left).toBeGreaterThan(0);expect(bounds.top).toBeGreaterThan(0);expect(bounds.bottom).toBeLessThan(bounds.navTop);
+ expect(bounds.navBottom).toBeLessThan(bounds.height);expect(bounds.navLeft).toBeGreaterThan(0);expect(bounds.navRight).toBeLessThan(bounds.width);expect(bounds.sceneWidth).toBe(bounds.width);expect(bounds.sceneHeight).toBe(bounds.height);
+ expect(errors).toEqual([]);
+});

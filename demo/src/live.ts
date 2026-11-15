@@ -138,7 +138,7 @@ function updateScene(world:World,selection:Selection,aspect:number) {
   if(assembly) {
     const a:Assembly=selection.assembly??assemblyDefaults;validateAssembly(a);
     const witness=a.witness??assemblyDefaults.witness;
-    const kind=witness==='normal'?a.path:'straight',index=kinds.indexOf(kind),source=s.paths[index],total=source.distances.at(-1)!;
+    const kind=witness==='supports'?'straight':a.path,index=kinds.indexOf(kind),source=s.paths[index],total=source.distances.at(-1)!;
     const gpu=world.resource(RailGpu);gpu.path=index;gpu.separation=a.separation;gpu.colored=selection.appearance==='normal-force'&&kind==='loop';
     clearTrackEntities(world);
     if(s.railEntity===undefined){s.railEntity=world.create();world.add(s.railEntity,Transform);world.add(s.railEntity,MeshInstance,{mesh:gpu.handle});}

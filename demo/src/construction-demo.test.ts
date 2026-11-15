@@ -10,11 +10,43 @@ import { loadSampledSection } from './sampled-section';
 import { changesSubject, geometryKey } from './selection';
 import { initialConfiguration, effective, history, preview, commit, undo, redo } from './configuration';
 import recorded from './loop-path.json';
+import { setPath, selectExample } from './configuration';
+import { length } from './track';
 const root=new URL('../public/assets/',import.meta.url);
 const section=await loadSampledSection(new URL('assembly-section.gltf',root));
 const tie=contentValue({snapshot:await readNative(new URL('assembly-tie-bar.gltf',root))});
 const post=contentValue({snapshot:diagnosticPost});
 const a={...assemblyDefaults,path:'straight' as const,spacing:1,separation:1.4};
+
+for (const kind of ['straight','curve','loop'] as const) test(`gap phase and sampled poses on ${kind}`, () => {
+ const spacing=.65, start=2.125, end=7.875;
+ const result=constructDemo({...a,path:kind,witness:'station',spacing,gapStart:start,gapEnd:end},section,tie,post);
+ const source=assemblyPath(kind), total=source.distances.at(-1)!;
+ const expected:number[]=[];
+ for(let i=0;i*spacing<total;i++) if(i*spacing<start || i*spacing>end) expected.push(i*spacing);
+ const native=resolveAssembly({...a,path:kind}).path;
+ const poses=result.parts[0].placements;
+ expect(poses).toHaveLength(expected.length);
+ expected.forEach((distance,index)=>{
+   const cell=Math.min(95,Math.floor(distance/total*96));
+   const fraction=(distance-native.distances[cell])/(native.distances[cell+1]-native.distances[cell]);
+   for(let axis=0;axis<3;axis++) expect(poses[index].translation[axis]).toBeCloseTo(native.positions[cell][axis]*(1-fraction)+native.positions[cell+1][axis]*fraction,10);
+   const left=native.rotations[cell], right=native.rotations[cell+1];
+   const dot=left.reduce((sum,v,i)=>sum+v*right[i],0), sign=dot<0?-1:1;
+   const angle=Math.acos(Math.min(1,Math.abs(dot)));
+   const weights=angle<1e-6?[1-fraction,fraction]:[Math.sin((1-fraction)*angle)/Math.sin(angle),Math.sin(fraction*angle)/Math.sin(angle)];
+   const q=left.map((v,i)=>v*weights[0]+right[i]*sign*weights[1]), norm=Math.hypot(...q);
+   const alignment=q.reduce((sum,v,i)=>sum+v/norm*poses[index].rotation[i],0);
+   expect(Math.abs(alignment)).toBeCloseTo(1,10);
+ });
+ expect(result.stations.at(-1)).toBe(total);
+ let config=selectExample(structuredClone(initialConfiguration),'station');
+ config=setPath(config,kind); config.values.station.start=total-1;config.values.station.end=total;
+ const next=setPath(config,'straight');
+ expect(next.values.station.start).toBeLessThanOrEqual(next.values.station.end);
+ expect(next.values.station.end).toBeLessThanOrEqual(length('straight'));
+ expect(effective(setPath(config,kind)).assembly?.path).toBe(kind);
+});
 
 test('consumer recipe source is original text and duplicate keys fail before execution',async()=>{
  expect(normalSource).toBe(await Bun.file(new URL('../../construction/normal-track.json',import.meta.url)).text());

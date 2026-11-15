@@ -16,7 +16,7 @@ export const diagnosticPost=nativeSnapshot(diagnosticDocument,diagnosticDocument
  * Native reading is separate. No catch-and-bake or recipe fallback. */
 export function constructDemo(a: Assembly, section: SampledSection, tie: Content, post: Content) {
   const witness=a.witness??assemblyDefaults.witness;
-  const resolved=resolveAssembly({...a,path:witness==='supports'||witness==='station'?'straight':a.path});
+  const resolved=resolveAssembly({...a,path:witness==='supports'?'straight':a.path});
   const parameters={path:resolved.path,section,tieContent:tie,separation:a.separation,spacing:a.spacing,wall:railAppearance,cap:railAppearance};
   let construction: Construction;
   if(witness==='station') {

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { exampleMenu } from './navigation';
 for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`rail offsets retain fixed reference ties and camera at ${viewport.width}`, async ({page}) => {
   await page.setViewportSize(viewport);
   const errors:string[]=[]; page.on('pageerror',e=>errors.push(e.message));
@@ -27,11 +28,12 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`r
   await separation.press('ControlOrMeta+z');await step();await expect(separation).toHaveValue('0.6');
   await separation.press('ControlOrMeta+Shift+z');await step();await expect(separation).toHaveValue('1.35');
   await path.selectOption('curve');await step();expect((await orbit()).yaw).toBe(view.yaw);expect((await orbit()).pitch).toBe(view.pitch);
-  await page.locator('[name=example]').selectOption('supports');await step();expect((await groups()).length).toBe(22);
-  await page.locator('[name=example]').selectOption('assembly');await step();await expect(separation).toHaveValue('1.35');await expect(path).toHaveValue('curve');
+  await exampleMenu(page).selectOption('supports');await step();expect((await groups()).length).toBe(22);
+  await exampleMenu(page).selectOption('assembly');await step();await expect(separation).toHaveValue('1.35');await expect(path).toHaveValue('curve');
   expect(await page.evaluate(()=>(window as any).demo.camera)).toBe(camera);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   const canvas=(await page.locator('canvas').boundingBox())!,aside=(await page.locator('aside').boundingBox())!;
-  if(viewport.width<500)expect(aside.y).toBeGreaterThanOrEqual(canvas.y+canvas.height-1);
+  expect(canvas).toMatchObject({x:0,y:0,width:viewport.width,height:viewport.height});
+  expect(aside.y).toBeGreaterThan(0);expect(aside.x+aside.width).toBeLessThanOrEqual(viewport.width);expect(aside.y+aside.height).toBeLessThan(viewport.height-60);
   expect(errors).toEqual([]);
 });

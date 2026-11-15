@@ -46,8 +46,7 @@ body {
   overflow: hidden;
 }
 body {
-  display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  display: block;
 }
 body:not([data-ready="true"]) > :is(aside, main) {
   visibility: hidden;
@@ -67,10 +66,16 @@ main {
   min-height: 0;
 }
 aside {
-  background: var(--bg2);
-  border-right: 1px solid var(--line);
+  position: fixed;
+  z-index: 1;
+  top: calc(var(--s5) + env(safe-area-inset-top));
+  right: calc(var(--s5) + env(safe-area-inset-right));
+  width: 360px;
+  max-width: calc(100% - var(--s4) * 2);
+  max-height: calc(100dvh - 120px);
   overflow-y: auto;
-  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg2);
+  border: 1px solid var(--line);
 }
 h1 {
   margin: 0;
@@ -123,6 +128,16 @@ input::-webkit-outer-spin-button {
   appearance: none;
   margin: 0;
 }
+button { min-height: 32px; padding: var(--s1) var(--s2); background: var(--raised); border: 1px solid var(--line); border-radius: 2px; color: var(--ink); font: inherit; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible { outline: 1px solid var(--gold); }
+button[aria-current='true'] { border-color: var(--gold); }
+.picker { position: fixed; z-index: 2; bottom: calc(var(--s4) + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(400px, calc(100% - var(--s4) * 2)); }
+.picker nav { display: flex; gap: var(--s1); }
+.picker nav > button { min-width: 44px; }
+.picker .current { flex: 1; min-width: 0; }
+.examples { position: absolute; bottom: calc(100% + var(--s2)); width: 100%; max-height: calc(100dvh - 100px); overflow-y: auto; background: var(--bg2); border: 1px solid var(--line); padding: var(--s2); display: grid; gap: var(--s1); }
+.examples button { text-align: left; }
 select:enabled {
   cursor: pointer;
 }
@@ -161,7 +176,8 @@ h1 a:focus-visible {
   outline: 1px solid var(--gold);
 }
 main {
-  position: relative;
+  position: absolute;
+  inset: 0;
 }
 canvas {
   display: block;
@@ -188,22 +204,15 @@ input:enabled {
 @media (pointer: coarse), (max-width: 480px) {
   label,
   input,
-  select {
+  select,
+  button {
     min-height: 44px;
   }
 }
 @media (max-width: 480px) {
-  body {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
-  }
-  main {
-    grid-row: 1;
-  }
   aside {
-    grid-row: 2;
-    max-height: 60dvh;
-    border-right: 0;
-    border-top: 1px solid var(--line);
+    top: calc(var(--s4) + env(safe-area-inset-top));
+    right: calc(var(--s4) + env(safe-area-inset-right));
+    max-height: min(60dvh, calc(100dvh - 100px));
   }
 }

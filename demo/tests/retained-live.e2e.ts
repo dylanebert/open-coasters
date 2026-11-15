@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { exampleMenu } from './navigation';
 for(const phone of [false,true])test(`ordinary retained rail edit ${phone?'phone':'desktop'}`,async({page})=>{
   if(phone)await page.setViewportSize({width:390,height:844});
   const errors:string[]=[];page.on('pageerror',e=>errors.push(String(e)));
@@ -16,7 +17,7 @@ for(const phone of [false,true])test(`ordinary retained rail edit ${phone?'phone
   await input.press('ControlOrMeta+Shift+z');await expect(input).toHaveValue('1.6');
   await input.fill('1.1');await input.press('Enter');await expect(input).toHaveValue('1.1');
   await expect.poll(async()=>Buffer.compare(await canvas.screenshot(),before)).not.toBe(0);
-  await expect(page.locator('[name=example]')).toHaveValue('assembly');
+  await exampleMenu(page).value('assembly');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   if(process.env.PLACEMENT_LIVE_EVIDENCE)await page.screenshot({path:`${process.env.PLACEMENT_LIVE_EVIDENCE}/${phone?'phone':'desktop'}.png`,fullPage:true});
   expect(errors).toEqual([]);

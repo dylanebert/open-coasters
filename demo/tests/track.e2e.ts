@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { exampleMenu } from './navigation';
 import { pixels, changedPixels } from './pixels';
 const step=(page:Page)=>page.evaluate(()=>(window as any).step());
 test('contributed native composition changes actual mesh topology, caches source and retains camera on edits',async({page})=>{
@@ -30,13 +31,13 @@ test('contributed native composition changes actual mesh topology, caches source
 for(const asset of ['wheel-carrier','blitz-tie'])test(`source witness ${asset} retains hierarchy framing and immediate source selection`,async({page})=>{
  const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(`./?asset=${asset}&stepped`);await page.locator('body[data-ready=true]').waitFor();await step(page);
- await expect(page.locator('[name=example]')).toHaveValue('witness');await expect(page.locator('[name=asset]')).toHaveValue(asset);
+ await exampleMenu(page).value('witness');await expect(page.locator('[name=asset]')).toHaveValue(asset);
  expect(await page.evaluate(()=>(window as any).demo.orbit().distance)).toBe(8);
  const groups=await page.evaluate(()=>(window as any).demo.instances());expect(groups).toHaveLength(2);expect(groups[0]).toHaveLength(asset==='wheel-carrier'?4:1);
  if(asset==='wheel-carrier')expect(groups[0][1].translation).toEqual(expect.arrayContaining([expect.closeTo(-1.25,5),expect.closeTo(.6,5),expect.closeTo(.45,5)]));
  const before=await pixels(page,[480,400]);const url=page.url();
  await page.locator('[name=asset]').selectOption(asset==='wheel-carrier'?'blitz-tie':'wheel-carrier');await step(page);
  const after=await pixels(page,[480,400]);expect(await changedPixels(after,before)).toBeGreaterThan(30);await before.dispose();await after.dispose();expect(page.url()).toBe(url);
- await page.getByRole('link',{name:'Open Coasters'}).click();await page.locator('body[data-ready=true]').waitFor();await expect(page.locator('[name=example]')).toHaveValue('ties');
+ await page.getByRole('link',{name:'Open Coasters'}).click();await page.locator('body[data-ready=true]').waitFor();await exampleMenu(page).value('ties');
  expect(errors).toEqual([]);
 });

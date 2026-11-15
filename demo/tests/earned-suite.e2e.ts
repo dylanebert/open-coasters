@@ -1,16 +1,19 @@
 import { test, expect } from '@playwright/test';
-const root = '/home/dylan/.local/share/open-coasters/placement-earned-suite';
+import { exampleMenu } from './navigation';
+const root = '/home/dylan/.local/share/open-coasters/placement-navigation';
 for (const phone of [false, true]) test(`earned placement suite ${phone ? 'phone' : 'desktop'}`, async ({ page }) => {
   if (phone) await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./?example=station&stepped');
   await page.locator('body[data-ready=true]').waitFor();
-  const menu = page.locator('[name=example]');
-  expect(await menu.locator('option').evaluateAll(options => options.map(o => (o as HTMLOptionElement).value))).toEqual(['ties','station','supports','assembly','track']);
+  const menu = exampleMenu(page);
+  await page.getByRole('button',{name:'Example',exact:true}).click();
+  expect(await page.locator('#example-list button').allTextContents()).toEqual(['Repeated ties','Gap in repeated ties','Explicitly placed supports','Rail offsets / separation','Contributed Blitz assembly']);
+  await page.keyboard.press('Escape');
   const fields: Record<string,string[]> = {ties:['assembly-spacing'],station:['assembly-spacing','gap-start','gap-end'],supports:['assembly-post1','assembly-post2'],assembly:['assembly-separation'],track:[]};
   for (const [example,names] of Object.entries(fields)) {
     await menu.selectOption(example);
     expect(await page.locator('input:visible').evaluateAll(inputs => inputs.map(i => (i as HTMLInputElement).name))).toEqual(names);
-    expect(await page.locator('select:visible').evaluateAll(inputs => inputs.map(i => (i as HTMLSelectElement).name))).toEqual(['example',...(['ties','assembly','track'].includes(example)?[example==='track'?'configuration':'assembly-path']:[]),...(example==='track'?['spineAssembly']:[])]);
+    expect(await page.locator('select:visible').evaluateAll(inputs => inputs.map(i => (i as HTMLSelectElement).name))).toEqual([...(['ties','station','assembly','track'].includes(example)?[example==='track'?'configuration':'assembly-path']:[]),...(example==='track'?['spineAssembly']:[])]);
   }
   await menu.selectOption('station');
   const spacing=page.locator('[name=assembly-spacing]'), start=page.locator('[name=gap-start]'), end=page.locator('[name=gap-end]');

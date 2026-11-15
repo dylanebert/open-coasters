@@ -1,4 +1,4 @@
-import { defaults, type Parameters } from "./track";
+import { defaults, length, type Parameters } from "./track";
 import { assemblyDefaults, postDefaults, gapDefaults } from './assembly';
 import type { Selection } from './live';
 
@@ -20,7 +20,7 @@ export type Configuration = {
   selected: Example;
   values: {
     ties: { path: Path; spacing: number };
-    station: { spacing: number; start: number; end: number };
+    station: { path: Path; spacing: number; start: number; end: number };
     supports: { post1: number; post2: number };
     assembly: { path: Path; separation: number };
     track: { path: Path; secondSpine: boolean };
@@ -32,7 +32,7 @@ export const initialConfiguration: Configuration = {
   selected: 'ties',
   values: {
     ties: { path: 'curve', spacing: .65 },
-    station: { spacing: .65, ...gapDefaults },
+    station: { path: 'straight', spacing: .65, ...gapDefaults },
     supports: { ...postDefaults },
     assembly: { path: 'curve', separation: 1.2 },
     track: { path: 'straight', secondSpine: false },
@@ -43,6 +43,13 @@ export function selectedExample(c: Configuration): Example { return c.selected; 
 export function selectExample(c: Configuration, value: string): Configuration {
   return value === 'witness' || exampleOptions.some(([key]) => key === value)
     ? { ...c, selected: value as Example } : c;
+}
+export function setPath(c: Configuration, path: Path): Configuration {
+  const selected = c.selected;
+  if (selected === 'supports' || selected === 'witness') return c;
+  const current = c.values[selected];
+  const next = selected === 'station' ? { ...c.values.station, path, start: Math.min(c.values.station.start, length(path)), end: Math.min(c.values.station.end, length(path)) } : { ...current, path };
+  return { ...c, values: { ...c.values, [selected]: next } };
 }
 export type History = { past: Configuration[]; present: Configuration; future: Configuration[]; origin?: Configuration };
 const same = (a: Configuration, b: Configuration) => JSON.stringify(a) === JSON.stringify(b);
@@ -80,7 +87,7 @@ export function effective(c: Configuration): Selection & { paint: Paint } {
   const assembly = { ...assemblyDefaults };
   if (selected === 'ties') Object.assign(assembly, v.ties);
   if (selected === 'assembly') Object.assign(assembly, v.assembly);
-  if (selected === 'station') Object.assign(assembly, { path: 'straight', witness: 'station', spacing: v.station.spacing, gapStart: v.station.start, gapEnd: v.station.end });
+  if (selected === 'station') Object.assign(assembly, { path: v.station.path, witness: 'station', spacing: v.station.spacing, gapStart: v.station.start, gapEnd: v.station.end });
   if (selected === 'supports') Object.assign(assembly, { path: 'straight', witness: 'supports', ...v.supports });
   return { ...base, example: 'assembly', assembly, subject: selected };
 }

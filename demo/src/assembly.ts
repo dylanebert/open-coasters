@@ -34,7 +34,7 @@ export function validateAssembly(a: Assembly) {
     if (!Number.isFinite(station) || station < straightDistanceRange.min || station > straightDistanceRange.max) throw new Error('Invalid support station');
   }
   const start = a.gapStart ?? gapDefaults.start, end = a.gapEnd ?? gapDefaults.end;
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start < straightDistanceRange.min || end > straightDistanceRange.max || start > end) throw new Error('Invalid gap interval');
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < straightDistanceRange.min || end > length(a.path) || start > end) throw new Error('Invalid gap interval');
 }
 export function resolveAssembly(a: Assembly) {
   validateAssembly(a);

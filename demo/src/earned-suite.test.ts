@@ -8,11 +8,11 @@ test('ordinary chooser contains exactly five placement claims', () => {
 
 test('each example owns only its authoring values; rendering derives fixed reference inputs', () => {
   const state=structuredClone(initialConfiguration);
-  const keys={ties:['path','spacing'],station:['spacing','start','end'],supports:['post1','post2'],assembly:['path','separation'],track:['path','secondSpine'],witness:['asset']};
+  const keys={ties:['path','spacing'],station:['path','spacing','start','end'],supports:['post1','post2'],assembly:['path','separation'],track:['path','secondSpine'],witness:['asset']};
   expect(Object.keys(state)).toEqual(['selected','values']);
   for(const [key,fields] of Object.entries(keys)) expect(Object.keys(state.values[key as keyof typeof state.values])).toEqual(fields);
   state.values.ties={path:'loop',spacing:1.25};
-  state.values.station={spacing:1.5,start:2.125,end:7.875};
+  state.values.station={path:'straight',spacing:1.5,start:2.125,end:7.875};
   state.values.supports={post1:1.234,post2:10.876};
   state.values.assembly={path:'curve',separation:1.6};
   state.values.track={path:'loop',secondSpine:true};
