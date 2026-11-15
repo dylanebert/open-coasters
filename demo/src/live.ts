@@ -11,7 +11,7 @@ import { Orbit, OrbitPlugin } from '@dylanebert/shallot/extras';
 import { Grid, GridPlugin } from '@dylanebert/shallot-grid';
 import { frameTrack, initializeView, Scene } from './scene';
 import { normalForce, forceColor } from './loop-force';
-import { assemblyDefaults, assemblyPath, gapDefaults, postDefaults, type Assembly } from './assembly';
+import { assemblyDefaults, assemblyPath, gapDefaults, postDefaults, validateAssembly, type Assembly } from './assembly';
 import { changesSubject } from './selection';
 import { diagnosticPost } from './construction-demo';
 import { readNative, nativeURL, type ImmutableNativeSnapshot } from '../../construction/native';
@@ -119,12 +119,6 @@ function place(world:World,roleKey:string,name:string,poses:readonly Placement[]
 }
 function clearTrackEntities(world:World) {
   const s=world.resource(Live);for(const e of s.trackEntities)world.destroy(e);s.trackEntities=[];
-}
-function validateAssembly(a:Assembly) {
-  if(!kinds.includes(a.path)||!['assembly-tie-bar','assembly-tie-fork'].includes(a.tie)||!['normal','station','supports'].includes(a.witness??assemblyDefaults.witness)||!Number.isFinite(a.separation)||a.separation<.6||a.separation>1.6||!Number.isFinite(a.spacing)||a.spacing<.3||a.spacing>1.5)throw Error('Invalid assembly');
-  for(const key of ['post1','post2'] as const){const v=a[key]??postDefaults[key];if(!Number.isFinite(v)||v<0||v>12)throw Error('Invalid support station');}
-  const start=a.gapStart??gapDefaults.start,end=a.gapEnd??gapDefaults.end;
-  if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end>12||start>end)throw Error('Invalid gap interval');
 }
 function railBounds(s:State,index:number,separation:number,bounds:Bounds) {
   for(const f of s.frames[index])for(const side of [-1,1])for(const xy of s.section) {

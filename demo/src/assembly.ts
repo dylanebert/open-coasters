@@ -27,14 +27,17 @@ export function assemblyPath(kind: Assembly['path']): Path {
   const poses = distances.map(s => analyticFrame(kind,s));
   return path({distances, positions: poses.map(f => f.p), rotations: poses.map(rotation)});
 }
-export function resolveAssembly(a: Assembly) {
-  if (!['straight', 'curve', 'loop'].includes(a.path) || !['assembly-tie-bar', 'assembly-tie-fork'].includes(a.tie) || !['normal','station','supports'].includes(a.witness ?? 'normal') || !Number.isFinite(a.separation) || a.separation < .6 || a.separation > 1.6 || !Number.isFinite(a.spacing) || a.spacing < .3 || a.spacing > 1.5) throw new Error('Invalid assembly');
+export function validateAssembly(a: Assembly) {
+  if (!['straight', 'curve', 'loop'].includes(a.path) || !['assembly-tie-bar', 'assembly-tie-fork'].includes(a.tie) || !['normal','station','supports'].includes(a.witness ?? assemblyDefaults.witness) || !Number.isFinite(a.separation) || a.separation < .6 || a.separation > 1.6 || !Number.isFinite(a.spacing) || a.spacing < .3 || a.spacing > 1.5) throw new Error('Invalid assembly');
   for (const key of ['post1', 'post2'] as const) {
     const station = a[key] ?? postDefaults[key];
     if (!Number.isFinite(station) || station < straightDistanceRange.min || station > straightDistanceRange.max) throw new Error('Invalid support station');
   }
   const start = a.gapStart ?? gapDefaults.start, end = a.gapEnd ?? gapDefaults.end;
   if (!Number.isFinite(start) || !Number.isFinite(end) || start < straightDistanceRange.min || end > straightDistanceRange.max || start > end) throw new Error('Invalid gap interval');
+}
+export function resolveAssembly(a: Assembly) {
+  validateAssembly(a);
   const source = assemblyPath(a.path), total = source.distances.at(-1)!;
   // The rendering tessellation is explicit sampled data, also used by NormalTrack.
   const sampled = framesAt(source, Array.from({length:97},(_,i) => total*i/96));
