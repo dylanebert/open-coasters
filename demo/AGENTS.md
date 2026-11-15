@@ -12,7 +12,9 @@ Scene materials are not chrome colors; keep the subject brighter and more satura
 
 ## Runtime boundary
 
-`src/live.ts` resets the entire mesh registry on geometry replacement. Do not add another mesh producer without revisiting that ownership. Serialize replacements between completed frames and submitted GPU work as in `src/main.ts`; `src/reset.gpu.test.ts` and `src/live.gpu.test.ts` check release and retained state.
+`src/live.ts` owns world-local native content, materials and placement rows; `src/rail-gpu.ts` owns retained rail geometry. Registry entries live with the world, not a field edit. Clearing the registry invalidates cached handles and producer buffers.
+
+Apply authoring updates between completed frames and submitted work as in `src/main.ts`. Rail compute uses the shared frame encoder before mesh preprocessing. `src/retained-live.gpu.test.ts` and `src/rail-gpu.gpu.test.ts` check actual GPU output, retained resources, submission and disposal.
 
 `../construction-contract.md` owns shared construction meaning and qualified limits. The demo adapts paths, renderer packing and force colors; it does not define another placement or sweep policy. The profile and instance gates are restricted subsets, not full glTF validators. Parametric clearance checks do not qualify Blitz, train clearance, engineering attachments or ride safety.
 

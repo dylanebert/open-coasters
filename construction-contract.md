@@ -127,10 +127,18 @@ zero-length shared span. [Static-composition source/native qualification](demo/s
 remains separate from the ordinary menu. Blitz profile assembly is an existing
 consumer, not NormalTrack conformance. Consumer fixtures exercise force coloring.
 
-`live.ts` still owns whole-mesh reset and stable material registrations; `main.ts`
-serializes replacements between completed frames/submitted work. CPU fixtures
-cover graph/result/adapter/control and camera decisions. The selected lifecycle
-GPU fixture covers release, bounded repeated resources and retained camera;
-one headless assembly subject covers built-page controls, history, framing and
-phone layout. They do not qualify other native importers or establish hosted CI
-and release-tier results.
+[Live rendering](demo/src/live.ts) retains immutable native content and prepared
+geometry, updating only affected parameter and placement rows. The
+[GPU rail producer](demo/src/rail-gpu.ts) emits standard main/position-only streams;
+the CPU adapter remains its semantic oracle, not an interactive native-export
+step. This is a bounded rendering adapter, not a general GPU graph evaluator.
+`main.ts` serializes authoring updates between completed frames/submitted work.
+
+[Retained-output fixtures](demo/src/retained-live.gpu.test.ts) compare actual GPU
+positions/normals on the supported straight, banked and recorded paths with CPU
+native results. [Producer fixtures](demo/src/rail-gpu.gpu.test.ts) check stream
+agreement, bounds, ordering, aborted-draw retry and disposal. Standard draw,
+depth-prepass and shadow-enabled execution are exercised without an independent
+shadow-pixel oracle. Built-page cases cover controls, history, framing and phone
+layout. These checks do not qualify arbitrary paths/scales, other native importers,
+hosted CI, release tiers or human usefulness.
