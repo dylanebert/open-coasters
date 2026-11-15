@@ -10,7 +10,7 @@ const phase = (p: number[]) => {
 };
 const guide = (theta: number) => Math.abs(theta-Math.PI) >= 2*Math.PI/5
   ? 4 : 4*Math.sin(5*(theta-Math.PI)/4)**2;
-test("loop: realized held-positive shoulders and compact symmetric crown guide", () => {
+test("loop: recorded authored guide has held-positive shoulders and compact symmetric crown dip", () => {
   let holds = 0;
   for (let i=0; i<path.length-1; i++) {
     const theta = phase(path[i]);
