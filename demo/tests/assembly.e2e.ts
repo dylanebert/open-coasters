@@ -13,7 +13,7 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`r
   const reference=(await groups()).slice(1), view=await orbit();
   expect(reference).toHaveLength(19);
   reference.forEach((group:any[],i:number)=>{expect(group[0].translation[2]).toBeCloseTo(-6+i*.65,6);group.forEach(e=>expect(e.scale).toEqual([1,1,1]));});
-  for(const value of ['1.6','.6','1.333']) {
+  for(const value of ['1.6','.6','1.35']) {
     await separation.fill(value);await separation.press('Enter');await step();
     expect((await groups()).slice(1)).toEqual(reference);
     const positions:number[]=await page.evaluate(()=>(window as any).demo.trackPositions()[0].positions);
@@ -22,10 +22,10 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`r
     expect(await orbit()).toEqual(view);
   }
   await separation.press('ControlOrMeta+z');await step();await expect(separation).toHaveValue('0.6');
-  await separation.press('ControlOrMeta+Shift+z');await step();await expect(separation).toHaveValue('1.333');
+  await separation.press('ControlOrMeta+Shift+z');await step();await expect(separation).toHaveValue('1.35');
   await path.selectOption('curve');await step();expect((await orbit()).yaw).toBe(view.yaw);expect((await orbit()).pitch).toBe(view.pitch);
   await page.locator('[name=example]').selectOption('supports');await step();expect((await groups()).length).toBe(22);
-  await page.locator('[name=example]').selectOption('assembly');await step();await expect(separation).toHaveValue('1.333');await expect(path).toHaveValue('curve');
+  await page.locator('[name=example]').selectOption('assembly');await step();await expect(separation).toHaveValue('1.35');await expect(path).toHaveValue('curve');
   expect(await page.evaluate(()=>(window as any).demo.camera)).toBe(camera);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   const canvas=(await page.locator('canvas').boundingBox())!,aside=(await page.locator('aside').boundingBox())!;
