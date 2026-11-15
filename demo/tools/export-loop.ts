@@ -15,10 +15,10 @@ if (git("diff", "HEAD", "--", "src", "package.json", "bun.lock")) throw new Erro
 const { policy } = await import(resolve(checkout, "src/trajectory/policies.ts"));
 const { step } = await import(resolve(checkout, "src/trajectory/integrator.ts"));
 const { rotate } = await import(resolve(checkout, "src/path/path.ts"));
-const rate = 1000, stride = 5, entrySpeed = 100 / 3.6, rollAmplitude = 0.32;
+const rate = 2000, stride = 10, entrySpeed = 100 / 3.6, rollAmplitude = 0.26;
 const constants = { g: 9.81, heartToCom: 0, mass: 500, friction: 0, drag: 0 };
 const initial = { position: [0, 0, 0], rotation: [0, 0, 0, 1], speed: entrySpeed, distance: 0 };
-const supportWidth = 1.65 * Math.PI, supportStart = (2 * Math.PI - supportWidth) / 2;
+const supportWidth = 2 * Math.PI, supportStart = (2 * Math.PI - supportWidth) / 2;
 const normalGuide = { shoulder: 4, crown: 0, notchHalfWidth: 2 * Math.PI / 5 };
 const normalAt = (theta: number) => Math.abs(theta - Math.PI) >= normalGuide.notchHalfWidth
   ? normalGuide.shoulder

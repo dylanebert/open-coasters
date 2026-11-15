@@ -8,7 +8,7 @@ const dot = (a: number[], b: number[]) =>
 const sub = (a: number[], b: number[]) => a.map((x, i) => x - b[i]);
 const norm = (a: number[]) => Math.hypot(...a);
 // Independently recorded crown source X/Z; no production placement import.
-const world = (p: number[]) => [-3.4596492374 - p[1], 1.5 + p[2], -14.1325386361 - p[3]];
+const world = (p: number[]) => [-6.0293982646 - p[1], 1.5 + p[2], -9.2212609908 - p[3]];
 // Independent source quaternion matrix columns, rigidly placed in world space.
 const axes = (p: number[]) => {
   const [x, y, z, w] = p.slice(4);
@@ -79,14 +79,19 @@ test("loop: explicit 100 km/h entry", () => {
   expect(state.initial.speed).toBe(100 / 3.6);
   expect(state.samples[0][1]).toBeCloseTo(100 / 3.6, 9);
   expect(state.constants).toEqual({ g: 9.81, heartToCom: 0, mass: 500, friction: 0, drag: 0 });
-  expect(state.rate).toBe(1000);
-  expect(state.recordedStride).toBe(5);
-  expect(state.rollAmplitude).toBe(0.32);
+  expect(state.rate).toBe(2000);
+  expect(state.recordedStride).toBe(10);
+  expect(state.rollAmplitude).toBe(0.26);
+  expect(state.supportWidth).toBe(2*Math.PI);
+  expect(state.supportStart).toBe(0);
+  expect(state.normalGuide).toEqual({ shoulder: 4, crown: 0, notchHalfWidth: 2*Math.PI/5 });
   for (let i=0;i<path.length-1;i++) {
     const f=axes(path[i]).tangent, theta=Math.atan2(f[1],f[2]);
     expect(state.samples[i][2]).toBeGreaterThanOrEqual(0);
     expect(state.samples[i][2]).toBeLessThanOrEqual(4);
-    expect(state.samples[i][2]).toBeCloseTo(2+2*Math.cos(theta),8);
+    const offset = Math.abs(Math.abs(theta)-Math.PI);
+    const normal = offset >= 2*Math.PI/5 ? 4 : 4*Math.sin(5*offset/4)**2;
+    expect(state.samples[i][2]).toBeCloseTo(normal,8);
     expect(state.samples[i][3]).toBe(0);
   }
 });
@@ -98,13 +103,13 @@ test("loop: highest recorded centerline point is at world X zero", () => {
 
 test("recorded geometry: metric arc stations, rigid landmarks, proper continuous tangent frames", () => {
   expect(path.length).toBe(state.samples.length);
-  expect(length("loop")).toBeCloseTo(109.7358630474, 9);
-  expect(frame("loop", 0).p).toEqual([-3.4596492374, 1.5, -14.1325386361]);
+  expect(length("loop")).toBeCloseTo(99.1912231532, 9);
+  expect(frame("loop", 0).p).toEqual([-6.0293982646, 1.5, -9.2212609908]);
   const apex = path.reduce(
     (best, p, i) => (p[2] > path[best][2] ? i : best),
     0,
   );
-  expect(world(path[apex])[1]).toBeCloseTo(36.3105593073, 9);
+  expect(world(path[apex])[1]).toBeCloseTo(28.4866316669, 9);
   expect(norm(sub(world(path[0]), world(path.at(-1)!)))).toBeGreaterThan(8);
   let previous = frame("loop", 0);
   for (let i = 1; i < path.length; i++) {
@@ -142,7 +147,7 @@ test("recorded geometry: metric arc stations, rigid landmarks, proper continuous
   }
   for (const spacing of [0.3, 0.7, 1.5]) {
     const stations = ties({ ...defaults, configuration: "loop", spacing });
-    expect(stations.length).toBe(Math.ceil(109.7358630474 / spacing));
+    expect(stations.length).toBe(Math.ceil(99.1912231532 / spacing));
     for (const [i, f] of stations.entries()) {
       const s = i * spacing;
       expect(f.s).toBe(s);
@@ -250,9 +255,9 @@ test("independent recorded velocity differences and geometry/state recover autho
   expect(Math.abs(normals[apex])).toBeLessThan(0.01);
   expect(normals[exit]).toBeGreaterThan(3.9);
   expect(state.samples[entry][1]).toBeGreaterThan(15.4);
-  expect(state.samples[apex][1]).toBeLessThan(9.42);
+  expect(state.samples[apex][1]).toBeLessThan(15.57);
   expect(state.samples[exit][1]).toBeGreaterThan(15.4);
-  expect(state.samples[apex][1]).toBeCloseTo(9.4139133554, 6);
+  expect(state.samples[apex][1]).toBeCloseTo(15.5604378141, 6);
 });
 
 const scale = (a: number[], k: number) => a.map((x) => x * k);
@@ -270,9 +275,10 @@ test("noncircular spatial loop: independently measured chord curvature and nonpl
   // Same centered position-only stencil over ALL records of base 5841663:
   // minimum .09886412384832682, maximum .36294102465411104 per meter.
   expect(Math.max(...curvatures)).toBeLessThan(0.36294102465411104);
-  expect(Math.min(...curvatures)).toBeCloseTo(0.036102396512877465, 9);
-  expect(Math.max(...curvatures)).toBeCloseTo(0.1106956623859544, 9);
-  expect(curvature(crown) / Math.min(...curvatures)).toBeGreaterThan(2.9);
+  expect(Math.min(...curvatures)).toBeCloseTo(0.03529977292513821, 9);
+  expect(Math.max(...curvatures)).toBeCloseTo(0.12213869793915219, 9);
+  // The held-positive guide changes where curvature peaks; still noncircular.
+  expect(curvature(crown) / Math.min(...curvatures)).toBeCloseTo(1.1478243269843325, 9);
   const a = sub(world(path[crown]), world(path[0])),
     b = sub(world(path.at(-1)!), world(path[0]));
   const n = [

@@ -23,7 +23,7 @@ function expected(kind: string, station: number, x: number, y: number, nx: numbe
   const up = [-2 * (qx*qy - qw*qz), 1 - 2 * (qx*qx + qz*qz), -2 * (qy*qz + qw*qx)];
   const apex = loop.reduce((a,b) => a[2] > b[2] ? a : b)[1];
   const p = a.slice(1,4).map((v,k) => v * (1-t) + b[k+1]*t);
-  const origin = [-p[0]+apex, p[1]+1.5, -p[2]-14.1325386361];
+  const origin = [-p[0]+apex, p[1]+1.5, -p[2]-9.2212609908];
   return [origin.map((v,k) => v+right[k]*x+up[k]*y), right.map((v,k) => v*nx+up[k]*ny)];
 }
 async function sourceEdges(name: string) {

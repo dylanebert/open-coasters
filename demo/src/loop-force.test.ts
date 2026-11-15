@@ -67,18 +67,18 @@ test('unchanged section receives longitudinal corner colors; flat, transverse an
   const stations:number[]=[];
   for(let rail=0;rail<2;rail++) {
     for(let i=0;i<96;i++) for(let j=0;j<section.length;j++)
-      for(const k of [i,i,i+1,i,i+1,i+1]) stations.push(109.7358630474*k/96);
+      for(const k of [i,i,i+1,i,i+1,i+1]) stations.push(99.1912231532*k/96);
     // Shared native sweep alternates start/end triangles for each fan edge.
-    for(let fan=0;fan<section.length-2;fan++) for(const end of [0,96]) for(let j=0;j<3;j++) stations.push(109.7358630474*end/96);
+    for(let fan=0;fan<section.length-2;fan++) for(const end of [0,96]) for(let j=0;j<3;j++) stations.push(99.1912231532*end/96);
   }
   const audit=(color:Float32Array)=>stations.every((s,i)=>expectedColor(s).every((v,k)=>Math.abs(v-color[i*4+k])<.002));
   expect(stations.length).toBe(colored.vertices.length/8);
   expect(audit(colored.color!)).toBe(true);
   const flat=pack(()=>[1,1,1,1]);
   expect(audit(flat.color!)).toBe(false);
-  const shifted=pack(s=>forceColor(normalForce((s+5)%109.7358630474)));
+  const shifted=pack(s=>forceColor(normalForce((s+5)%99.1912231532)));
   expect(audit(shifted.color!)).toBe(false);
   const transverse=new Float32Array(colored.color!.length);
-  for(let i=0;i<stations.length;i++) transverse.set(expectedColor((i%24)/24*109.7358630474),i*4);
+  for(let i=0;i<stations.length;i++) transverse.set(expectedColor((i%24)/24*99.1912231532),i*4);
   expect(audit(transverse)).toBe(false);
 });
