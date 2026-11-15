@@ -1,6 +1,7 @@
 <script lang="ts">
   import { exampleOptions, selectExample, history, preview, commit, undo, redo, effective, numericRanges, type Configuration } from './configuration';
   import NumericField from './NumericField.svelte';
+  import { straightDistanceRange } from './assembly';
   import { untrack } from 'svelte';
   import type { Selection } from './live';
   let { initial, changed }: { initial: Configuration; changed: (value: Selection) => void } = $props();
@@ -13,11 +14,11 @@
     { key: 'spacing', name: 'assembly-spacing', label: 'Tie spacing · m', value: values.ties.spacing, ...numericRanges.spacing },
   ] : selected === 'station' ? [
     { key: 'spacing', name: 'assembly-spacing', label: 'Tie spacing · m', value: values.station.spacing, ...numericRanges.spacing },
-    { key: 'start', name: 'gap-start', label: 'Gap start · m', value: values.station.start, min: 0, max: values.station.end, step: .05 },
-    { key: 'end', name: 'gap-end', label: 'Gap end · m', value: values.station.end, min: values.station.start, max: 12, step: .05 },
+    { key: 'start', name: 'gap-start', label: 'Gap start · m', value: values.station.start, min: straightDistanceRange.min, max: values.station.end, step: 'any' as const, increment: .05 },
+    { key: 'end', name: 'gap-end', label: 'Gap end · m', value: values.station.end, min: values.station.start, max: straightDistanceRange.max, step: 'any' as const, increment: .05 },
   ] : selected === 'supports' ? [
-    { key: 'post1', name: 'assembly-post1', label: 'Support 1 from start · m', value: values.supports.post1, min: 0, max: 12, step: .05 },
-    { key: 'post2', name: 'assembly-post2', label: 'Support 2 from start · m', value: values.supports.post2, min: 0, max: 12, step: .05 },
+    { key: 'post1', name: 'assembly-post1', label: 'Support 1 from start · m', value: values.supports.post1, ...straightDistanceRange, step: 'any' as const, increment: .05 },
+    { key: 'post2', name: 'assembly-post2', label: 'Support 2 from start · m', value: values.supports.post2, ...straightDistanceRange, step: 'any' as const, increment: .05 },
   ] : selected === 'assembly' ? [
     { key: 'separation', name: 'assembly-separation', label: 'Rail separation · m', value: values.assembly.separation, ...numericRanges.separation },
   ] : []);
@@ -54,7 +55,7 @@
   {#if fields.length}
     <section>
       {#each fields as field (field.name)}
-        <NumericField name={field.name} label={field.label} value={field.value} min={field.min} max={field.max} step="any" increment={field.step} preview={next => value(field.key, next)} commit={finish} />
+        <NumericField name={field.name} label={field.label} value={field.value} min={field.min} max={field.max} step={field.step} increment={field.increment} preview={next => value(field.key, next)} commit={finish} />
       {/each}
     </section>
   {/if}

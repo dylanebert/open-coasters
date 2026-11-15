@@ -6,7 +6,7 @@ import { supportRegistry, planeId } from '../../construction/plane-supports';
 import { parseDocument } from '../../construction/kernel';
 import { framesAt, ids, join, nominal } from '../../construction/geometry';
 import { nativeSnapshot, type Construction, type Content } from '../../construction/native';
-import { postDefaults, assemblyDefaults, resolveAssembly, railAppearance, type Assembly } from './assembly';
+import { postDefaults, gapDefaults, assemblyDefaults, resolveAssembly, railAppearance, type Assembly } from './assembly';
 import type { SampledSection } from './sampled-section';
 const diagnosticDocument=JSON.parse(diagnosticSource);
 // Reuse the authored diagnostic bytes, selecting one identity post, not a contributed asset kind.
@@ -20,7 +20,7 @@ export function constructDemo(a: Assembly, section: SampledSection, tie: Content
   const parameters={path:resolved.path,section,tieContent:tie,separation:a.separation,spacing:a.spacing,wall:railAppearance,cap:railAppearance};
   let construction: Construction;
   if(witness==='station') {
-    const start=a.gapStart ?? 4.2, end=a.gapEnd ?? 7.8;
+    const start=a.gapStart ?? gapDefaults.start, end=a.gapEnd ?? gapDefaults.end;
     construction=stationGap({...parameters,excluded:start===end?[]:[{start,end}]},normal,[]);
   } else if(witness==='supports') {
     const supports=supportRegistry().evaluate(parseDocument(support),{inputs:{

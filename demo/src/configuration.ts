@@ -1,10 +1,10 @@
 import { defaults, type Parameters } from "./track";
-import { assemblyDefaults } from './assembly';
+import { assemblyDefaults, postDefaults, gapDefaults } from './assembly';
 import type { Selection } from './live';
 
 export const numericRanges = {
-  spacing: { min: .3, max: 1.5, step: .05 },
-  separation: { min: .6, max: 1.6, step: .05 },
+  spacing: { min: .3, max: 1.5, step: .05, increment: .05 },
+  separation: { min: .6, max: 1.6, step: .05, increment: .05 },
 } as const;
 
 
@@ -32,8 +32,8 @@ export const initialConfiguration: Configuration = {
   selected: 'ties',
   values: {
     ties: { path: 'curve', spacing: .65 },
-    station: { spacing: .65, start: 4.2, end: 7.8 },
-    supports: { post1: 2, post2: 10 },
+    station: { spacing: .65, ...gapDefaults },
+    supports: { ...postDefaults },
     assembly: { path: 'curve', separation: 1.2 },
     track: { path: 'straight', secondSpine: false },
     witness: { asset: 'wheel-carrier' },

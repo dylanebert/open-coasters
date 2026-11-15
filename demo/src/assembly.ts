@@ -6,8 +6,9 @@ import { nativeSnapshot, snapshotBytes, type Construction } from '../../construc
 import type { SampledSection } from './sampled-section';
 
 export const assemblyDefaults = { path: 'curve' as 'straight' | 'curve' | 'loop', separation: 1.2, spacing: .65, tie: 'assembly-tie-bar' as 'assembly-tie-bar' | 'assembly-tie-fork', witness: 'normal' as 'normal' | 'station' | 'supports' };
-export const postRange = { min: 0, max: 12 };
+export const straightDistanceRange = { min: 0, max: 12 };
 export const postDefaults = { post1: 2, post2: 10 };
+export const gapDefaults = { start: 4.2, end: 7.8 };
 export type Assembly = typeof assemblyDefaults & { post1?: number; post2?: number; gapStart?: number; gapEnd?: number };
 /** Bounded consumer adapter. Analytic stations and recorded poses are data inputs,
  * not a second interpolation policy. Recorded physics/fixtures remain untouched. */
@@ -30,10 +31,10 @@ export function resolveAssembly(a: Assembly) {
   if (!['straight', 'curve', 'loop'].includes(a.path) || !['assembly-tie-bar', 'assembly-tie-fork'].includes(a.tie) || !['normal','station','supports'].includes(a.witness ?? 'normal') || !Number.isFinite(a.separation) || a.separation < .6 || a.separation > 1.6 || !Number.isFinite(a.spacing) || a.spacing < .3 || a.spacing > 1.5) throw new Error('Invalid assembly');
   for (const key of ['post1', 'post2'] as const) {
     const station = a[key] ?? postDefaults[key];
-    if (!Number.isFinite(station) || station < postRange.min || station > postRange.max) throw new Error('Invalid support station');
+    if (!Number.isFinite(station) || station < straightDistanceRange.min || station > straightDistanceRange.max) throw new Error('Invalid support station');
   }
-  const start = a.gapStart ?? 4.2, end = a.gapEnd ?? 7.8;
-  if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end > 12 || start > end) throw new Error('Invalid gap interval');
+  const start = a.gapStart ?? gapDefaults.start, end = a.gapEnd ?? gapDefaults.end;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start < straightDistanceRange.min || end > straightDistanceRange.max || start > end) throw new Error('Invalid gap interval');
   const source = assemblyPath(a.path), total = source.distances.at(-1)!;
   // The rendering tessellation is explicit sampled data, also used by NormalTrack.
   const sampled = framesAt(source, Array.from({length:97},(_,i) => total*i/96));
