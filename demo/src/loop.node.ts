@@ -10,7 +10,7 @@ const dot = (a: number[], b: number[]) =>
 const sub = (a: number[], b: number[]) => a.map((x, i) => x - b[i]);
 const norm = (a: number[]) => Math.hypot(...a);
 // Independently recorded crown source X; no production placement import.
-const world = (p: number[]) => [-1.3319609173 - p[1], 1.5 + p[2], -4.3 - p[3]];
+const world = (p: number[]) => [-1.3319609173 - p[1], 1.5 + p[2], -5.3998784515 - p[3]];
 // Independent source quaternion matrix columns, rigidly placed in world space.
 const axes = (p: number[]) => {
   const [x, y, z, w] = p.slice(4);

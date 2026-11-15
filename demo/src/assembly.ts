@@ -1,4 +1,4 @@
-import { frame as analyticFrame, length, rotation, type Vec } from './track';
+import { frame as analyticFrame, length, rotation, placeLoopPosition, type Vec } from './track';
 import recorded from './loop-path.json';
 import { adjustFrames, fixedDistances, framesAt, path, rotate, type Path, type Frame } from '../../construction/geometry';
 import { sweepConvex, type Material } from '../../construction/sweep';
@@ -14,8 +14,7 @@ export type Assembly = typeof assemblyDefaults & { post1?: number; post2?: numbe
  * not a second interpolation policy. Recorded physics/fixtures remain untouched. */
 export function assemblyPath(kind: Assembly['path']): Path {
   if (kind === 'loop') {
-    const apex = recorded.reduce((a,b) => b[2] > a[2] ? b : a)[1];
-    const positions = recorded.map(r => [-r[1]+apex,r[2]+1.5,-r[3]-4.3]);
+    const positions = recorded.map(r => placeLoopPosition(r.slice(1,4)));
     const rotations = recorded.map(r => {
       const raw = r.slice(4), norm = Math.hypot(...raw), q = raw.map(x => x/norm);
       const x = rotate(q, [1,0,0]), y = rotate(q,[0,1,0]), z = rotate(q,[0,0,1]);

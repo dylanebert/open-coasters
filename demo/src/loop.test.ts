@@ -7,8 +7,8 @@ const dot = (a: number[], b: number[]) =>
   a.reduce((s, x, i) => s + x * b[i], 0);
 const sub = (a: number[], b: number[]) => a.map((x, i) => x - b[i]);
 const norm = (a: number[]) => Math.hypot(...a);
-// Independently recorded crown source X; no production placement import.
-const world = (p: number[]) => [-1.3319609173 - p[1], 1.5 + p[2], -4.3 - p[3]];
+// Independently recorded crown source X/Z; no production placement import.
+const world = (p: number[]) => [-1.3319609173 - p[1], 1.5 + p[2], -5.3998784515 - p[3]];
 // Independent source quaternion matrix columns, rigidly placed in world space.
 const axes = (p: number[]) => {
   const [x, y, z, w] = p.slice(4);
@@ -83,7 +83,7 @@ test("loop: highest recorded centerline point is at world X zero", () => {
 test("recorded geometry: metric arc stations, rigid landmarks, proper continuous tangent frames", () => {
   expect(path.length).toBe(state.samples.length);
   expect(length("loop")).toBeCloseTo(42.0726940244, 9);
-  expect(frame("loop", 0).p).toEqual([-1.3319609173, 1.5, -4.3]);
+  expect(frame("loop", 0).p).toEqual([-1.3319609173, 1.5, -5.3998784515]);
   const apex = path.reduce(
     (best, p, i) => (p[2] > path[best][2] ? i : best),
     0,
