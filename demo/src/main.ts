@@ -70,23 +70,29 @@ try {
   if (query.has("stepped")) {
     // Stepped qualification reads selected public GPU inputs after submission.
     // No expected geometry or producer staging arrays enter this observation.
-    const trackPositions: { name: string; positions: number[] }[] = [];
+    const trackPositions: { name: string; positions: number[]; positionError:number }[] = [];
     const meshes = app.world.resource(Meshes);
-    observe = async () => {
-      trackPositions.length=0;
+    const selectedMeshes=()=>{
       const instances=app.world.storage(MeshInstance);
       const handles=new Set(app.world.resource(Scene).instances.flat().map(e=>instances.mesh.get(e)));
-      for(const handle of handles) {
-        const mesh=meshes.get(handle as MeshHandle);
-        if(mesh && (mesh.name.startsWith('Track ') || mesh.name==='Circular rails'))
-          trackPositions.push({name:mesh.name,positions:(await readMesh(app.world,mesh)).points.flat()});
+      return [...handles].map(handle=>meshes.get(handle as MeshHandle)!).filter(Boolean);
+    };
+    observe = async () => {
+      trackPositions.length=0;
+      for(const mesh of selectedMeshes()) {
+        if(mesh.name.startsWith('Track ') || mesh.name==='Circular rails') {
+          const raw=await readMesh(app.world,mesh),words=new Uint32Array(raw.main),ids=new Uint32Array(raw.indices);
+          const q=new DataView(raw.quant),row=words[ids[mesh.indexBase]*4+1]>>>16;
+          const positionError=Math.max(...[0,1,2].map(a=>q.getFloat32(row*48+16+a*4,true)))/65535;
+          trackPositions.push({name:mesh.name,positions:raw.points.flat(),positionError});
+        }
       }
     };
     await observe();
     Object.assign(window, { step: (dt = 1 / 60) => step(dt), demo: {
       app,
       trackPositions: () => trackPositions,
-      meshes: () => [...app.world.resource(Meshes)].map(mesh => ({ name: mesh.name, indexCount: mesh.indexCount })),
+      meshes: () => selectedMeshes().map(mesh => ({ name: mesh.name, indexCount: mesh.indexCount })),
       project: (point: [number, number, number]) => worldToViewport(app.world, app.world.resource(Scene).camera, point),
       instances: () => {
         const transforms = app.world.storage(Transform);

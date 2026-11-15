@@ -16,9 +16,12 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`r
   for(const value of ['1.6','.6','1.35']) {
     await separation.fill(value);await separation.press('Enter');await step();
     expect((await groups()).slice(1)).toEqual(reference);
-    const positions:number[]=await page.evaluate(()=>(window as any).demo.trackPositions()[0].positions);
-    const xs=positions.filter((_,i)=>i%3===0);
-    expect(Math.min(...xs)).toBeCloseTo(-Number(value)/2-.06,6);expect(Math.max(...xs)).toBeCloseTo(Number(value)/2+.06,6);
+    const output:{positions:number[];positionError:number}=await page.evaluate(()=>(window as any).demo.trackPositions()[0]);
+    const xs=output.positions.filter((_,i)=>i%3===0);
+    // Actual standard-renderer unorm16 positions, not unquantized add inputs.
+    // One measured quant lattice step plus the source/parameter f32 conversion.
+    expect(Math.abs(Math.min(...xs)-(-Number(value)/2-.06))).toBeLessThan(output.positionError+1e-6);
+    expect(Math.abs(Math.max(...xs)-(Number(value)/2+.06))).toBeLessThan(output.positionError+1e-6);
     expect(await orbit()).toEqual(view);
   }
   await separation.press('ControlOrMeta+z');await step();await expect(separation).toHaveValue('0.6');
