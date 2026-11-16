@@ -5,6 +5,7 @@ export const palettes = {
   light: { bg: '#f7f3ec', ink: '#2a231e' },
   dark: { bg: '#141210', ink: '#f0e6d6' },
 };
+const axisColors = ['#cc241d', '#6b9d65', '#458588'] as const;
 type Vec = readonly [number, number, number];
 const dot = (a: Vec, b: Vec) => a.reduce((s,v,i)=>s+v*b[i]!,0);
 const cross = (a: Vec,b: Vec): Vec => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
@@ -45,5 +46,5 @@ export function annotationGeometry(p=plate()) {
 }
 export function annotations(p=plate(), ink: string=palettes.light.ink, background: string=palettes.light.bg) {
   const {origin:o,axes,labels,originLabel}=annotationGeometry(p);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${p.width}" height="${p.height}"><defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="${ink}"/></marker></defs><g stroke="${background}" fill="none" stroke-width="5">${axes.map(a=>`<path d="M${o}L${a}"/>`).join('')}<circle cx="${o[0]}" cy="${o[1]}" r="5"/></g><g stroke="${ink}" fill="none" stroke-width="2">${axes.map(a=>`<path d="M${o}L${a}" marker-end="url(#arrow)"/>`).join('')}<circle cx="${o[0]}" cy="${o[1]}" r="5" fill="${ink}"/></g><g fill="${ink}" font-family="sans-serif" font-size="23">${labels.map((a,i)=>`<text x="${a.x}" y="${a.y}" text-anchor="${a.anchor}" dominant-baseline="middle">+${'XYZ'[i]}</text>`).join('')}<text x="${originLabel.x}" y="${originLabel.y}" text-anchor="middle" dominant-baseline="middle">O</text></g></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${p.width}" height="${p.height}"><defs>${axisColors.map((color,i)=>`<marker id="arrow-${i}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="${color}"/></marker>`).join('')}</defs><g stroke="${background}" fill="none" stroke-width="5">${axes.map(a=>`<path d="M${o}L${a}"/>`).join('')}<circle cx="${o[0]}" cy="${o[1]}" r="5"/></g><g stroke="${ink}" fill="none" stroke-width="2">${axes.map((a,i)=>`<path d="M${o}L${a}" stroke="${axisColors[i]}" marker-end="url(#arrow-${i})"/>`).join('')}<circle cx="${o[0]}" cy="${o[1]}" r="5" fill="${ink}"/></g><g fill="${ink}" font-family="sans-serif" font-size="23">${labels.map((a,i)=>`<text x="${a.x}" y="${a.y}" text-anchor="${a.anchor}" dominant-baseline="middle">+${'XYZ'[i]}</text>`).join('')}<text x="${originLabel.x}" y="${originLabel.y}" text-anchor="middle" dominant-baseline="middle">O</text></g></svg>`;
 }

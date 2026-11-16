@@ -51,6 +51,28 @@ test('orthographic camera projects authored origin and local axes with one share
   expect(light).not.toContain('Path-local');
 });
 
+test('generated SVG uses grid axis colors on shafts and heads with neutral labels and origin',()=>{
+  for(const theme of ['light','dark'] as const) {
+    const {ink,bg}=palettes[theme], svg=annotations(plate(),ink,bg);
+    const groups=[...svg.matchAll(/<g ([^>]+)>(.*?)<\/g>/g)];
+    const shafts=[...groups[1]![2]!.matchAll(/<path ([^>]+)\/>/g)];
+    for(const [i,color] of ['#cc241d','#6b9d65','#458588'].entries()) {
+      expect(shafts[i]![1]).toContain(`stroke="${color}"`);
+      const marker=shafts[i]![1]!.match(/marker-end="url\(#([^)]*)\)"/)![1];
+      const head=svg.match(new RegExp(`<marker id="${marker}"[^>]*>(.*?)</marker>`))![1];
+      expect(head).toContain(`fill="${color}"`);
+    }
+    expect(groups[0]![1]).toContain(`stroke="${bg}"`);
+    expect(groups[0]![1]).toContain('stroke-width="5"');
+    expect(groups[1]![1]).toContain(`stroke="${ink}"`);
+    expect(groups[1]![2]).toMatch(new RegExp(`<circle [^>]*fill="${ink}"`));
+    expect(groups[2]![1]).toContain(`fill="${ink}"`);
+    expect([...groups[2]![2]!.matchAll(/<text [^>]*>(.*?)<\/text>/g)].map(m=>m[1])).toEqual(['+X','+Y','+Z','O']);
+    expect(groups[2]![2]).not.toMatch(/(?:fill|stroke)=/);
+    expect(ink).not.toBe(bg);
+  }
+});
+
 test('native raw silhouettes match projected unchanged source bounds in both themes',async()=>{
   const p=plate(), {positions}=source();
   const projected=positions.map(v=>project(v as [number,number,number],p));
