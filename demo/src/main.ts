@@ -21,7 +21,7 @@ try {
   const path = query.get('configuration');
   if (path === 'straight' || path === 'curve' || path === 'loop') {
     const selected = initial.selected;
-    if (selected === 'ties' || selected === 'assembly' || selected === 'track') initial.values[selected].path = path;
+    if (selected === 'ties' || selected === 'track') initial.values[selected].path = path;
   }
   let pending: Selection | undefined = effective(initial);
   const canvas = document.querySelector('canvas')!;

@@ -5,7 +5,7 @@ test('ordinary running native type, arrows, focus and history', async ({page}) =
   await page.goto('./?example=assembly');
   await page.locator('body[data-ready=true]').waitFor();
   for(const [example,name,typed,incremented] of [
-    ['assembly','assembly-separation','1.4','1.45'],
+    ['ties','assembly-separation','1.4','1.45'],
     ['ties','assembly-spacing','0.65','0.7'],
     ['station','assembly-spacing','0.65','0.7'],
   ]) {

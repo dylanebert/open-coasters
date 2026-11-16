@@ -37,7 +37,7 @@ for (const phone of [false, true]) test(`ordinary numeric owner ${phone ? 'phone
   await first.fill('11.99'); await first.press('Enter'); await drag('assembly-post1'); await expect(first).toHaveValue('12');
   expect(await page.evaluate(() => (window as any).demo.orbit())).toEqual(camera);
   await page.screenshot({ path: `/home/dylan/.local/share/open-coasters/placement-navigation/numeric-${phone ? 'phone' : 'desktop'}.png`, fullPage: true });
-  for (const example of ['supports', 'assembly', 'ties', 'station', 'track']) {
+  for (const example of ['supports', 'ties', 'station', 'track']) {
     await exampleMenu(page).selectOption(example);
     for (const input of await page.locator('input[type=number]:visible').all()) {
       const name = (await input.getAttribute('name'))!;

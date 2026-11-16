@@ -10,9 +10,10 @@
   const c = $derived(h.present);
   const selected = $derived(c.selected);
   const values = $derived(c.values);
-  const pathValue = $derived(selected === 'ties' || selected === 'station' || selected === 'assembly' || selected === 'track' ? values[selected].path : undefined);
+  const pathValue = $derived(selected === 'ties' || selected === 'station' || selected === 'track' ? values[selected].path : undefined);
   const fields = $derived(selected === 'ties' ? [
     { key: 'spacing', name: 'assembly-spacing', label: 'Tie spacing · m', value: values.ties.spacing, ...numericRanges.spacing },
+    { key: 'separation', name: 'assembly-separation', label: 'Rail separation · m', value: values.ties.separation, ...numericRanges.separation },
   ] : selected === 'station' ? [
     { key: 'spacing', name: 'assembly-spacing', label: 'Tie spacing · m', value: values.station.spacing, ...numericRanges.spacing },
     { key: 'start', name: 'gap-start', label: 'Gap start · m', value: values.station.start, min: straightDistanceRange.min, max: values.station.end, step: 'any' as const, increment: .05 },
@@ -20,8 +21,6 @@
   ] : selected === 'supports' ? [
     { key: 'post1', name: 'assembly-post1', label: 'Support 1 from start · m', value: values.supports.post1, ...straightDistanceRange, step: 'any' as const, increment: .05 },
     { key: 'post2', name: 'assembly-post2', label: 'Support 2 from start · m', value: values.supports.post2, ...straightDistanceRange, step: 'any' as const, increment: .05 },
-  ] : selected === 'assembly' ? [
-    { key: 'separation', name: 'assembly-separation', label: 'Rail separation · m', value: values.assembly.separation, ...numericRanges.separation },
   ] : []);
   function show(next: typeof h) { h = next; changed(effective(h.present)); }
   function finish() { h = commit(h); }

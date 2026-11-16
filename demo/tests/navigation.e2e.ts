@@ -9,7 +9,7 @@ for(const phone of [false,true]) test(`navigation and gap paths ${phone?'phone':
  await page.getByRole('button',{name:'Previous example'}).click();await menu.value('track');
  await page.getByRole('button',{name:'Next example'}).click();await menu.value('ties');
  await current.click();await expect(current).toHaveAttribute('aria-expanded','true');
- await expect(page.locator('#example-list [aria-current=true]')).toHaveText('Repeated ties');
+ await expect(page.locator('#example-list [aria-current=true]')).toHaveText('Rail');
  await page.keyboard.press('Escape');await expect(current).toHaveAttribute('aria-expanded','false');
  await current.focus();await current.press('ArrowDown');
  await expect(page.locator('#example-list [aria-current=true]')).toBeFocused();

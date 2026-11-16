@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { exampleMenu } from './navigation';
-for(const example of ['ties','station','supports','assembly','track'])test(`bootstrap earned selection ${example}`,async({page})=>{
+for(const example of ['ties','station','supports','track'])test(`bootstrap earned selection ${example}`,async({page})=>{
  await page.goto(`./?example=${example}&stepped`);await page.locator('body[data-ready=true]').waitFor();
  await exampleMenu(page).value(example);
  await expect(page.locator('[name=component],input[type=color],[name=width],[name=depth],[name=appearance],[name=assembly-tie]')).toHaveCount(0);

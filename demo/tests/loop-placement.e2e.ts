@@ -7,7 +7,7 @@ test('ordinary loop selection exposes rail controls', async ({page}, testInfo) =
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('./');
   await page.locator('body[data-ready=true]').waitFor();
-  await exampleMenu(page).selectOption('assembly');
+  await exampleMenu(page).selectOption('ties');
   await page.locator('[name=assembly-path]').selectOption('loop');
   await expect(page.locator('[name=assembly-path]')).toHaveValue('loop');
   await expect(page.locator('[name=assembly-separation]')).toBeVisible();

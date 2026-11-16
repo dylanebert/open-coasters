@@ -68,5 +68,5 @@ test('part views reconstruct original typed arrays without changing indices or v
  expect(selectedExample(selectExample(selectExample(initialConfiguration,'assembly'),'witness'))).toBe('witness');
  expect(selectExample(initialConfiguration,'unknown')).toBe(initialConfiguration);
  expect(selectedExample({...initialConfiguration,selected:'witness'})).toBe('witness');
- expect(selectedExample({...initialConfiguration,selected:'assembly'})).toBe('assembly');
+ expect(selectedExample({...initialConfiguration,selected:'ties'})).toBe('ties');
  });

@@ -68,17 +68,16 @@ test(
       const orbit = w.storage(Orbit);
       w.gpu.device.pushErrorScope("validation");
       for (let cycle = 0; cycle < 2; cycle++)
-        for (let mode = 0; mode < 17; mode++) {
+        for (let mode = 0; mode < 14; mode++) {
           const previous = currentBuffers();
           for (const buffer of previous) families.add(buffer);
           const model=structuredClone(initialConfiguration);
-          const selected=mode<15 ? (['ties','station','supports','assembly','track'] as const)[mode%5] : 'witness';
+          const selected=mode<12 ? (['ties','station','supports','track'] as const)[mode%4] : 'witness';
           const configured=selectExample(model,selected);
-          configured.values.ties.path=(['straight','curve','loop'] as const)[Math.floor(mode/5)%3];
+          configured.values.ties.path=(['straight','curve','loop'] as const)[Math.floor(mode/4)%3];
           configured.values.ties.spacing=mode%2 ? .3 : 1.5;
-          configured.values.assembly.path=(['straight','curve','loop'] as const)[Math.floor(mode/5)%3];
-          configured.values.assembly.separation=mode%2 ? .6 : 1.6;
-          configured.values.track.path=(['straight','curve','loop'] as const)[Math.floor(mode/5)%3];
+          configured.values.ties.separation=mode%2 ? .6 : 1.6;
+          configured.values.track.path=(['straight','curve','loop'] as const)[Math.floor(mode/4)%3];
           configured.values.track.secondSpine=mode%2===0;
           configured.values.witness.asset=mode%2 ? 'blitz-tie' : 'wheel-carrier';
           const next: Selection=effective(configured);

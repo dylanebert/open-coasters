@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { exampleMenu } from './navigation';
-for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`rail offsets retain fixed reference ties and camera at ${viewport.width}`, async ({page}) => {
+for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`Rail owns spacing and separation, history, navigation and camera at ${viewport.width}`, async ({page}) => {
   await page.setViewportSize(viewport);
   const errors:string[]=[]; page.on('pageerror',e=>errors.push(e.message));
   await page.goto('./?example=assembly&stepped'); await page.locator('body[data-ready=true]').waitFor();
@@ -8,6 +8,12 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`r
   const groups=()=>page.evaluate(()=>(window as any).demo.instances());
   const orbit=()=>page.evaluate(()=>(window as any).demo.orbit());
   const camera=await page.evaluate(()=>(window as any).demo.camera);
+  await exampleMenu(page).value('ties');
+  await page.getByRole('button',{name:'Example',exact:true}).click();
+  expect(await page.locator('#example-list button').allTextContents()).toEqual(['Rail','Gap','Supports','Blitz']);
+  await page.getByRole('button',{name:'Rail',exact:true}).click();
+  const spacing=page.locator('[name=assembly-spacing]');
+  await expect(spacing).toBeVisible();
   const path=page.locator('[name=assembly-path]'), separation=page.locator('[name=assembly-separation]');
   expect((await groups()).length).toBe(21);
   await path.selectOption('straight'); await step();
@@ -27,9 +33,16 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`r
   }
   await separation.press('ControlOrMeta+z');await step();await expect(separation).toHaveValue('0.6');
   await separation.press('ControlOrMeta+Shift+z');await step();await expect(separation).toHaveValue('1.35');
+  await spacing.fill('1.2');await spacing.press('Enter');await step();
+  expect((await groups()).slice(1)).toHaveLength(10);
+  expect((await groups())[2][0].translation[2]).toBeCloseTo(-4.8,6);
+  expect(await orbit()).toEqual(view);
+  await spacing.press('ControlOrMeta+z');await step();await expect(spacing).toHaveValue('0.65');
+  expect((await groups()).slice(1)).toEqual(reference);
+  await spacing.press('ControlOrMeta+Shift+z');await step();await expect(spacing).toHaveValue('1.2');
   await path.selectOption('curve');await step();expect((await orbit()).yaw).toBe(view.yaw);expect((await orbit()).pitch).toBe(view.pitch);
   await exampleMenu(page).selectOption('supports');await step();expect((await groups()).length).toBe(22);
-  await exampleMenu(page).selectOption('assembly');await step();await expect(separation).toHaveValue('1.35');await expect(path).toHaveValue('curve');
+  await exampleMenu(page).selectOption('ties');await step();await expect(separation).toHaveValue('1.35');await expect(path).toHaveValue('curve');await expect(spacing).toHaveValue('1.2');
   expect(await page.evaluate(()=>(window as any).demo.camera)).toBe(camera);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width);
   const canvas=(await page.locator('canvas').boundingBox())!,aside=(await page.locator('aside').boundingBox())!;
