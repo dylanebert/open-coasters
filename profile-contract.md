@@ -5,6 +5,14 @@ meters, with origin (0, 0) and normal +Z. Keep its authored coordinates; do not
 recenter or normalize them. Paths, placement, banking, spacing, caps and sweeping
 belong to the consumer, not the profile.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/figures/profile-dark.png">
+  <img src="assets/figures/profile-light.png" alt="An illustrative polygonal profile viewed straight-on in XY, with vertex dots, local origin O, X/Y axes and +Z pointing toward the reader.">
+</picture>
+
+*A profile describes a cross-section in its local XY frame.*
+[Illustration source](site/src/profile-plate.ts)
+
 ## Shape and appearance
 
 A profile contains closed polygonal contours that do not intersect or nest.

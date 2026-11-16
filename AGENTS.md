@@ -25,6 +25,6 @@ Run explicit files with `bun test ./src/<subject>.node.ts`, `bun test ./src/<sub
 
 ## Figures
 
-From `site/`, `bun install --frozen-lockfile && bun run test` checks the committed figure inputs, projection and captured images. `bun run capture` requires a GPU and regenerates the native images; annotation-only changes use `bun scripts/annotations.ts` to reuse the raw PNGs.
+From `site/`, `bun install --frozen-lockfile && bun run test` checks the committed figure inputs, projection and captured images. `site/package.json` lists capture and annotation commands: captures require a GPU; annotation commands reuse the raw PNGs.
 
 Pre-land check: `cd demo && bun install --frozen-lockfile && bun check && bun run typecheck && bun run test && cd ../site && bun install --frozen-lockfile && bun run test`.
