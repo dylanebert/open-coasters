@@ -1,0 +1,16 @@
+{
+  "name": "open-coasters-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test src/plate.test.ts",
+    "capture": "bun --preload ./scripts/preload.ts scripts/capture.ts"
+  },
+  "dependencies": {
+    "@dylanebert/shallot": "0.10.5"
+  },
+  "devDependencies": {
+    "sharp": "0.34.5",
+    "webgpu": "0.6.2"
+  }
+}
