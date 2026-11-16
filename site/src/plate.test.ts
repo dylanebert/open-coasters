@@ -56,6 +56,11 @@ test('generated SVG uses grid axis colors on shafts and heads with neutral label
     const {ink,bg}=palettes[theme], svg=annotations(plate(),ink,bg);
     const groups=[...svg.matchAll(/<g ([^>]+)>(.*?)<\/g>/g)];
     const shafts=[...groups[1]![2]!.matchAll(/<path ([^>]+)\/>/g)];
+    expect(shafts).toHaveLength(3);
+    expect(groups[0]![2]).not.toContain('<path');
+    // Only the three marker shapes and three colored shafts: no duplicate axis paths.
+    expect([...svg.matchAll(/<path\b/g)]).toHaveLength(6);
+    expect(groups[1]![1]).toContain('stroke-width="2"');
     for(const [i,color] of ['#cc241d','#6b9d65','#458588'].entries()) {
       expect(shafts[i]![1]).toContain(`stroke="${color}"`);
       const marker=shafts[i]![1]!.match(/marker-end="url\(#([^)]*)\)"/)![1];
@@ -64,6 +69,7 @@ test('generated SVG uses grid axis colors on shafts and heads with neutral label
     }
     expect(groups[0]![1]).toContain(`stroke="${bg}"`);
     expect(groups[0]![1]).toContain('stroke-width="5"');
+    expect(groups[0]![2]).toBe('<circle cx="600" cy="325" r="5"/>');
     expect(groups[1]![1]).toContain(`stroke="${ink}"`);
     expect(groups[1]![2]).toMatch(new RegExp(`<circle [^>]*fill="${ink}"`));
     expect(groups[2]![1]).toContain(`fill="${ink}"`);
