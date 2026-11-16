@@ -5,6 +5,7 @@
   "scripts": {
     "test": "bun test src/plate.test.ts src/profile-plate.test.ts",
     "capture": "bun --preload ./scripts/preload.ts scripts/capture.ts",
+    "annotations": "bun scripts/annotations.ts",
     "capture:profile": "bun --preload ./scripts/preload.ts scripts/profile-capture.ts",
     "annotations:profile": "bun scripts/profile-annotations.ts"
   },
