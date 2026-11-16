@@ -8,6 +8,14 @@ where the author put it, even outside the geometry. Distances are meters in a
 right-handed frame, with +Y up and the asset's front facing +Z. These axes do not
 define track direction, attachment points, camera behavior or physics.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/figures/tie-frame-dark.png">
+  <img src="assets/figures/tie-frame-light.png" alt="One tie in orthographic view, with its authored origin O and local +X, +Y and +Z axes labeled.">
+</picture>
+
+*The part's geometry is authored relative to its local origin.*
+[Tie source](assets/blitz-tie/PROVENANCE.md)
+
 Each placement supplies a translation and orientation. It preserves the part's
 coordinates, size and hierarchy without recentering or normalizing. Transforms
 apply in this order:
