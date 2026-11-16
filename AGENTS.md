@@ -23,4 +23,8 @@ Use CPU state or native bytes where they can decide the claim. Run an affected G
 
 Run explicit files with `bun test ./src/<subject>.node.ts`, `bun test ./src/<subject>.gpu.test.ts` or `bunx playwright test tests/<subject>.e2e.ts`. Full slow tiers are dispatch-only in `.github/workflows/test.yml`; run them for a named change or doubt, not every local landing.
 
-Pre-land check: `cd demo && bun install --frozen-lockfile && bun check && bun run typecheck && bun run test`.
+## Figures
+
+From `site/`, `bun install --frozen-lockfile && bun run test` checks the committed figure inputs, projection and captured images. `bun run capture` requires a GPU and regenerates the native images; annotation-only changes use `bun scripts/annotations.ts` to reuse the raw PNGs.
+
+Pre-land check: `cd demo && bun install --frozen-lockfile && bun check && bun run typecheck && bun run test && cd ../site && bun install --frozen-lockfile && bun run test`.
