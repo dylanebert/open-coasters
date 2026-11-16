@@ -1,75 +1,85 @@
-# Planar profile candidate — provisional
+# Profiles
 
-A profile is an authored metric XY section with origin (0,0) and +Z normal.
-Coordinates are not recentered or normalized. It is separate from the static
-instance candidate: paths, placement, banking, spacing, caps and sweep algorithms
-belong to consumers. Synthetic extraction tests and the bounded untextured Modern
-contribution exercise this draft. `assets/blitz-profile/PROVENANCE.md` records
-source fidelity and independent Blender construction evidence, tolerances and
-limits; it does not qualify arbitrary source attributes or sweep consumers.
+Provisional contract. A profile is a cross-section in the XY plane, measured in
+meters, with origin (0, 0) and normal +Z. Keep its authored coordinates; do not
+recenter or normalize them. Paths, placement, banking, spacing, caps and sweeping
+belong to the consumer, not the profile.
 
-Sections contain closed, disjoint, nonintersecting polygonal contours, CCW when
-viewed from +Z. Holes, nested loops and open contours are unsupported. Concave
-polygons and collinear nonoverlapping consecutive edges are allowed. Output is
-plain points and directed edges grouped into contours. Each edge retains its
-material identity and its two authored transverse unit normals. Adjacent edges
-may share normals (smooth shading) or have distinct normals (hard shading).
-Normals are not regenerated, averaged or forced perpendicular to an edge, but
-must point strictly into its outward half-plane. Material indices refer to the
-returned core glTF material table, not colors used as substitutes for identity.
-Omitted primitive materials resolve to one appended default-material slot using
-standard glTF defaults. That slot remains distinct from every authored material,
-even an explicitly authored material with identical values.
+## Shape and appearance
 
-## First restricted binding: matching-end glTF
+A profile contains closed polygonal contours that do not intersect or nest.
+Each runs counterclockwise when viewed from +Z. Concave contours and collinear,
+nonoverlapping consecutive edges are allowed. Holes, nested loops and open
+contours are not supported.
 
-Standard glTF 2.0 units, geometry, materials and transforms retain their standard
-meanings. **Profile extraction** is the new interpretation, not a claim that
-arbitrary glTF meshes are profiles. `demo/src/profile.ts` uses Shallot's public
-loader on the checked JSON document, resolves buffers against the response URL,
-and refuses decoder-reported unsupported content. Contributions must be valid
-glTF independently; this boundary is not a complete format validator.
+The result is plain points and directed edges grouped into contours. Each edge
+retains its material identity and two authored transverse unit normals. Adjacent
+edges can share normals for smooth shading or use different normals for a hard
+edge. Normals are not regenerated, averaged or forced perpendicular to the edge;
+they must point into its outward half-plane.
 
-This first binding inherits the [static candidate's](instance-contract.md) explicit
-selected scene, triangle-only opaque untextured core materials and document-wide refusals
-of animation, morph targets/weights, skinning, cameras and extensions. It adds:
+Material indices refer to the returned core glTF material table, not substitute
+colors. Primitives without a material use one appended slot with glTF defaults.
+That slot stays separate from authored materials, even an identical-valued one.
 
-- Only POSITION and authored NORMAL attributes; other attributes are refused
-- No authored matrix/TRS properties, even identity-valued ones. Identity-frame
-  grouping and mesh reuse are allowed, but overlapping instances fail. This is
-  a provisional exporter restriction, not alternate transform semantics
-- Only uncapped straight side-wall witnesses. All vertices lie on exactly two
-  distinct Z levels shared across the section. The levels need not straddle zero;
-  they are evidence of extrusion, not longitudinal placement output
-- Each polygon edge has exactly one outward-wound quad split by either diagonal
-  into two triangles. Duplicate, open, branching, reversed or incomplete walls
-  fail. Caps, intermediate stations, bevels, longitudinal material/normal changes
-  and any other triangles fail rather than being projected away
-- End positions match in XY; normals and material are constant along each edge
-  endpoint's Z line. Hard seams may use separate glTF vertices. There is no
-  requirement for a particular vertex index layout or primitive per contour
+## glTF files: matching ends
 
-The uncapped/identity-frame restrictions are provisional. Broader support must
-be defined and tested; unsupported content is not silently approximated.
+The first supported representation extracts a profile from the matching ends of
+an uncapped, straight extrusion. This is an additional interpretation of the
+mesh, not a claim that glTF defines profiles. Standard glTF units, geometry,
+materials and transforms keep their usual meaning.
 
-## Numerical policy
+Files inherit the [static-part restrictions](instance-contract.md), including an
+explicit selected scene, triangles, opaque untextured core materials and
+file-wide rejection of animation, morph targets/weights, skins, cameras and
+extensions. They also require:
 
-Absolute position tolerance is 1e-6 meters, normal-component and unit-length
-tolerance 1e-5. Coordinates are matched componentwise to the first encountered
-section point; output retains that authored representative without rounding.
-Ambiguous matches fail. End separation and edge length must exceed 2e-6 m.
-Nonadjacent edges must be farther than 1e-6 m and must not cross. Adjacent
-edges share an endpoint; only exactly collinear backtracking is rejected there,
-without an altitude or angle tolerance. Contours require positive doubled
-area greater than 1e-12 square meters. The authored normal dot the edge's unit
-outward vector must exceed 1e-5. Thus tangent or nearly tangent normals are
-unsupported. These absolute limits are part of this candidate,
-not scale-relative repair heuristics. Differences below tolerances are treated
-as export noise, not as supported longitudinal features.
+- Only POSITION and authored NORMAL attributes
+- No matrix/TRS properties, even identity-valued ones. Identity-frame grouping and mesh reuse are allowed; overlapping instances fail
+- Exactly two distinct Z levels shared across the section. They need not straddle zero and do not define longitudinal placement
+- One outward-wound quad per profile edge, split along either diagonal into two triangles
+- Matching XY positions at both ends, with each edge endpoint's normal and material constant along Z
 
-`demo/src/profile.test.ts` authors off-origin meter-scale walls directly, with
-independent expected points, contour adjacency, hard/smooth normals and material
-values. Mutations exercise end mismatch, longitudinal geometry/shading,
-connectivity/winding, intersections, nesting and subset refusals, including both
-sides of positional and normal matching tolerances. The Modern contribution's
-provenance owns its separate source and consumer qualification limits.
+Hard seams may use separate vertices. No particular vertex order or primitive
+per contour is required. Duplicate, open, branching, reversed or incomplete walls
+fail. Caps, intermediate stations, bevels, longitudinal material/normal changes
+and other triangles fail rather than being projected away. The uncapped and
+identity-frame limits are provisional exporter restrictions, not different
+transform semantics or automatic repair rules.
+
+[`loadProfile`](demo/src/profile.ts) uses Shallot's public loader on the checked
+JSON document, resolves buffers against the response URL and rejects reported
+unsupported content. Files must also pass independent glTF format validation;
+this reader is not a complete validator.
+
+## Numerical limits
+
+These are absolute limits, not scale-relative repair rules. Differences within
+the tolerances count as export noise, not supported longitudinal detail.
+
+| Quantity | Rule |
+| --- | --- |
+| Position matching | Componentwise tolerance 1e-6 m |
+| Normal components and unit length | Tolerance 1e-5 |
+| End separation and edge length | Greater than 2e-6 m |
+| Nonadjacent edges | More than 1e-6 m apart, without crossing |
+| Contour doubled area | Positive and greater than 1e-12 m² |
+| Normal dot edge's unit outward vector | Greater than 1e-5 |
+
+Position matching uses the first encountered point as the representative and
+retains it without rounding. Ambiguous matches fail. Adjacent edges share an
+endpoint; only exactly collinear backtracking is rejected there, without an
+altitude or angle tolerance. Tangent and nearly tangent normals are unsupported.
+
+## Verification
+
+[Profile tests](demo/src/profile.test.ts) start from independently authored,
+off-origin meter-scale walls with expected points, connectivity, normals and
+materials. They check mismatched ends, longitudinal detail, winding,
+intersections, nesting, unsupported content and both sides of the position and
+normal tolerances.
+
+[Modern profile provenance](assets/blitz-profile/PROVENANCE.md) records the
+untextured external contribution's source fidelity, separate Blender construction,
+comparison allowances and limits. It does not establish support for arbitrary
+source attributes or sweep consumers.

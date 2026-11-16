@@ -1,68 +1,64 @@
-# Contributing an atomic asset
+# Contributing
 
-Static instances and planar profiles are separate provisional subsets. Start with
-[instance-contract.md](instance-contract.md) or [profile-contract.md](profile-contract.md)
-for meaning, supported content and numerical limits. An atomic submission requires no construction rules.
+You can contribute a [static part](instance-contract.md) or a
+[profile](profile-contract.md). Those documents describe the supported geometry
+and file formats. You do not need to supply track-construction rules or add your
+asset to the demo.
 
-## Prepare a delivery
+## Prepare the files
 
-Keep each asset's evidence together under `assets/<name>/`:
+Keep source files and their documentation under `assets/<name>/`. Include:
 
-- Archive the source at an identified revision (and record source blob hashes or
-  equivalent immutable identifiers), plus editable source where applicable
-- Establish MIT permission for the contributed material; preserve copyright,
-  attribution and license notices. Record upstream URLs, authors and revision.
-  Do not infer permission from an export or a filename
-- Record the authored origin, meter scale and frame with measured source landmarks.
-  State which geometry and appearance are retained and which are omitted
-- Include repeatable export commands, tool versions and any conversion settings.
-  Deliver ordinary JSON `.gltf` and its dependent buffers under `demo/public/assets/`;
-  preserve relative URIs
+- Original source, its URL, author and revision, and a file hash or other immutable identifier
+- Editable source where applicable
+- MIT permission and the original copyright, license and attribution notices
+- Measured dimensions, origin and coordinate axes, with any changes made during conversion
+- A description of geometry and appearance retained or omitted
+- Export commands, tool versions and settings needed to reproduce the result
 
-Existing evidence layouts include `assets/blitz-tie/PROVENANCE.md` and
-`assets/blitz-profile/PROVENANCE.md`. Their rebuild scripts are asset-specific,
-not required exporter infrastructure.
+Put exported JSON `.gltf` files and their buffers under `demo/public/assets/`.
+Keep relative buffer paths intact. Do not infer permission from a filename or
+an export.
 
-## Check the exported subset
+For examples, see the [Blitz tie](assets/blitz-tie/PROVENANCE.md) and
+[Modern profiles](assets/blitz-profile/PROVENANCE.md). Their export scripts are
+specific to those assets; you do not need to use them.
 
-Install Bun 1.4.4 or newer and the pinned dependencies once:
+## Check the export
+
+With Bun 1.4.4 or newer, install dependencies from `demo/`:
 
 ```sh
-cd demo
 bun install --frozen-lockfile
-cd ..
 ```
 
-From the repository root, choose the claim you are submitting:
+Then, from the repository root, run the appropriate check:
 
 ```sh
-bun demo/tools/check-asset.ts instance /absolute/path/to/part.gltf
-bun demo/tools/check-asset.ts profile /absolute/path/to/section.gltf
+bun demo/tools/check-asset.ts instance /path/to/part.gltf
+bun demo/tools/check-asset.ts profile /path/to/profile.gltf
 ```
 
-Relative input paths are relative to your working directory; dependent buffers
-resolve relative to the input document. From another directory use the absolute
-path to `demo/tools/check-asset.ts`. A failed check exits nonzero. This command
-runs the existing subset gates and Shallot's public decoder (and profile
-extraction for profiles); it is not a new full validator. It needs no upstream
-checkout, Blender, GPU or browser for checked-in deliveries.
+Input paths are relative to your working directory; buffer paths are relative
+to the glTF file. From another directory, use an absolute path to the script.
+The command decodes the file and checks the supported subset, including profile
+extraction where requested. Errors exit nonzero. Checked-in exports need no
+upstream checkout, Blender, GPU or browser for this check.
 
-A pass is **not full glTF validation or source-fidelity validation**. Run
-[Khronos glTF-Validator](https://github.com/KhronosGroup/glTF-Validator) separately
-on the delivery and record its version, command and findings. Fix format errors;
-do not treat subset acceptance as permission to submit invalid glTF.
+Also run [Khronos glTF-Validator](https://github.com/KhronosGroup/glTF-Validator)
+and record its version, command and findings. Fix format errors. The local check
+does not establish full glTF validity or fidelity to the source.
 
-## Supply independent evidence for review
+## Include verification
 
-Compare exported directed triangles, metric frame/origin and any claimed retained
-appearance directly against archived source, independently of exporter helpers.
-Include deterministic CPU checks using checked-in inputs and negative controls
-that demonstrate rejection of the corruptions your claims cover. Qualify actual
-exported files in a separate native consumer (for example Blender import), recording
-tool version, commands, measured discrepancies and limitations. Reusing the same
-decoder twice is not independent source evidence.
+Compare exported triangles (including winding), dimensions, origin, axes and
+retained appearance against the source without reusing the exporter's conversion code.
+Include repeatable CPU checks using checked-in files, with deliberate corruptions
+to show the checks can fail. Import the export into another tool, such as Blender,
+and record its version, commands, measured differences and limitations. Two uses
+of the same decoder are not independent verification.
 
-Submit source/notices, exports, reproduction instructions and evidence together.
-Review separates legal/source documentation, glTF format validity, subset
-acceptance and source/adoption claims. Acceptance is limited to the submitted asset and its verified claims. Viewer integration is not
-required for an atomic submission.
+Submit the files, notices, export instructions and verification together. Review
+checks permission and provenance, glTF validity, supported content, source fidelity
+and use in another tool separately. Acceptance covers only the asset and behavior
+that were checked.
