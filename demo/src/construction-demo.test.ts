@@ -141,8 +141,16 @@ test('construction controls keep history and deterministic camera/replacement de
    r.parts[1].placements.forEach((f,i)=>{ expect(f.translation[0]).toBe(0); expect(f.translation[1]).toBe(0); expect(f.translation[2]).toBeCloseTo([post1,post2][i]-6,12); });
    expect(r.parts[0]).toEqual(base.parts[0]);
    expect(build({post1,post2,spacing:.375}).parts[1]).toEqual(r.parts[1]);
+ },TIMEOUT.cheap);
 
+test('explicit support sibling edits preserve the other full frame',()=>{
+ const build=(patch:object)=>constructDemo({...a,witness:'supports',...patch},section,tie,post);
+ const base=build({});
  expect(build({post1:1.234}).parts[1].placements[1]).toEqual(base.parts[1].placements[1]);
  expect(build({post2:11.789}).parts[1].placements[0]).toEqual(base.parts[1].placements[0]);
+},TIMEOUT.cheap);
+
+test('explicit support stations refuse invalid inputs',()=>{
+ const build=(patch:object)=>constructDemo({...a,witness:'supports',...patch},section,tie,post);
  for(const key of ['post1','post2']) for(const value of [NaN,Infinity,-.001,12.001]) expect(()=>build({[key]:value})).toThrow('Invalid support station');
  },TIMEOUT.cheap);
