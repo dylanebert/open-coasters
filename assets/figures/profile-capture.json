@@ -1,0 +1,78 @@
+{
+  "tool": "Bun 1.4.4 / Shallot 0.10.5 / Dawn (webgpu 0.6.2) / sharp 0.34.5",
+  "command": "cd site && bun --preload ./scripts/preload.ts scripts/profile-capture.ts",
+  "recomposition": "cd site && bun scripts/profile-annotations.ts",
+  "source": "assets/blitz-profile/ModernSpine_1.obj",
+  "representation": "24 directed lower-end edges; reversed upper-end matching; XY retained, Z=0; 48 thin stroke triangles, no interior",
+  "captures": [
+    {
+      "theme": "light",
+      "adapter": {
+        "class": "real",
+        "identity": "nvidia lovelace nvidia-geforce-rtx-4090 NVIDIA: 615.78.08 615.78.8.0"
+      },
+      "camera": {
+        "mode": 1,
+        "size": 0.53,
+        "near": 0.1,
+        "far": 10
+      },
+      "transform": {
+        "translation": [
+          0,
+          -0.34,
+          2
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "width": 900,
+      "height": 900
+    },
+    {
+      "theme": "dark",
+      "adapter": {
+        "class": "real",
+        "identity": "nvidia lovelace nvidia-geforce-rtx-4090 NVIDIA: 615.78.08 615.78.8.0"
+      },
+      "camera": {
+        "mode": 1,
+        "size": 0.53,
+        "near": 0.1,
+        "far": 10
+      },
+      "transform": {
+        "translation": [
+          0,
+          -0.34,
+          2
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      "width": 900,
+      "height": 900
+    }
+  ],
+  "sha256": {
+    "assets/blitz-profile/ModernSpine_1.obj": "1031b9e79869375e4823cc860783fce10d11060aa318e255a8db991b1376451d",
+    "demo/public/assets/ModernSpine_1.gltf": "fcfeff10d08620a724339db9094566b6e0f23c5ace40026bfba1cd7d4965fe4e",
+    "demo/public/assets/ModernSpine_1.bin": "89b56eed074c92c83772e0c207538d032c287374c79e60e9be579df104d7e7f6",
+    "assets/figures/profile-light.png": "1c9c0380eb7e4a01b36ef3c351eec733d70e8a76be9f27ecb9a9e8809fe5f898",
+    "assets/figures/profile-light-raw.png": "365108a18779347a8fa1ee9b4a108604b34ad0b56b6a9f82154c0ba16eba05ae",
+    "assets/figures/profile-dark.png": "25169bb41722670156ccf5838bd9665ae163729241d337cad152491980619f14",
+    "assets/figures/profile-dark-raw.png": "d070536a6c0efbcfc57d626b86bf5986b0565bb574773e09df382a149e1ca4c4",
+    "assets/figures/tie-frame-light.png": "ec7ca7591a769ba166f6658284bf072bc5cb2d310c5de924e106e88327337bea",
+    "assets/figures/tie-frame-light-raw.png": "5df3d960d37880f2cf88459a9ee3f7f05e9d727c8255b1edafe3b107bd2b0ba1",
+    "assets/figures/tie-frame-dark.png": "54d63b3a137f88128b4f906c7fed6d39376f8a7cf0db2a843bf1960e9baa027a",
+    "assets/figures/tie-frame-dark-raw.png": "e1b6f9af15b041699c87032e782a14a01bb10df4237238f3662ea2f5912492ec"
+  }
+}

@@ -3,8 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test src/plate.test.ts",
-    "capture": "bun --preload ./scripts/preload.ts scripts/capture.ts"
+    "test": "bun test src/plate.test.ts src/profile-plate.test.ts",
+    "capture": "bun --preload ./scripts/preload.ts scripts/capture.ts",
+    "capture:profile": "bun --preload ./scripts/preload.ts scripts/profile-capture.ts",
+    "annotations:profile": "bun scripts/profile-annotations.ts"
   },
   "dependencies": {
     "@dylanebert/shallot": "0.10.5"

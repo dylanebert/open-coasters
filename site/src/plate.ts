@@ -5,7 +5,7 @@ export const palettes = {
   light: { bg: '#f7f3ec', ink: '#2a231e' },
   dark: { bg: '#141210', ink: '#f0e6d6' },
 };
-const axisColors = ['#cc241d', '#6b9d65', '#458588'] as const;
+export const axisColors = ['#cc241d', '#6b9d65', '#458588'] as const;
 type Vec = readonly [number, number, number];
 const dot = (a: Vec, b: Vec) => a.reduce((s,v,i)=>s+v*b[i]!,0);
 const cross = (a: Vec,b: Vec): Vec => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
@@ -16,10 +16,10 @@ export function plate() {
     camera: [1.1,.85,2.2] as Vec, target: [0,0,0] as Vec,
     origin: [0,0,0] as Vec, axes: [[.72,0,0],[0,.26,0],[0,0,.30]] as Vec[] } as const;
 }
-export function cameraConfiguration(p=plate()) {
+export function cameraConfiguration(p: Pick<ReturnType<typeof plate>, 'size'>=plate()) {
   return { mode: CameraMode.Orthographic, size:p.size, near:.1, far:10 };
 }
-export function cameraTransform(p=plate()) {
+export function cameraTransform(p: Pick<ReturnType<typeof plate>, 'camera' | 'target'>=plate()) {
   return { translation:[...p.camera], rotation:lookAtRotation(...p.camera,...p.target,0,1,0) };
 }
 export function source() {
@@ -29,7 +29,7 @@ export function source() {
   const positions=Array.from({length:accessor.count},(_,i)=>Array.from({length:3},(_,j)=>bytes.readFloatLE((view.byteOffset??0)+(accessor.byteOffset??0)+i*12+j*4)));
   return {json,positions};
 }
-export function project(v: Vec, p=plate()) {
+export function project(v: Vec, p: Pick<ReturnType<typeof plate>, 'camera' | 'target' | 'width' | 'height' | 'size'>=plate()) {
   const back=unit(p.camera.map((v,i)=>v-p.target[i]!) as unknown as Vec);
   const right=unit(cross([0,1,0],back)), up=cross(back,right);
   const relative=v.map((v,i)=>v-p.target[i]!) as unknown as Vec;
