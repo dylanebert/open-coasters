@@ -1,2 +1,2 @@
 stage: 20
-clean
+finding: The served /open-coasters/ preview at 127.0.0.1:4190 lacks the exact ID construction-contract--recipes-and-results, corresponding to the “recipes and results” heading retained in 564ac7b. The preview emits construction-contract--recipe-and-result-semantics instead, with no old ID, so existing links to #construction-contract--recipes-and-results no longer resolve.
