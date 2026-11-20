@@ -1,2 +1,2 @@
 stage: 19
-clean
+finding: Placement does not make the two teaching levels visible: “placements” opens with Normal Track inputs before explaining the layout, while “sweeps and supports,” “distances and frames,” and “technical reference” are peer headings. The full-recipe and Ties-only diagrams look like matching code listings, without visible overview/detail labels; the reader must infer their nesting from the prose. At 390×844 the first diagram starts at y=742, so even the first screen does not show the complete track result.
