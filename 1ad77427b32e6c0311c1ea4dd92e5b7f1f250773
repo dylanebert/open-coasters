@@ -1,0 +1,2 @@
+stage: 20
+finding: The previously live /open-coasters/#construction-contract--recipes-and-results fragment from 564ac7b no longer resolves. construction-contract.md removes the heading while moving its semantics under recipe-and-result-semantics; served HTML preserves the old distance-and-frame-operations ID but has no recipes-and-results compatibility target. Existing links to that guide now land without a target.
