@@ -1,0 +1,2 @@
+stage: 22
+finding: The private built guide and llms.txt both point “distances and frames” to github.com/dylanebert/open-coasters/blob/main/placement-reference.md#distances-and-frames, which is absent from public main (raw URL returns 404). The source file and heading exist at HEAD, but the built preview does not serve them, so the moved reference is unreachable in the product under review despite the link-shape checks passing.
