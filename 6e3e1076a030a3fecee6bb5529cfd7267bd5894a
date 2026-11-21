@@ -1,0 +1,2 @@
+stage: 20
+finding: The open Placement section explains the example but does not identify the scope of requested feedback. Its only follow-ons are “One-tie recipe” and “Technical reference”; neither label tells a cold reader what is open for feedback or what is out of scope.
