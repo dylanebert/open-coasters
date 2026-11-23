@@ -1,2 +1,0 @@
-stage: 20
-finding: In the uncommitted terminology draft, spec.md:8 (“how recipes for placing parts and sweeping profiles are defined”) presupposes parts, profiles, and sweeping before the outline introduces them. construction-contract.md:3 (“A recipe can place parts, sweep profiles, or do both”) omits the shared path, the concrete relation that distinguishes the operations from generic placement and sweeping. “The recipe contract defines how to write recipes” restates the heading without adding a fact.
