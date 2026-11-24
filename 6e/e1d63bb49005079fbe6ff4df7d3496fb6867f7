@@ -1,0 +1,2 @@
+stage: 5
+finding: Native ties now forwards options by object rest, silently dropping non-enumerable or inherited inputs that the previous named destructuring read. Reproduced on HEAD with valid native content and a 1 m path: an own non-enumerable spacing of 0.25 yields four frames from tieFrames but only one native placement from ties (spacing falls back to 1). Required path/allowed supplied the same way are dropped too. Existing CPU/GPU checks use enumerable options and miss this regression.
