@@ -91,10 +91,10 @@ test('spacing/gaps and support edits affect only owned rows; zero-tick and ordin
   const before=await readMesh(w,s.mesh),count=s.dispatches,registry=[...w.resource(Meshes).entries()];
   await update({...assemblyDefaults,path:'straight',witness:'station',spacing:.8,gapStart:3.3,gapEnd:8.7});
   expect(s.dispatches).toBe(count);expect((await readMesh(w,s.mesh)).main).toEqual(before.main);
-  // Shared binary64 phase: 0,.8,1.6,2.4,3.2 then 8.8,9.6,10.4,11.2; 12 is excluded by fixedDistances.
+  // Shared binary64 phase: 0,.8,1.6,2.4,3.2 then 8.8,9.6,10.4,11.2; 12 is excluded by repeatDistances.
   const stations=[0,.8,1.6,2.4,3.2,8.8,9.6,10.4,11.2];
   expect(refs.instances.length).toBe(stations.length+1);
-  for(let i=0;i<stations.length;i++)expect((await gpuPose(refs.instances[i+1][0]))[2]).toBeCloseTo(stations[i]-6,5);
+  for(let i=0;i<stations.length;i++)expect((await gpuPose(refs.instances[i+1][0]))[2]).toBeCloseTo(6-stations[i],5);
   await update({...assemblyDefaults,path:'straight',witness:'supports'});
   const ties=refs.instances.slice(1,-2).map(g=>[...g]),posts=refs.instances.slice(-2).map(g=>[...g]);
   const material=posts.map(g=>w.storage(MeshMaterial).material.get(g[0]));
@@ -123,8 +123,8 @@ test('spacing/gaps and support edits affect only owned rows; zero-tick and ordin
     expect(refs.instances.slice(1,-2)).toEqual(ties);expect(refs.instances.slice(-2)).toEqual(posts);
     expect(posts.map(g=>w.storage(MeshMaterial).material.get(g[0]))).toEqual(material);
     expect(ties.map(g=>w.storage(MeshInstance).mesh.get(g[0]))).toEqual(tieMeshes);
-    expect((await gpuPose(posts[0][0])).slice(0,3)).toEqual([0,0,-2.875]);
-    expect((await gpuPose(posts[1][0])).slice(0,3)).toEqual([0,0,3.125]);
+    expect((await gpuPose(posts[0][0])).slice(0,3)).toEqual([0,0,2.875]);
+    expect((await gpuPose(posts[1][0])).slice(0,3)).toEqual([0,0,-3.125]);
   }
   const submitted=s.dispatches;w.step(0);await w.frameFence;expect(s.dispatches).toBe(submitted);
   expect([...w.resource(Meshes).entries()]).toEqual(registry);

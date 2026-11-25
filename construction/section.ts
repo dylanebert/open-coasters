@@ -1,15 +1,16 @@
+import { mapList } from './list';
 /** Structural native JSON input; no renderer dependency. */
 type GltfJson = { [key: string]: any };
 
-export type SampledSection = readonly (readonly [number, number])[];
+export type ConvexSection = readonly (readonly [number, number])[];
 const sections = new WeakSet<object>();
-export function sectionValue(value: unknown): SampledSection {
+export function sectionValue(value: unknown): ConvexSection {
   if (!value || typeof value !== 'object' || !sections.has(value)) throw Error('Section requires decoded assembly binding');
-  return value as SampledSection;
+  return value as ConvexSection;
 }
 /** Bounded geometry-only binding: one directed closed convex XY line cycle in
  * its identity local frame. This is not glTF sweep semantics or a format validator. */
-export function sampledSection(json: GltfJson, buffers: readonly ArrayBuffer[]): SampledSection {
+export function sampledSection(json: GltfJson, resources: readonly ArrayBuffer[]): ConvexSection {
   const fail = (): never => { throw new Error('Sampled section: unsupported or invalid geometry'); };
   // Explicit subset: refuse semantic fields rather than silently losing them.
   const fields = (o: unknown, allowed: string[]) => {
@@ -26,7 +27,11 @@ export function sampledSection(json: GltfJson, buffers: readonly ArrayBuffer[]):
   for (const a of json.accessors ?? []) fields(a, ['bufferView', 'byteOffset', 'componentType', 'count', 'type', 'min', 'max']);
   for (const v of json.bufferViews ?? []) fields(v, ['buffer', 'byteOffset', 'byteLength', 'byteStride', 'target']);
   for (const b of json.buffers ?? []) fields(b, ['uri', 'byteLength']);
-  if (json.buffers?.length !== buffers.length || buffers.some((b, i) => b.byteLength !== json.buffers![i].byteLength)) fail();
+  const buffers = mapList(resources, 'section buffers', (b, i) => {
+    if (b.byteLength !== json.buffers?.[i]?.byteLength) fail();
+    return b;
+  });
+  if (json.buffers?.length !== buffers.length) fail();
   function values(index: number, positions: boolean) {
     const a = json.accessors?.[index], v = a && json.bufferViews?.[a.bufferView!];
     if (!Number.isInteger(index) || !a || !v || !Number.isInteger(a.count) || a.count < 1 || a.count > 4096 || (positions ? a.type !== 'VEC3' || a.componentType !== 5126 : a.type !== 'SCALAR' || ![5121,5123,5125].includes(a.componentType))) return fail();

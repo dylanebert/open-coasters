@@ -4,62 +4,119 @@
   "captures": [
     {
       "theme": "light",
+      "context": false,
       "adapter": {
         "class": "real",
         "identity": "nvidia lovelace nvidia-geforce-rtx-4090 NVIDIA: 615.78.08 615.78.8.0"
       },
       "width": 1200,
-      "height": 650
+      "height": 650,
+      "camera": {
+        "mode": 1,
+        "size": 0.46,
+        "near": 0.1,
+        "far": 10
+      },
+      "transform": {
+        "translation": [
+          1.1,
+          0.85,
+          2.2
+        ],
+        "rotation": [
+          -0.1611670439987512,
+          0.22658084122949498,
+          0.038046378116404815,
+          0.9598118458472278
+        ]
+      }
+    },
+    {
+      "theme": "light",
+      "context": true,
+      "adapter": {
+        "class": "real",
+        "identity": "nvidia lovelace nvidia-geforce-rtx-4090 NVIDIA: 615.78.08 615.78.8.0"
+      },
+      "width": 1200,
+      "height": 650,
+      "camera": {
+        "mode": 1,
+        "size": 0.94,
+        "near": 0.1,
+        "far": 10
+      },
+      "transform": {
+        "translation": [
+          1.1,
+          1.5,
+          2.2
+        ],
+        "rotation": [
+          -0.24635307443951762,
+          0.20268429888283707,
+          0.05276654426946673,
+          0.9462795197542999
+        ]
+      }
     },
     {
       "theme": "dark",
+      "context": false,
       "adapter": {
         "class": "real",
         "identity": "nvidia lovelace nvidia-geforce-rtx-4090 NVIDIA: 615.78.08 615.78.8.0"
       },
       "width": 1200,
-      "height": 650
+      "height": 650,
+      "camera": {
+        "mode": 1,
+        "size": 0.46,
+        "near": 0.1,
+        "far": 10
+      },
+      "transform": {
+        "translation": [
+          1.1,
+          0.85,
+          2.2
+        ],
+        "rotation": [
+          -0.1611670439987512,
+          0.22658084122949498,
+          0.038046378116404815,
+          0.9598118458472278
+        ]
+      }
+    },
+    {
+      "theme": "dark",
+      "context": true,
+      "adapter": {
+        "class": "real",
+        "identity": "nvidia lovelace nvidia-geforce-rtx-4090 NVIDIA: 615.78.08 615.78.8.0"
+      },
+      "width": 1200,
+      "height": 650,
+      "camera": {
+        "mode": 1,
+        "size": 0.94,
+        "near": 0.1,
+        "far": 10
+      },
+      "transform": {
+        "translation": [
+          1.1,
+          1.5,
+          2.2
+        ],
+        "rotation": [
+          -0.24635307443951762,
+          0.20268429888283707,
+          0.05276654426946673,
+          0.9462795197542999
+        ]
+      }
     }
-  ],
-  "camera": {
-    "provenance": "Original native capture parameters, now shared with CPU checks; no native worldToViewport measurement",
-    "mode": 1,
-    "size": 0.46,
-    "near": 0.1,
-    "far": 10,
-    "transform": {
-      "translation": [
-        1.1,
-        0.85,
-        2.2
-      ],
-      "rotation": [
-        -0.1611670439987512,
-        0.22658084122949498,
-        0.038046378116404815,
-        0.9598118458472278
-      ]
-    }
-  },
-  "annotations": {
-    "command": "cd site && bun scripts/annotations.ts",
-    "rawCapturesReused": true,
-    "projectionCheck": "Inverse camera quaternion and orthographic size independently agree with overlay at origin, three axis endpoints and three source landmarks within 0.0001 pixel; CPU, not native worldToViewport",
-    "rawSilhouetteCheck": {
-      "bounds": [
-        205,
-        228,
-        994,
-        421
-      ],
-      "projectedSourceBounds": [
-        205.04201017532455,
-        228.28284938254313,
-        994.9573577404758,
-        421.71735706957986
-      ],
-      "tolerancePixels": 2,
-      "identicalThemeMasks": true
-    }
-  }
+  ]
 }

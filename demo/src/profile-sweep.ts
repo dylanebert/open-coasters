@@ -20,7 +20,7 @@ export function sweepProfile(profile: Profile, configuration: Configuration, cap
     }
     for (let i = 0; i < 192; i++) {
       const a = start + 2 * i;
-      indices.push(a, a + 1, a + 3, a, a + 3, a + 2);
+      indices.push(a, a + 3, a + 1, a, a + 2, a + 3);
       materials.push(edge.material, edge.material);
     }
   }
@@ -32,10 +32,10 @@ export function sweepProfile(profile: Profile, configuration: Configuration, cap
       const start = positions.length;
       for (const xy of section) {
         positions.push(point(f, ...xy));
-        normals.push(f.z.map(v => v * (end ? 1 : -1)));
+        normals.push(f.z.map(v => v * (end ? -1 : 1)));
       }
       for (const [a,b,c] of triangles) {
-        indices.push(start+a, start+(end ? b : c), start+(end ? c : b));
+        indices.push(start+a, start+(end ? c : b), start+(end ? b : c));
         materials.push(capMaterial);
       }
     }

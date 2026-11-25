@@ -1,0 +1,61 @@
+{
+  "command": "cd visualizer && VISUALIZER_URL=<built app URL> bun run capture",
+  "recipe": "examples/one-tie.ts",
+  "recipeSha256": "bc414c8a0895854772e82f6ef31314e1c3bdeb1d99c4fdef154e6a4e51df0f87",
+  "captures": [
+    {
+      "file": "one-tie-light.png",
+      "theme": "light",
+      "viewport": {
+        "width": 540,
+        "height": 400
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 540,
+        "height": 340
+      },
+      "deviceScaleFactor": 2,
+      "distance": 2,
+      "axes": [
+        "+X",
+        "+Y",
+        "−Z"
+      ],
+      "adapter": {
+        "vendor": "nvidia",
+        "architecture": "lovelace",
+        "fallback": false
+      },
+      "sha256": "1fabc04956e533638a8205917428ce99347d1546f1cca4cb71ea2f577b178c9d"
+    },
+    {
+      "file": "one-tie-dark.png",
+      "theme": "dark",
+      "viewport": {
+        "width": 540,
+        "height": 400
+      },
+      "bounds": {
+        "x": 0,
+        "y": 0,
+        "width": 540,
+        "height": 340
+      },
+      "deviceScaleFactor": 2,
+      "distance": 2,
+      "axes": [
+        "+X",
+        "+Y",
+        "−Z"
+      ],
+      "adapter": {
+        "vendor": "nvidia",
+        "architecture": "lovelace",
+        "fallback": false
+      },
+      "sha256": "4747a46db52299df78e4cd5b05b23afb023a9ee9d2789de599fa01997ac0bc54"
+    }
+  ]
+}

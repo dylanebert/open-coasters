@@ -55,7 +55,7 @@ export function railPoint(rails: Triangle[], p: Parameters, side: number, facet:
   const t = s / length(p.configuration) * 192 - station;
   const first = u >= t;
   const tri = rails[side*192*24 + station*24 + facet*2 + (first ? 0 : 1)];
-  const weights = first ? [1-u,u-t,t] : [1-t,u,t-u];
+  const weights = first ? [1-u,t,u-t] : [1-t,t-u,u];
   return [0,1,2].map(k => tri.reduce((sum,v,i) => sum+v[k]*weights[i],0));
 }
 function planeCut(t: Triangle, n: V, origin: V) {

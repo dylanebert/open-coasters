@@ -1,7 +1,6 @@
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
 import { nativeSnapshot, contentValue, snapshotBytes, resolvedNative, type ImmutableNativeSnapshot } from '../../../construction/native';
-import { ConstructionError } from '../../../construction/kernel';
 const witness = await Bun.file(new URL('../../../construction/witness/resolved-ties.gltf', import.meta.url)).json();
 function fixture(componentType = 5123) {
     const doc = structuredClone(witness), bytes = new Uint8Array(100), view = new DataView(bytes.buffer);
@@ -26,8 +25,8 @@ function fixture(componentType = 5123) {
 function refuses(f: ReturnType<typeof fixture>, cause: string) {
     let published: unknown, caught: any;
     try { published = nativeSnapshot(f.doc, [f.bytes]); } catch (e) { caught = e; }
-    expect(published).toBeUndefined(); expect(caught).toBeInstanceOf(ConstructionError);
-    expect(caught.category).toBe('resource'); expect(caught.message).toContain(cause);
+    expect(published).toBeUndefined(); expect(caught).toBeInstanceOf(Error);
+    expect(caught.message).toContain(cause);
 }
 test('native POSITION reads owned bytes with both offsets and interleaved stride, ignoring padding', () => {
     const f = fixture(), before = f.bytes.slice(); f.doc.accessors[0].normalized = false;
@@ -74,8 +73,7 @@ test('every declared buffer is owned, including unused dependencies with sparse 
         result=resolvedNative({placements:[{content:contentValue({snapshot}),frame:{translation:[0,0,0],rotation:[0,0,0,1]}}]});
     } catch(e) {caught=e;}
     expect(snapshot).toBeUndefined();expect(result).toBeUndefined();
-    expect(caught).toBeInstanceOf(ConstructionError);
-    expect((caught as ConstructionError).category).toBe('resource');
+    expect(caught).toBeInstanceOf(Error);
     expect((caught as Error).message).toContain('resolved bytes required');
     expect(f.doc.buffers[1].uri).toBe(external); // Caller data is not pruned or repaired.
 

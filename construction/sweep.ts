@@ -1,9 +1,8 @@
-import { immutable, registry, type Primitive } from './kernel';
-import { frame, ids, nominal, list, rotate, standardTypes, standardOperations, type Frame } from './geometry';
+import { mapList } from './list';
+import { frame, rotate, type Frame } from './geometry';
 import { contentValue, nativeSnapshot, type ImmutableNativeSnapshot, type Construction } from './native';
-import { sectionValue, type SampledSection } from './section';
-export const sectionId = 'cc.convex-section@1';
-export const materialId = 'cc.native-material@1';
+import { sectionValue, type ConvexSection } from './section';
+/** Select an opaque, untextured core material by snapshot identity and index. */
 export type Material = { readonly snapshot: ImmutableNativeSnapshot; readonly material: number };
 /** Explicit core untextured opaque material selection; not arbitrary native appearance. */
 export function materialValue(v: any): Material {
@@ -25,11 +24,16 @@ export function materialValue(v: any): Material {
     }
     return Object.freeze({ snapshot, material: v.material });
 }
-/** Diagnostic OPEN sweep. No implicit topology, UVs, smoothing or solver. */
-export function sweepConvex(section: SampledSection, source: readonly Frame[], wall: Material, cap: Material): Construction {
+/** Sweep CCW local XY rings through at least two ordered frames. Winding assumes
+ * local −Z travel; it is not inferred from chords. Each wall quad keeps its a–c
+ * diagonal, with fan caps at the ends. Return one identity placement of faceted
+ * glTF triangles without UVs, smooth normals or clearance/intersection checks.
+ * Float32 POSITION determines winding normals and degeneracy:
+ * nonfinite triangles or cross lengths ≤ 1e-12 refuse the whole sweep. */
+export function sweep(section: ConvexSection, source: readonly Frame[], wall: Material, cap: Material): Construction {
     sectionValue(section); wall = materialValue(wall); cap = materialValue(cap);
-    if (!Array.isArray(source) || source.length < 2) throw Error('at least two frames required');
-    const frames = source.map(frame);
+    const frames = mapList(source, 'sweep frames', frame);
+    if (frames.length < 2) throw Error('at least two frames required');
     // POSITION is native float32: validate and derive normals from those exact
     // emitted coordinates, not from a binary64 surrogate that rounding can collapse.
     const rings = frames.map(f => section.map(([x, y]) => rotate(f.rotation, [x, y, 0]).map((v, i) => Math.fround(v + f.translation[i]))));
@@ -44,10 +48,10 @@ export function sweepConvex(section: SampledSection, source: readonly Frame[], w
     const n = section.length;
     for (let i = 0; i < rings.length - 1; i++) for (let j = 0; j < n; j++) {
         const k = (j + 1) % n, a = rings[i][j], b = rings[i][k], c = rings[i+1][k], d = rings[i+1][j];
-        triangle(0, a, b, c); triangle(0, a, c, d);
+        triangle(0, a, c, b); triangle(0, a, d, c);
     }
     const start = rings[0], end = rings.at(-1)!;
-    for (let j = 1; j < n-1; j++) { triangle(1, start[0], start[j+1], start[j]); triangle(1, end[0], end[j], end[j+1]); }
+    for (let j = 1; j < n-1; j++) { triangle(1, start[0], start[j], start[j+1]); triangle(1, end[0], end[j+1], end[j]); }
     // Separate faceted vertices in ordinary glTF accessors. Identity uses the selected snapshot/index pair, never value equality.
     const same = wall.snapshot === cap.snapshot && wall.material === cap.material;
     const materials = [wall.snapshot.document.materials[wall.material], ...same ? [] : [cap.snapshot.document.materials[cap.material]]];
@@ -58,10 +62,5 @@ export function sweepConvex(section: SampledSection, source: readonly Frame[], w
     const bufferViews = arrays.map(a => { const view = { buffer: 0, byteOffset: offset, byteLength: a.byteLength }; bytes.set(new Uint8Array(a.buffer), offset); offset += a.byteLength; return view; });
     const accessors = arrays.map((a, i) => ({ bufferView: i, componentType: 5126, count: a.length / 3, type: 'VEC3', ...(i % 2 === 0 ? { min: [0,1,2].map(c => Math.min(...Array.from(a).filter((_, j) => j % 3 === c))), max: [0,1,2].map(c => Math.max(...Array.from(a).filter((_, j) => j % 3 === c))) } : {}) }));
     const snapshot = nativeSnapshot({ asset: { version: '2.0' }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }], meshes: [{ primitives: [{ attributes: { POSITION: 0, NORMAL: 1 }, material: 0 }, { attributes: { POSITION: 2, NORMAL: 3 }, material: same ? 0 : 1 }] }], materials, accessors, bufferViews, buffers: [{ byteLength: bytes.length }] }, [bytes]);
-    return Object.freeze({ placements: Object.freeze([{ content: contentValue({ snapshot }), frame: frame({ translation: [0,0,0], rotation: [0,0,0,1] }) }]) });
+    return Object.freeze({ placements: Object.freeze([Object.freeze({ content: contentValue({ snapshot }), frame: frame({ translation: [0,0,0], rotation: [0,0,0,1] }) })]) });
 }
-export const sweepOperation: Primitive = immutable({ operation: 'cc.sweepConvex@1', inputs: [
-    { name: 'section', type: nominal(sectionId) }, { name: 'frames', type: list(nominal(ids.frame)) }, { name: 'wall', type: nominal(materialId) }, { name: 'cap', type: nominal(materialId) },
-], outputs: [{ name: 'construction', type: nominal(ids.construction) }], evaluate: (v: any) => ({ construction: sweepConvex(v.section, v.frames, v.wall, v.cap) }) });
-/** Optional geometry registration, separate from the kernel and standard placement registry. */
-export const sweepRegistry = () => registry([...standardTypes, { id: sectionId, validate: sectionValue }, { id: materialId, validate: materialValue }], [...standardOperations, sweepOperation]);

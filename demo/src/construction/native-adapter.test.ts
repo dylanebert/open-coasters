@@ -36,7 +36,7 @@ test('ordinary native export retains selected roots, authored hierarchy, identit
  const copy=snapshotBytes(a,0); copy.fill(255); expect(snapshotBytes(a,0)).toEqual(new Uint8Array(positions.buffer));
 },TIMEOUT.cheap);
 
-test('native float32-authored node rotation remains verbatim, distinct from cc.Frame normalization',()=>{
+test('native float32-authored node rotation remains verbatim, distinct from recipe frame normalization',()=>{
  const d=authored(), q=[0,0,-0.7071068286895752,0.7071068286895752];d.nodes[0].rotation=q;
  const s=nativeSnapshot(d,[positions.buffer,normals.buffer]);
  expect(s.document.nodes[0].rotation).toEqual(q);
@@ -64,3 +64,38 @@ test('native reader explicitly refuses unsupported fidelity and missing dependen
  const d=authored();d.buffers[1].uri='data:application/octet-stream;base64,AA==';
  await expect(readNative(nativeURL(d))).rejects.toThrow();
 },TIMEOUT.cheap);
+
+// Khronos glTF 2.0 schema: glTF.schema.json's optional collections below and
+// scene.schema.json's optional nodes each have minItems: 1 when present.
+function expectNativeCollectionShape(wire: unknown) {
+ const json = JSON.parse(JSON.stringify(wire));
+ for (const key of ['accessors','buffers','bufferViews','materials','meshes','nodes','scenes']) {
+  if (key in json) expect(json[key].length).toBeGreaterThanOrEqual(1);
+ }
+ expect(json.scenes[json.scene]).toBeDefined();
+ for (const scene of json.scenes) if ('nodes' in scene) expect(scene.nodes.length).toBeGreaterThanOrEqual(1);
+ return json;
+}
+
+test('native export writes a valid empty selected scene without empty optional arrays', async () => {
+ const native = resolvedNative(join([]));
+ expect(expectNativeCollectionShape(native)).toEqual({asset:{version:'2.0'},scene:0,scenes:[{}]});
+ // This is glTF, but not geometry-bearing part input.
+ await expect(readNative(nativeURL(native))).rejects.toThrow('nonempty selected roots required');
+}, TIMEOUT.cheap);
+
+test('native export omits materials when none are authored and keeps used collections', async () => {
+ const {materials: _, ...source} = authored();
+ const meshes = source.meshes.map(mesh => ({primitives:mesh.primitives.map(({material: _, ...primitive}) => primitive)}));
+ const snapshot = nativeSnapshot({...source,meshes},[positions.buffer,normals.buffer]);
+ const pose = frame({translation:[0,0,0],rotation:[0,0,0,1]});
+ const native = resolvedNative(instance(contentValue({snapshot}),[pose]));
+ const json = expectNativeCollectionShape(native);
+ expect(json).not.toHaveProperty('materials');
+ expect(json.scenes[0].nodes).toEqual([0]);
+ expect(json.meshes).toEqual(meshes);
+ expect(json.accessors).toHaveLength(2);
+ expect(json.bufferViews).toHaveLength(2);
+ expect(json.buffers).toHaveLength(2);
+ expect((await loadGltf(nativeURL(native))).instances).toHaveLength(4);
+}, TIMEOUT.cheap);

@@ -14,10 +14,10 @@ import { recomposeProfile } from '../scripts/profile-annotations';
 test('explicit illustrative 12-edge CCW cycle centered at O has declared dimensions; broken/reversed topology fails',()=>{
   const points=contour();expect(points).toHaveLength(12);
   expect(polygon.edges).toEqual(points.map((_,i)=>[i,(i+1)%12]));
-  expect(points.reduce((s,a,i)=>{const b=points[(i+1)%12]!;return s+a[0]*b[1]-a[1]*b[0];},0)).toBeCloseTo(.54,12);
-  for(const a of points) {expect(Math.hypot(a[0],a[1])).toBeCloseTo(.3,12);expect(a[2]).toBe(0);}
+  expect(points.reduce((s,a,i)=>{const b=points[(i+1)%12]!;return s+a[0]*b[1]-a[1]*b[0];},0)).toBeCloseTo(.0054,12);
+  for(const a of points) {expect(Math.hypot(a[0],a[1])).toBeCloseTo(.03,12);expect(a[2]).toBe(0);}
   for(const i of [0,1]) {
-    expect(Math.min(...points.map(p=>p[i]!))).toBe(-.3);expect(Math.max(...points.map(p=>p[i]!))).toBe(.3);
+    expect(Math.min(...points.map(p=>p[i]!))).toBe(-.03);expect(Math.max(...points.map(p=>p[i]!))).toBe(.03);
     expect(points.reduce((s,p)=>s+p[i]!,0)).toBeCloseTo(0,12);
   }
   const broken=structuredClone(polygon);broken.edges[11]=[11,1];expect(()=>contour(broken)).toThrow('Broken directed cycle');
@@ -28,57 +28,57 @@ test('explicit illustrative 12-edge CCW cycle centered at O has declared dimensi
 });
 
 test('consumed orthographic camera is normal to XY; projected through-axes and theme placements agree',()=>{
-  const p=profileView();expect(p.origin).toEqual([0,0,0]);expect(cameraConfiguration(p)).toEqual({mode:CameraMode.Orthographic,size:.46,near:.1,far:10});
+  const p=profileView();expect([p.width,p.height]).toEqual([1200,650]);expect(overlay('light')).toContain('width="1200" height="650"');expect(overlay('light')).toContain('font-size="46"');expect(p.origin).toEqual([0,0,0]);expect(cameraConfiguration(p)).toEqual({mode:CameraMode.Orthographic,size:.046,near:.1,far:10});
   const pose=cameraTransform(p);expect(pose.translation).toEqual([0,0,2]);expect(pose.rotation).toEqual([0,0,0,1]);
   for(const point of [p.origin,...contour(),...p.axes]) {
-    const actual=project(point,p);expect(actual[0]).toBeCloseTo(450+point[0]*900/.92,8);expect(actual[1]).toBeCloseTo(450-point[1]*900/.92,8);
+    const actual=project(point,p);expect(actual[0]).toBeCloseTo(600+point[0]*650/.092,8);expect(actual[1]).toBeCloseTo(325-point[1]*650/.092,8);
   }
-  const a=annotationGeometry();expect(a.origin).toEqual([450,450]);
-  for(const axis of a.axes) {expect(axis.positive[0]!+axis.negative[0]!).toBe(900);expect(axis.positive[1]!+axis.negative[1]!).toBe(900);}
+  const a=annotationGeometry();expect(a.origin).toEqual([600,325]);
+  for(const axis of a.axes) {expect(axis.positive[0]!+axis.negative[0]!).toBe(1200);expect(axis.positive[1]!+axis.negative[1]!).toBe(650);}
   expect(overlay('light').replaceAll(palettes.light.ink,'INK')).toBe(overlay('dark').replaceAll(palettes.dark.ink,'INK'));
   for(const match of overlay('light').matchAll(/<text x="([^"]+)" y="([^"]+)"/g)) {
-    expect(Number(match[1])).toBeGreaterThan(40);expect(Number(match[1])).toBeLessThan(850);
-    expect(Number(match[2])).toBeGreaterThan(40);expect(Number(match[2])).toBeLessThan(850);
+    expect(Number(match[1])).toBeGreaterThan(40);expect(Number(match[1])).toBeLessThan(1160);
+    expect(Number(match[2])).toBeGreaterThan(40);expect(Number(match[2])).toBeLessThan(610);
   }
   expect(overlay('light')).not.toContain('polygon');
 });
 
 function emptyInterior(data:Buffer,channels:number) {
   let count=0;
-  for(let y=200;y<700;y++) for(let x=200;x<700;x++) if(Math.hypot(x-450,y-450)<250) {
-    count++;for(let c=0;c<3;c++) if(data[(y*900+x)*channels+c]!==data[c]) throw Error('Filled profile interior');
+  for(let y=150;y<500;y++) for(let x=425;x<775;x++) if(Math.hypot(x-600,y-325)<175) {
+    count++;for(let c=0;c<3;c++) if(data[(y*1200+x)*channels+c]!==data[c]) throw Error('Filled profile interior');
   }
-  expect(count).toBeGreaterThan(190000);
+  expect(count).toBeGreaterThan(95000);
 }
 test('native outline has empty interior; final projected contour, dots and colored through-axes match',async()=>{
   const masks:Buffer[]=[];
   for(const theme of ['light','dark'] as const) for(const suffix of ['-raw','']) {
     const {data,info}=await sharp(new URL(`../../assets/figures/profile-${theme}${suffix}.png`,import.meta.url).pathname).raw().toBuffer({resolveWithObject:true});
-    expect([info.width,info.height]).toEqual([900,900]);
+    expect([info.width,info.height]).toEqual([1200,650]);
     if(suffix) {
       emptyInterior(data,info.channels);
-      const filled=Buffer.from(data);filled[(450*900+450)*info.channels]=255-data[0]!;
+      const filled=Buffer.from(data);filled[(325*1200+600)*info.channels]=255-data[0]!;
       expect(()=>emptyInterior(filled,info.channels)).toThrow('Filled profile interior');
     }
-    const mask=Buffer.alloc(900*900);
+    const mask=Buffer.alloc(1200*650);
     for(let i=0;i<mask.length;i++) mask[i]=[0,1,2].some(c=>data[i*info.channels+c]!==data[c])?1:0;
     for(const [i,a] of contour().entries()) {
       const b=contour()[(i+1)%12]!;
       for(const t of [0,.25,.5,.75,1]) {
         const q=project([a[0]*(1-t)+b[0]*t,a[1]*(1-t)+b[1]*t,0],profileView());let hit=false;
-        for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) if(mask[(Math.round(q[1]!)+dy)*900+Math.round(q[0]!)+dx])hit=true;
+        for(let dy=-2;dy<=2;dy++) for(let dx=-2;dx<=2;dx++) if(mask[(Math.round(q[1]!)+dy)*1200+Math.round(q[0]!)+dx])hit=true;
         expect(hit).toBe(true);
       }
     }
     if(suffix) {
       masks.push(mask);
       let minRadius=Infinity,maxRadius=0;
-      for(let y=0;y<900;y++) for(let x=0;x<900;x++) if(mask[y*900+x]) {
-        const r=Math.hypot(x-450,y-450);minRadius=Math.min(minRadius,r);maxRadius=Math.max(maxRadius,r);
+      for(let y=0;y<650;y++) for(let x=0;x<1200;x++) if(mask[y*1200+x]) {
+        const r=Math.hypot(x-600,y-325);minRadius=Math.min(minRadius,r);maxRadius=Math.max(maxRadius,r);
       }
-      expect(minRadius).toBeGreaterThan(280);expect(maxRadius).toBeLessThan(296);
+      expect(minRadius).toBeGreaterThan(.03*Math.cos(Math.PI/12)*650/.092-2.5);expect(maxRadius).toBeLessThan(.03*650/.092+2.5);
     } else {
-      const pixel=(x:number,y:number)=>[0,1,2].map(c=>data[(Math.round(y)*900+Math.round(x))*info.channels+c]);
+      const pixel=(x:number,y:number)=>[0,1,2].map(c=>data[(Math.round(y)*1200+Math.round(x))*info.channels+c]);
       const rgb=(hex:string)=>[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
       for(const a of contour()) {
         const q=project(a,profileView());
@@ -86,19 +86,17 @@ test('native outline has empty interior; final projected contour, dots and color
         // The outer dot pixels are antialiased; require substantial ink coverage
         // beyond the 1.15px half-stroke, not exact solid color at the fringe.
         for(const sign of [-1,1]) {
-          const fringe=pixel(q[0]!+sign*2*a[0]/.3,q[1]!-sign*2*a[1]/.3);
+          const fringe=pixel(q[0]!+sign*2*a[0]/.03,q[1]!-sign*2*a[1]/.03);
           expect(Math.max(...fringe.map((c,i)=>Math.abs(c!-rgb(palettes[theme].ink)[i]!)))).toBeLessThan(120);
         }
       }
       // Positive and negative portions cross the shape, with colored +Z at O.
-      for(const offset of [-330,-200,-80,80,200,330]) {
-        expect(pixel(450+offset,450)).toEqual(rgb(axisColors[0]));
-        expect(pixel(450,450+offset)).toEqual(rgb(axisColors[1]));
+      for(const offset of [-240,-140,-60,60,140,240]) {
+        expect(pixel(600+offset,325)).toEqual(rgb(axisColors[0]));
+        expect(pixel(600,325+offset)).toEqual(rgb(axisColors[1]));
       }
-      expect(pixel(805,446)).toEqual(rgb(axisColors[0])); // Positive arrowhead wing, not shaft.
-      expect(pixel(446,95)).toEqual(rgb(axisColors[1]));
-      expect(pixel(450,450)).toEqual(rgb(axisColors[2]));
-      expect(pixel(450,441)).toEqual(rgb(axisColors[2]));
+      expect(pixel(600,325)).toEqual(rgb(axisColors[2]));
+      expect(pixel(600,316)).toEqual(rgb(axisColors[2]));
     }
   }
   expect(masks[0]!.equals(masks[1]!)).toBe(true);
@@ -121,7 +119,7 @@ test('capture identity rejects stale geometry/view but not annotation-only chang
 test('CPU recomposition writes final hashes, preserves native evidence, and tolerates no initial manifest',async()=>{
   const directory=await mkdtemp(`${tmpdir()}/profile-annotations-`),root=pathToFileURL(directory+'/');
   try {
-    const raw=await sharp({create:{width:900,height:900,channels:4,background:palettes.light.bg}}).png().toBuffer();
+    const raw=await sharp({create:{width:1200,height:650,channels:4,background:palettes.light.bg}}).png().toBuffer();
     for(const theme of ['light','dark']) await writeFile(new URL(`profile-${theme}-raw.png`,root),raw);
     await recomposeProfile('light',root); // No manifest yet: compose without inventing GPU evidence.
     await expect(readFile(new URL('profile-capture.json',root))).rejects.toThrow();

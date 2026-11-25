@@ -199,7 +199,7 @@ test("nonlocal emitted envelope: whole-interval ball separation", () => {
       for (let segment = 0; segment < 192; segment++) {
         const centers = [reference(segment * meshStep), reference((segment + 1) * meshStep)];
         for (let vertex = 0; vertex < sides * 6; vertex++) {
-          const ring = [0, 0, 1, 0, 1, 1][vertex % 6];
+          const ring = [0, 1, 0, 0, 1, 1][vertex % 6];
           const p = Array.from(v.subarray((offset + vertex) * 8, (offset + vertex) * 8 + 3));
           audit(norm(sub(p, centers[ring])), offset + vertex, parameters);
         }
@@ -322,7 +322,7 @@ for (const configuration of ["straight", "curve", "loop"] as const)
       // chord faces rather than exempting entire neighboring sections.
       for (const [piece, sign] of [[a, -1], [b, 1]] as const)
         for (let i = 0; i < piece.points.length; i++) {
-          const d = sign * dot(sub(piece.points[i], seam.p), seam.z);
+          const d = -sign * dot(sub(piece.points[i], seam.p), seam.z);
           const sharedRing = i % 2 === (sign === -1 ? 1 : 0);
           if (sharedRing) seamLeak = Math.max(seamLeak, Math.abs(d));
           else seamAdvance = Math.min(seamAdvance, d);
@@ -436,7 +436,7 @@ for (const configuration of ["straight", "curve", "loop"] as const)
   }
   const extended = (s: number) => {
     const clamped = Math.max(0, Math.min(total, s)), f = frame(configuration, clamped);
-    return { ...f, p: add(f.p, scale(f.z, s - clamped)) };
+    return { ...f, p: add(f.p, scale(f.z, clamped - s)) };
   };
   let tieGap = Infinity, tiePair = "", spineGap = Infinity, railGap = Infinity, attachmentMargin = Infinity;
   const attachmentHalf = 0.12;
@@ -450,7 +450,7 @@ for (const configuration of ["straight", "curve", "loop"] as const)
     for (const [s, sign] of [[a.lo - attachmentHalf, 1], [a.hi + attachmentHalf, -1]]) {
       const plane = extended(s);
       for (const p of a.points)
-        attachmentMargin = Math.min(attachmentMargin, sign * dot(sub(p, plane.p), plane.z) - a.guard);
+        attachmentMargin = Math.min(attachmentMargin, -sign * dot(sub(p, plane.p), plane.z) - a.guard);
     }
     for (let j = i + 1; j < ties.length; j++) {
       const b = ties[j];
@@ -482,7 +482,7 @@ for (const configuration of ["straight", "curve", "loop"] as const)
 test("loop: independent component dimensions, midpoint landmark, and parameter isolation", () => {
   // Independent matrix reconstruction at the new metric midpoint.
   const origin = [-0.0014217977414636655, 36.13751361993066, 0.008978361473160494];
-  const across = [0.9876923418627487, 0.0000818493005904895, 0.15640917852342057];
+  const across = [-0.9876923418627487, -0.0000818493005904895, -0.15640917852342057];
   const up = [0.00007061021164939924, -0.9999999945106972, 0.00007741319884217268];
   const railVertices = 192 * 12 * 6;
   const components = (overrides: Partial<typeof defaults> = {}) => {

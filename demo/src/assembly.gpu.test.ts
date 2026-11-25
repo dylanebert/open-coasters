@@ -30,16 +30,16 @@ for (const aspect of aspects) test(`assembly reuses native assets/materials, fra
     const w = app.world, refs = w.resource(Scene), camera = refs.camera, t = w.storage(Transform), orbit = w.storage(Orbit);
     const position = (e: number) => [t.translation.x.get(e),t.translation.y.get(e),t.translation.z.get(e)];
     expect(refs.instances.length).toBe(9); // rails + 8 native ties; no synthetic fitting
-    expect(position(refs.instances.at(-1)![0])).toEqual([0,1.5,4.5]);
+    expect(position(refs.instances.at(-1)![0])).toEqual([0,1.5,-4.5]);
     const mat = (group: number) => w.resource(Materials).get(w.storage(MeshMaterial).material.get(refs.instances[group][0]))!;
     [...mat(1).baseColor].forEach((v,i) => expect(v).toBeCloseTo([.035,.32,.48,1][i],6));
     expect(mat(1).metallic).toBeCloseTo(.65,6); expect(mat(1).perceptualRoughness).toBeCloseTo(.3,6);
     [...mat(0).baseColor].forEach((v,i) => expect(v).toBeCloseTo([.06,.7,.78,1][i],6));
     // Independent full envelope includes static ties and the unchanged rail endpoints:
     // Bar top is 1.44; the circular rail top is 1.56.
-    // [-.95,1.32,-6.09] .. [.95,1.56,6].
+    // [-.95,1.32,-6] .. [.95,1.56,6.09].
     const pan = () => Array.from(orbit.pan.read(camera,new Float32Array(4)));
-    pan().slice(0,3).forEach((v,i) => expect(v).toBeCloseTo([0,1.44,-.045][i],5));
+    pan().slice(0,3).forEach((v,i) => expect(v).toBeCloseTo([0,1.44,.045][i],5));
     const distance = orbit.distance.get(camera), center = pan();
     expect(distance).toBeCloseTo(Math.hypot(.95,.12,6.045)*1.1/Math.sin(Math.PI/6),5);
     const materialResource = w.resource(Materials), add = materialResource.add.bind(materialResource);

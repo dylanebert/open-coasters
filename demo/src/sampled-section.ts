@@ -1,6 +1,6 @@
 import type { GltfJson } from '@dylanebert/shallot/gltf';
 import { sampledSection } from '../../construction/section';
-export { sampledSection, type SampledSection } from '../../construction/section';
+export { sampledSection, type ConvexSection } from '../../construction/section';
 export async function loadSampledSection(url: URL) {
   const response = await fetch(url);
   if (!response.ok) throw new Error('Section fetch failed');

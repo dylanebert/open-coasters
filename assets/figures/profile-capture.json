@@ -3,69 +3,69 @@
   "command": "cd site && bun --preload ./scripts/preload.ts scripts/profile-capture.ts",
   "recomposition": "cd site && bun scripts/profile-annotations.ts",
   "source": "site/src/profile-polygon.json",
-  "representation": "Illustrative authored 12-sided polygon, radius 0.3m about O; 24 thin stroke triangles, no interior",
+  "representation": "Illustrative authored 12-sided polygon, radius 0.03m about O; 24 thin stroke triangles, no interior",
   "inputs": {
     "polygon": {
-      "radius": 0.3,
+      "radius": 0.03,
       "points": [
         [
-          0.3,
+          0.03,
           0,
           0
         ],
         [
-          0.2598076211353316,
-          0.15,
+          0.025980762113533163,
+          0.015,
           0
         ],
         [
-          0.15,
-          0.2598076211353316,
-          0
-        ],
-        [
-          0,
-          0.3,
-          0
-        ],
-        [
-          -0.15,
-          0.2598076211353316,
-          0
-        ],
-        [
-          -0.2598076211353316,
-          0.15,
-          0
-        ],
-        [
-          -0.3,
-          0,
-          0
-        ],
-        [
-          -0.2598076211353316,
-          -0.15,
-          0
-        ],
-        [
-          -0.15,
-          -0.2598076211353316,
+          0.015,
+          0.025980762113533163,
           0
         ],
         [
           0,
-          -0.3,
+          0.03,
           0
         ],
         [
-          0.15,
-          -0.2598076211353316,
+          -0.015,
+          0.025980762113533163,
           0
         ],
         [
-          0.2598076211353316,
-          -0.15,
+          -0.025980762113533163,
+          0.015,
+          0
+        ],
+        [
+          -0.03,
+          0,
+          0
+        ],
+        [
+          -0.025980762113533163,
+          -0.015,
+          0
+        ],
+        [
+          -0.015,
+          -0.025980762113533163,
+          0
+        ],
+        [
+          0,
+          -0.03,
+          0
+        ],
+        [
+          0.015,
+          -0.025980762113533163,
+          0
+        ],
+        [
+          0.025980762113533163,
+          -0.015,
           0
         ]
       ],
@@ -121,9 +121,9 @@
       ]
     },
     "view": {
-      "width": 900,
-      "height": 900,
-      "size": 0.46,
+      "width": 1200,
+      "height": 650,
+      "size": 0.046,
       "mode": "orthographic",
       "camera": [
         0,
@@ -153,7 +153,7 @@
       }
     }
   },
-  "nativeIdentity": "3155888c369f60ffb75ced28173c7469c92bef390c32f4540079d1d5103b5dbf",
+  "nativeIdentity": "2724c5f47d7ddc9603f06904012164b92c507f717fc72079e71624444ce0606d",
   "captures": [
     {
       "theme": "light",
@@ -163,7 +163,7 @@
       },
       "camera": {
         "mode": 1,
-        "size": 0.46,
+        "size": 0.046,
         "near": 0.1,
         "far": 10
       },
@@ -180,8 +180,8 @@
           1
         ]
       },
-      "width": 900,
-      "height": 900
+      "width": 1200,
+      "height": 650
     },
     {
       "theme": "dark",
@@ -191,7 +191,7 @@
       },
       "camera": {
         "mode": 1,
-        "size": 0.46,
+        "size": 0.046,
         "near": 0.1,
         "far": 10
       },
@@ -208,14 +208,14 @@
           1
         ]
       },
-      "width": 900,
-      "height": 900
+      "width": 1200,
+      "height": 650
     }
   ],
   "sha256": {
-    "profile-light-raw.png": "ec569db6964824c9e6b395541a1f9d4f95d145eb676644c2f528300698b4d6c5",
-    "profile-dark-raw.png": "5e68fee187bd399a03b9c479735e49c377e9fd1b0b149e878cb2f8b6da20adc9",
-    "profile-light.png": "ceacd41d40bf1b6ba6450588667020b013e009119291edef9923f19f5d2fcd40",
-    "profile-dark.png": "47f97ead46829ac00199d6115e16ffc69474997b19e95d578837d15e3bd73310"
+    "profile-light-raw.png": "e6faccd147224faecf166caa6190aa38148134cc852232f8b62a8ca97847a599",
+    "profile-dark-raw.png": "d5874327a31447da9361b12d028ffcd1879b9263279a3bee8f5cb9df19048934",
+    "profile-light.png": "975a148228fa58743e0c99e382e38fd3df5248e3113e2efe9e62aca569aba453",
+    "profile-dark.png": "8cb0340377e6d22ee1c63248e7f4042fe71f9a8307e477e488e8e2ba162e0d37"
   }
 }

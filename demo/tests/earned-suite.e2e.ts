@@ -20,12 +20,12 @@ for (const phone of [false, true]) test(`earned placement suite ${phone ? 'phone
   const positions=()=>page.evaluate(async()=>{await (window as any).step();return (window as any).demo.instances().slice(1).map((g:any)=>g[0].translation[2]);});
   await spacing.fill('1'); await spacing.press('Enter');
   await start.fill('2'); await start.press('Enter'); await end.fill('5'); await end.press('Enter');
-  await expect.poll(positions).toEqual([-6,-5,-1,0,1,2,3,4,5]);
+  await expect.poll(positions).toEqual([0,1,5,6,7,8,9,10,11].map(s=>6-s));
   const camera=await page.evaluate(()=>(window as any).demo.orbit());
   await start.fill('2.125'); await start.press('Enter');
-  await expect.poll(positions).toEqual([-6,-5,-4,-1,0,1,2,3,4,5]);
+  await expect.poll(positions).toEqual([0,1,2,5,6,7,8,9,10,11].map(s=>6-s));
   await start.press('ControlOrMeta+z'); await expect(start).toHaveValue('2');
-  await expect.poll(positions).toEqual([-6,-5,-1,0,1,2,3,4,5]);
+  await expect.poll(positions).toEqual([0,1,5,6,7,8,9,10,11].map(s=>6-s));
   await start.press('ControlOrMeta+Shift+z'); await expect(start).toHaveValue('2.125');
   expect(await page.evaluate(()=>(window as any).demo.orbit())).toEqual(camera);
   await menu.selectOption('ties'); await menu.selectOption('station'); await expect(start).toHaveValue('2.125');

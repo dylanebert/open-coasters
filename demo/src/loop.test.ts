@@ -72,7 +72,7 @@ const checkAxes = (f: ReturnType<typeof frame>, chord: number[]) => {
   ];
   expect(dot(cross, f.z)).toBeCloseTo(1, 8);
   expect(norm(rotation(f))).toBeCloseTo(1, 8);
-  expect(dot(f.z, chord) / norm(chord)).toBeGreaterThan(0.9998);
+  expect(dot(f.z, chord) / norm(chord)).toBeLessThan(-0.9998);
 };
 
 test("loop: explicit 100 km/h entry", () => {
@@ -119,16 +119,16 @@ test("recorded geometry: metric arc stations, rigid landmarks, proper continuous
     expect(norm(sub(f.y, axes(p).up))).toBeLessThan(1e-8);
     const chord = sub(world(p), world(a));
     expect(norm(chord)).toBeCloseTo(p[0] - a[0], 4);
-    expect(dot(f.z, chord) / norm(chord)).toBeGreaterThan(0.9998);
+    expect(dot(f.z, chord) / norm(chord)).toBeLessThan(-0.9998);
     checkAxes(f, chord);
     for (const t of [0.2, 0.5, 0.8]) {
       const between = frame("loop", a[0] + t * (p[0] - a[0]));
       checkAxes(between, chord);
       const oracle = sphericalAxes(a, p, t);
       for (const [actual, expected] of [
-        [between.x, oracle.axes.across],
+        [between.x, oracle.axes.across.map(v => -v)],
         [between.y, oracle.axes.up],
-        [between.z, oracle.axes.tangent],
+        [between.z, oracle.axes.tangent.map(v => -v)],
       ])
         expect(norm(sub(actual, expected))).toBeLessThan(oracle.tolerance);
     }
@@ -158,9 +158,9 @@ test("recorded geometry: metric arc stations, rigid landmarks, proper continuous
       expect(norm(sub(f.p, expected))).toBeLessThan(1e-8);
       const oracle = sphericalAxes(a, b, t);
       for (const [actual, expectedAxis] of [
-        [f.x, oracle.axes.across],
+        [f.x, oracle.axes.across.map(v => -v)],
         [f.y, oracle.axes.up],
-        [f.z, oracle.axes.tangent],
+        [f.z, oracle.axes.tangent.map(v => -v)],
       ])
         expect(norm(sub(actual, expectedAxis))).toBeLessThan(oracle.tolerance);
       checkAxes(f, sub(world(b), world(a)));
@@ -189,7 +189,7 @@ test("independent recorded velocity differences and geometry/state recover autho
     acceleration[1] += 9.81;
     const up = axes(path[i]).up;
     const normal = dot(acceleration, up) / 9.81;
-    // Demo across reverses source right: reverse the sign back for authored lateral.
+    // This reconstruction’s across axis is opposite source right: undo it for authored lateral.
     lateralError = Math.max(
       lateralError,
       Math.abs(

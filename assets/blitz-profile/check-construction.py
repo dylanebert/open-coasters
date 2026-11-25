@@ -34,19 +34,19 @@ def source(name):
 
 def near(a,b,t):return len(a)==len(b) and all(abs(x-y)<=t for x,y in zip(a,b))
 rows=json.loads((ROOT/'demo/src/loop-path.json').read_text())
-apex=max(rows,key=lambda r:r[2])[1]
+origin=max(rows,key=lambda r:r[2])
 
 def expected(kind,station,xy,n):
     if kind=='straight':
-        return [xy[0],xy[1]+1.5,12*station/192-6],[n[0],n[1],0]
+        return [xy[0],xy[1]+1.5,6-12*station/192],[n[0],n[1],0]
     if kind=='curve':
         angle=-math.pi/4+math.pi/2*station/192
         # Explicit composed bank and yaw matrix, independent of consumer frames.
         c=math.cos(angle);s=math.sin(angle); bank=math.pi/6
-        u=xy[0]*math.cos(bank)-xy[1]*math.sin(bank)
-        v=xy[0]*math.sin(bank)+xy[1]*math.cos(bank)
-        nu=n[0]*math.cos(bank)-n[1]*math.sin(bank)
-        nv=n[0]*math.sin(bank)+n[1]*math.cos(bank)
+        u=-xy[0]*math.cos(bank)-xy[1]*math.sin(bank)
+        v=-xy[0]*math.sin(bank)+xy[1]*math.cos(bank)
+        nu=-n[0]*math.cos(bank)-n[1]*math.sin(bank)
+        nv=-n[0]*math.sin(bank)+n[1]*math.cos(bank)
         return [8*c-6+c*u,1.5+v,8*s+s*u],[c*nu,nv,s*nu]
     distance=rows[-1][0]*station/192
     j=0
@@ -57,10 +57,10 @@ def expected(kind,station,xy,n):
     norm=math.sqrt(sum(v*v for v in q));x,y,z,w=[v/norm for v in q]
     matrix=[[1-2*(y*y+z*z),2*(x*y-z*w),2*(x*z+y*w)], [2*(x*y+z*w),1-2*(x*x+z*z),2*(y*z-x*w)], [2*(x*z-y*w),2*(y*z+x*w),1-2*(x*x+y*y)]]
     def rotate(v):return [sum(r[k]*v[k] for k in range(3)) for r in matrix]
-    # Input section X is reversed with recorded forward; world Y half-turn.
-    v=rotate([-xy[0],xy[1],0]);normal=rotate([-n[0],n[1],0])
+    # The world Y half-turn follows the recorded rotation, not the section coordinates.
+    v=rotate([*xy,0]);normal=rotate([n[0],n[1],0])
     p=[(1-t)*a[k]+t*b[k] for k in (1,2,3)]
-    return [-p[0]+apex-v[0],p[1]+1.5+v[1],-p[2]-4.3-v[2]],[-normal[0],normal[1],-normal[2]]
+    return [origin[1]-p[0]-v[0],p[1]+1.5+v[1],origin[3]-p[2]-v[2]],[-normal[0],normal[1],-normal[2]]
 
 def check(path,negative=None):
     report=json.loads(Path(path).read_text())
@@ -79,7 +79,7 @@ def check(path,negative=None):
         expected_indices=[]
         for i in range(len(edges)):
             for station in range(192):
-                a=i*386+2*station;expected_indices.extend([a,a+1,a+3,a,a+3,a+2])
+                a=i*386+2*station;expected_indices.extend([a,a+3,a+1,a,a+2,a+3])
         assert entry['indices']==expected_indices, 'topology/winding'
         assert entry['materials']==[0]*(len(edges)*384), 'default material'
         for a,b,na,nb in edges:

@@ -8,7 +8,9 @@ import { execSync } from 'node:child_process';
 import fixture from './placement-fixture.json';
 function railOracle(gpu: any, separation: number, straight = false) {
   if(!gpu) throw Error('No actual GPU rail output');
-  const stations = straight ? fixture.stations.map((_,i)=>({p:[0,1.5,12*i/96-6],x:[1,0,0],y:[0,1,0]})) : fixture.stations;
+  // The historical curve fixture stores the +Z-travel basis. Keep its
+  // centerline and up, but negate the old local X for the live rail oracle.
+  const stations = straight ? fixture.stations.map((_,i)=>({p:[0,1.5,6-12*i/96],x:[1,0,0],y:[0,1,0]})) : fixture.stations.map(f=>({...f,x:f.x.map(v=>-v)}));
   const expected = [-1,1].flatMap(side => stations.flatMap(f => fixture.section.map(v => f.p.map((p,j) => p+f.x[j]*(side*separation/2+v[0])+f.y[j]*v[1]))));
   const tolerance=fixture.tolerance, cells = new Map<string,number[]>();
   expected.forEach((p,i)=>{const k=p.map(v=>Math.floor(v/tolerance)).join(',');cells.set(k,[...(cells.get(k)??[]),i]);});
@@ -107,7 +109,7 @@ try {
     if(mode==='input-default') {await page.locator('[name=component]').selectOption('local');await snapshot('parametric');await drag(name);await snapshot('active-drag',true);}
     const input=page.locator(`[name=${name}]`);
     await input.fill(mode==='input-supports'?'3.125':'1.4');await input.press('Enter');await snapshot('typed',true);
-    if(mode==='input-supports')log.supportExpected={from:2,to:3.125,translation:[0,0,1.125]};
+    if(mode==='input-supports')log.supportExpected={from:2,to:3.125,translation:[0,0,2-3.125]};
     if(mode!=='input-default') {log.typedGPU=await page.evaluate(()=>(window as any).__placement.readRails());log.oracle=railOracle(log.typedGPU,mode==='input-supports'?1.2:1.4,mode==='input-supports');}
     await input.press('ArrowUp');await input.blur();await snapshot('arrow');
     await page.keyboard.press('Control+z');await snapshot('undo');
@@ -130,8 +132,8 @@ try {
   if(mode==='input-supports') {
     const before=log.actions.find((a:any)=>a.name==='before'), typed=log.actions.find((a:any)=>a.name==='typed'), typed2=log.actions.find((a:any)=>a.name==='enumerated-type-assembly-post2');
     const first=typed.instances.at(-2)[0], second=typed.instances.at(-1)[0];
-    if(JSON.stringify(first)!==JSON.stringify([0,0,-2.875])||JSON.stringify(second)!==JSON.stringify([0,0,4]))throw Error('Support 1 typing failed independent station-minus-six transform oracle');
-    if(JSON.stringify(typed2.instances.at(-1)[0])!==JSON.stringify([0,0,3.125]))throw Error('Support 2 typing failed independent transform oracle');
+    if(JSON.stringify(first)!==JSON.stringify([0,0,6-3.125])||JSON.stringify(second)!==JSON.stringify([0,0,6-10]))throw Error('Support 1 typing failed independent six-minus-station transform oracle');
+    if(JSON.stringify(typed2.instances.at(-1)[0])!==JSON.stringify([0,0,6-9.125]))throw Error('Support 2 typing failed independent transform oracle');
     log.supportOracle={first,second,typedSecond:typed2.instances.at(-1)[0],unchangedAfterDeadDrag:JSON.stringify(before.instances)===JSON.stringify(log.actions.find((a:any)=>a.name==='drag').instances)};
   }
   if(mode.startsWith('input-')) {

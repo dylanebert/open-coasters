@@ -6,7 +6,7 @@ import tgpu from 'typegpu';
 import * as d from 'typegpu/data';
 import * as std from 'typegpu/std';
 import { frame, rotate, type Frame } from '../../construction/geometry';
-import { sectionValue, type SampledSection } from '../../construction/section';
+import { sectionValue, type ConvexSection } from '../../construction/section';
 
 const layout=tgpu.bindGroupLayout({
     vertices:{storage:d.arrayOf(d.vec4u),access:'mutable'},
@@ -31,7 +31,7 @@ export const RailGpu:Resource<Retained>={create:()=>({} as Retained)};
  * The caller owns entity/material policy and serializes parameter edits between frames.
  * All allocations belong exactly once to the world, including submitted work disposal.
  */
-export function initializeRailGeometry(world:World, catalogue:readonly (readonly Frame[])[], sectionInput:SampledSection, sampledColors?:ReadonlyArray<ReadonlyArray<readonly number[]>> ) {
+export function initializeRailGeometry(world:World, catalogue:readonly (readonly Frame[])[], sectionInput:ConvexSection, sampledColors?:ReadonlyArray<ReadonlyArray<readonly number[]>> ) {
     const paths=catalogue.map(p=>p.map(frame)), section=sectionValue(sectionInput);
     const stations=paths[0]?.length ?? 0;
     if(stations<2 || paths.some(p=>p.length!==stations)) throw Error('matching sampled paths required');
@@ -40,10 +40,10 @@ export function initializeRailGeometry(world:World, catalogue:readonly (readonly
     for(let rail=0;rail<2;rail++) {
         for(let i=0;i<stations-1;i++) for(let j=0;j<n;j++) {
             const k=(j+1)%n,a=i*n+j,b=i*n+k,c=(i+1)*n+k,e=(i+1)*n+j;
-            tri(a,b,c,rail);tri(a,c,e,rail);
+            tri(a,c,b,rail);tri(a,e,c,rail);
         }
         const end=(stations-1)*n;
-        for(let j=1;j<n-1;j++){tri(0,j+1,j,rail);tri(end,end+j,end+j+1,rail);}
+        for(let j=1;j<n-1;j++){tri(0,j,j+1,rail);tri(end,end+j+1,end+j,rail);}
     }
     const radius=.8+Math.max(...section.map(p=>Math.hypot(...p)))+.001;
     const envelopes=paths.map(frames=>{
@@ -126,6 +126,6 @@ export const RailEmitSystem:System={name:'emit-rails',group:'draw',before:[MeshP
 export const RailGpuPlugin:Plugin={
     name:'rail-gpu',gpu:{},dependencies:[MeshPlugin,MeshRenderPlugin,StandardRenderingPlugin],systems:[RailEmitSystem],
 };
-export function railGpu(frames:readonly Frame[],section:SampledSection):Plugin {
-    return {name:'sampled-rail-input',dependencies:[RailGpuPlugin],initialize(world){initializeRailGeometry(world,[frames],section);}};
+export function railGpu(frames:readonly Frame[],section:ConvexSection, colors?:ReadonlyArray<readonly number[]>):Plugin {
+    return {name:'sampled-rail-input',dependencies:[RailGpuPlugin],initialize(world){initializeRailGeometry(world,[frames],section,colors?[colors]:undefined);}};
 }

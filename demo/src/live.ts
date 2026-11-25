@@ -15,8 +15,10 @@ import { assemblyDefaults, assemblyPath, gapDefaults, postDefaults, validateAsse
 import { changesSubject } from './selection';
 import { diagnosticPost } from './construction-demo';
 import { readNative, nativeURL, type ImmutableNativeSnapshot } from '../../construction/native';
-import { fixedDistances, framesAt, path, rotate, type Frame, type Path } from '../../construction/geometry';
-import { loadSampledSection, type SampledSection } from './sampled-section';
+import { sampleFrames, path, rotate, type Frame, type Path } from '../../construction/geometry';
+import { supportPoses } from '../../construction/plane-supports';
+import { repeatFrames } from '../../construction/repeat';
+import { loadSampledSection, type ConvexSection } from './sampled-section';
 import { placements } from './instance';
 import { ties, rotation, type Parameters } from './track';
 import { trackGeometry, modernTies } from './modern-track';
@@ -35,7 +37,7 @@ type Role={name:string;key:string;rows:Row[]};
 type TrackVariant={parts:{name:'rails'|'spine'|'ties';mesh:MeshHandle}[];vertices:Float32Array};
 type State={
   previous?:Selection;assets:Map<string,Asset>;paints:Record<keyof Paint,MaterialHandle>;
-  paint?:Paint;railMaterial:MaterialHandle;forceMaterial:MaterialHandle;section:SampledSection;
+  paint?:Paint;railMaterial:MaterialHandle;forceMaterial:MaterialHandle;section:ConvexSection;
   paths:Path[];frames:(readonly Frame[])[];roles:Map<string,Role>;
   tracks:Map<string,TrackVariant>;railEntity?:number;trackEntities:number[];
 };
@@ -157,15 +159,14 @@ function updateScene(world:World,selection:Selection,aspect:number) {
     wantedRoles.add('ties');
     if(s.roles.get('ties')?.key!==tieKey||bounds) {
       const excluded=witness==='station'&&start!==end?[{start,end}]:[];
-      const poses=framesAt(source,fixedDistances(total,a.spacing,0,[{start:0,end:total}],excluded));
+      const poses=repeatFrames({path:source,spacing:a.spacing,allowed:[{start:0,end:total}],excluded});
       place(world,'ties',a.tie,poses,tieKey,undefined,bounds);
     }
     if(witness==='supports') {
       wantedRoles.add('posts');const distances=[a.post1??postDefaults.post1,a.post2??postDefaults.post2],key=distances.join(':');
       if(s.roles.get('posts')?.key!==key||bounds) {
-        // This witness is qualified only for the unchanged upright straight/flat
-        // 1.5m post. Distances and sampled poses remain binary64 shared operations.
-        const poses=framesAt(source,distances).map(f=>({translation:[f.translation[0],0,f.translation[2]],rotation:f.rotation}));
+        const attachments=sampleFrames(source,distances);
+        const poses=supportPoses(attachments,{point:[0,0,0],normal:[0,1,0]});
         place(world,'posts','diagnostic-box-post',poses,key,undefined,bounds);
       }
     }
@@ -214,7 +215,7 @@ export function liveScene(initial:Selection,assetUrl:(name:string)=>URL,aspect=(
     for(const name of ['blitz-tie','wheel-carrier','ModernTie_Med','ModernTie_Dense','assembly-tie-bar','assembly-tie-fork'])await cacheAsset(w,name,assetUrl(name));
     await cacheAsset(w,'diagnostic-box-post',assetUrl('diagnostic-box-post'),diagnosticPost);
     for(const kind of kinds) {
-      const source=assemblyPath(kind),total=source.distances.at(-1)!,distances=Array.from({length:97},(_,i)=>total*i/96),frames=framesAt(source,distances);
+      const source=assemblyPath(kind),total=source.distances.at(-1)!,distances=Array.from({length:97},(_,i)=>total*i/96),frames=sampleFrames(source,distances);
       s.frames.push(frames);s.paths.push(path({distances,positions:frames.map(f=>f.translation),rotations:frames.map(f=>f.rotation)}));
     }
     initializeRailGeometry(w,s.frames,s.section,s.paths.map(p=>p.distances.map(distance=>forceColor(normalForce(distance)))));

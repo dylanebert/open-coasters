@@ -19,7 +19,7 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`R
   await path.selectOption('straight'); await step();
   const reference=(await groups()).slice(1), view=await orbit();
   expect(reference).toHaveLength(19);
-  reference.forEach((group:any[],i:number)=>{expect(group[0].translation[2]).toBeCloseTo(-6+i*.65,6);group.forEach(e=>expect(e.scale).toEqual([1,1,1]));});
+  reference.forEach((group:any[],i:number)=>{expect(group[0].translation[2]).toBeCloseTo(6-i*.65,6);group.forEach(e=>expect(e.scale).toEqual([1,1,1]));});
   for(const value of ['1.6','.6','1.35']) {
     await separation.fill(value);await separation.press('Enter');await step();
     expect((await groups()).slice(1)).toEqual(reference);
@@ -35,7 +35,7 @@ for (const viewport of [{width:1280,height:800},{width:390,height:844}]) test(`R
   await separation.press('ControlOrMeta+Shift+z');await step();await expect(separation).toHaveValue('1.35');
   await spacing.fill('1.2');await spacing.press('Enter');await step();
   expect((await groups()).slice(1)).toHaveLength(10);
-  expect((await groups())[2][0].translation[2]).toBeCloseTo(-4.8,6);
+  expect((await groups())[2][0].translation[2]).toBeCloseTo(6-1.2,6);
   expect(await orbit()).toEqual(view);
   await spacing.press('ControlOrMeta+z');await step();await expect(spacing).toHaveValue('0.65');
   expect((await groups()).slice(1)).toEqual(reference);

@@ -1,6 +1,6 @@
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { test, expect } from 'bun:test';
-import { fixedDistances, framesAt, frame, path, quaternion } from '../../../construction/geometry';
+import { repeatDistances, sampleFrames, frame, path, quaternion } from '../../../construction/geometry';
 const I = [0,0,0,1];
 const near = (a: readonly number[], b: readonly number[]) => a.forEach((x,i) => expect(Math.abs(x-b[i])).toBeLessThanOrEqual(1e-12));
 const bits = (x: number) => { const v = new DataView(new ArrayBuffer(8)); v.setFloat64(0,x); return v.getBigUint64(0); };
@@ -21,13 +21,13 @@ test('independent integer binary64 oracle: separate multiply/add, not iterative 
             const value = rounded(units(bits(product))+units(bits(phase)));
             if (value >= length) break; expected.push(value);
         }
-        expect(fixedDistances(length,spacing,phase,[{start:0,end:length}],[])).toEqual(expected);
+        expect(repeatDistances(length,spacing,phase,[{start:0,end:length}],[])).toEqual(expected);
         const endpoint = expected.at(-1)!;
-        expect(fixedDistances(endpoint,spacing,phase,[{start:0,end:endpoint}],[])).toEqual(expected.slice(0,-1));
+        expect(repeatDistances(endpoint,spacing,phase,[{start:0,end:endpoint}],[])).toEqual(expected.slice(0,-1));
         const above = from(bits(endpoint)+1n);
-        expect(fixedDistances(above,spacing,phase,[{start:0,end:above}],[])).toEqual(expected);
+        expect(repeatDistances(above,spacing,phase,[{start:0,end:above}],[])).toEqual(expected);
     }
-    const values = fixedDistances(1,.1,.03,[{start:0,end:1}],[]);
+    const values = repeatDistances(1,.1,.03,[{start:0,end:1}],[]);
     let iterative = .03; const wrong: number[] = []; for (let k=0;k<values.length;k++) { wrong.push(iterative); iterative += .1; }
     expect(values).not.toEqual(wrong);
 }, TIMEOUT.cheap);
@@ -40,25 +40,25 @@ test('quaternion boundary norm tolerance, WXYZ canonical sign and immutable copi
     }
     for (const scale of [1+1.1e-12,1-1.1e-12,0,1e-300,1e300,Infinity,NaN]) expect(()=>frame({translation:[0,0,0],rotation:[0,0,0,scale]})).toThrow();
     const q = [0,0,-1,0], source = {distances:[0,1],positions:[[0,0,0],[0,0,1]],rotations:[q,q]};
-    const out = framesAt(path(source),[0,1]); expect(out[0].rotation).toEqual([0,0,1,0]); expect(q).toEqual([0,0,-1,0]); expect(Object.isFrozen(out[0].rotation)).toBe(true);
+    const out = sampleFrames(path(source),[0,1]); expect(out[0].rotation).toEqual([0,0,1,0]); expect(q).toEqual([0,0,-1,0]); expect(Object.isFrozen(out[0].rotation)).toBe(true);
 }, TIMEOUT.cheap);
 
 test('exact 180-degree tie retains canonical second representative; SLERP differs from nlerp', () => {
     const p = (rotations: number[][]) => path({distances:[0,4],positions:[[0,0,0],[0,0,4]],rotations});
-    near(framesAt(p([I,[0,-1,0,0]]),[1])[0].rotation,[0,Math.sin(Math.PI/8),0,Math.cos(Math.PI/8)]);
+    near(sampleFrames(p([I,[0,-1,0,0]]),[1])[0].rotation,[0,Math.sin(Math.PI/8),0,Math.cos(Math.PI/8)]);
     // Dot zero with nonidentity first rotation: choice of second sign is physically observable.
-    near(framesAt(p([[-1,0,0,0],[0,-1,0,0]]),[1])[0].rotation,[Math.cos(Math.PI/8),Math.sin(Math.PI/8),0,0]);
-    const got = framesAt(p([I,[0,Math.sin(Math.PI/3),0,Math.cos(Math.PI/3)]]),[1])[0].rotation;
+    near(sampleFrames(p([[-1,0,0,0],[0,-1,0,0]]),[1])[0].rotation,[Math.cos(Math.PI/8),Math.sin(Math.PI/8),0,0]);
+    const got = sampleFrames(p([I,[0,Math.sin(Math.PI/3),0,Math.cos(Math.PI/3)]]),[1])[0].rotation;
     near(got,[0,Math.sin(Math.PI/12),0,Math.cos(Math.PI/12)]);
     const nlerp = [.25*Math.sin(Math.PI/3),.75+.25*Math.cos(Math.PI/3)];
     expect(Math.abs(got[1]-nlerp[0]/Math.hypot(...nlerp))).toBeGreaterThan(.01);
     for (const angle of [1e-9,1e-6,Math.PI-1e-9]) {
         const b = [0,Math.sin(angle/2),0,Math.cos(angle/2)];
-        near(framesAt(p([I,b]),[1])[0].rotation,[0,Math.sin(angle/8),0,Math.cos(angle/8)]);
-        near(framesAt(p([I,b.map(x=>-x)]),[1])[0].rotation,[0,Math.sin(angle/8),0,Math.cos(angle/8)]);
+        near(sampleFrames(p([I,b]),[1])[0].rotation,[0,Math.sin(angle/8),0,Math.cos(angle/8)]);
+        near(sampleFrames(p([I,b.map(x=>-x)]),[1])[0].rotation,[0,Math.sin(angle/8),0,Math.cos(angle/8)]);
     }
     // Near antipodal source representatives canonicalize before interpolation.
-    near(framesAt(p([[0,0,0,-1],[0,-1e-6,0,-Math.sqrt(1-1e-12)]]),[1])[0].rotation,[0,Math.sin(Math.asin(1e-6)/4),0,Math.cos(Math.asin(1e-6)/4)]);
+    near(sampleFrames(p([[0,0,0,-1],[0,-1e-6,0,-Math.sqrt(1-1e-12)]]),[1])[0].rotation,[0,Math.sin(Math.asin(1e-6)/4),0,Math.cos(Math.asin(1e-6)/4)]);
 }, TIMEOUT.cheap);
 
 
@@ -72,8 +72,8 @@ test('small-angle limit across nonidentity starts, independent axes and interpol
         };
         for (const delta of [1e-9,1e-8,1e-6]) for (const t of [.1,.25,.7,.95]) {
             const p=path({distances:[0,1],positions:[[1,2,3],[3,4,5]],rotations:[[a,0,0,w],analytic(delta)]});
-            near(framesAt(p,[t])[0].rotation,analytic(t*delta));
-            near(framesAt(p,[t])[0].translation,[1+2*t,2+2*t,3+2*t]);
+            near(sampleFrames(p,[t])[0].rotation,analytic(t*delta));
+            near(sampleFrames(p,[t])[0].translation,[1+2*t,2+2*t,3+2*t]);
         }
     }
 }, TIMEOUT.cheap);

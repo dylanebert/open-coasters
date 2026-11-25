@@ -18,13 +18,13 @@ for (const phone of [false, true]) test(`ordinary numeric owner ${phone ? 'phone
   }
   await drag('assembly-post1');
   await expect(first).toHaveValue('2.5');
-  await expect.poll(async () => (await groups()).at(-2)[0].translation[2]).toBeCloseTo(-3.5, 6);
+  await expect.poll(async () => (await groups()).at(-2)[0].translation[2]).toBeCloseTo(6-2.5, 6);
   expect((await groups()).slice(0, -2)).toEqual(before.slice(0, -2));
   expect((await groups()).at(-1)).toEqual(before.at(-1));
   await first.press('ControlOrMeta+z'); await expect(first).toHaveValue('2');
   await first.press('ControlOrMeta+Shift+z'); await expect(first).toHaveValue('2.5');
   await first.fill('3.125'); await first.press('Enter'); await expect(first).toBeFocused();
-  await expect.poll(async () => (await groups()).at(-2)[0].translation[2]).toBeCloseTo(-2.875, 6);
+  await expect.poll(async () => (await groups()).at(-2)[0].translation[2]).toBeCloseTo(6-3.125, 6);
   await drag('assembly-post1', 8); await expect(first).toHaveValue('3.225');
   await first.focus(); await first.press('ArrowUp'); await first.blur(); await expect(first).toHaveValue('4.225');
   for (const value of ['', '13']) { await first.fill(value); await first.blur(); await expect(first).toHaveValue('4.225'); }
@@ -58,15 +58,15 @@ for (const phone of [false, true]) test(`ordinary numeric owner ${phone ? 'phone
   async function type(name: string, text: string) { const input=page.locator(`[name=${name}]`); await input.fill(text); await input.press('Enter'); }
   const zs=()=>page.evaluate(async()=>{await (window as any).step();return (window as any).demo.instances().slice(1).map((g:any)=>g[0].translation[2]);});
   await type('assembly-spacing','1'); await type('gap-start','2'); await type('gap-end','5');
-  await expect.poll(zs).toEqual([-6,-5,-1,0,1,2,3,4,5]);
+  await expect.poll(zs).toEqual([0,1,5,6,7,8,9,10,11].map(s=>6-s));
   await drag('gap-start',8); await expect(start).toHaveValue('2.1');
-  await expect.poll(zs).toEqual([-6,-5,-4,-1,0,1,2,3,4,5]);
-  await start.press('ControlOrMeta+z'); await expect.poll(zs).toEqual([-6,-5,-1,0,1,2,3,4,5]);
-  await type('gap-end','2'); await expect.poll(zs).toEqual([-6,-5,-4,-3,-2,-1,0,1,2,3,4,5]);
+  await expect.poll(zs).toEqual([0,1,2,5,6,7,8,9,10,11].map(s=>6-s));
+  await start.press('ControlOrMeta+z'); await expect.poll(zs).toEqual([0,1,5,6,7,8,9,10,11].map(s=>6-s));
+  await type('gap-end','2'); await expect.poll(zs).toEqual([0,1,2,3,4,5,6,7,8,9,10,11].map(s=>6-s));
   await type('gap-start','2.001'); await expect(start).toHaveValue('2');
   await drag('gap-start',80); await expect(start).toHaveValue('2');
   await type('gap-start','0');await type('gap-end','12');await expect.poll(zs).toEqual([]);
-  await type('gap-end','0');await expect.poll(zs).toEqual([-6,-5,-4,-3,-2,-1,0,1,2,3,4,5]);
+  await type('gap-end','0');await expect.poll(zs).toEqual([0,1,2,3,4,5,6,7,8,9,10,11].map(s=>6-s));
   await type('gap-start','0.001');await expect(start).toHaveValue('0');
   await expect(end).toHaveAttribute('min','0');
 });

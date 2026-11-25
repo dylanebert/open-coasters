@@ -16,6 +16,6 @@ Scene materials are not chrome colors; keep the subject brighter and more satura
 
 Apply authoring updates between completed frames and submitted work as in `src/main.ts`. Rail compute uses the shared frame encoder before mesh preprocessing. `src/retained-live.gpu.test.ts` and `src/rail-gpu.gpu.test.ts` check actual GPU output, retained resources, submission and disposal.
 
-`../construction-contract.md` owns shared construction meaning and qualified limits. The demo adapts paths, renderer packing and force colors; it does not define another placement or sweep policy. The profile and instance gates are restricted subsets, not full glTF validators. Parametric clearance checks do not qualify Blitz, train clearance, engineering attachments or ride safety.
+`../construction-contract.md` owns shared construction meaning and qualified limits. The demo adapts paths, renderer packing and force colors; it does not define another placement or sweep policy. `src/instance.ts` loads parts through `../construction/native.ts`. `src/profile.ts` owns profile fetching, native glTF decoding and renderer material conversion; contour recovery stays inward. Part and profile acceptance are restricted subsets, not full glTF validation. Parametric clearance checks do not qualify Blitz, train clearance, engineering attachments or ride safety.
 
 Loop authoring and record changes: read `tools/AGENTS.md`.

@@ -1,0 +1,19 @@
+{
+  "path": {
+    "distances": [0, 6],
+    "positions": [[0, 1.5, 0], [0, 1.5, -6]],
+    "rotations": [[0, 0, 0, 1], [0, 0, 0, 1]]
+  },
+  "profile": "../demo/public/assets/assembly-section.gltf",
+  "tie": "../demo/public/assets/assembly-tie-bar.gltf",
+  "separation": 1.2,
+  "spacing": 0.65,
+  "startOffset": 0.25,
+  "excluded": [{ "start": 2.2, "end": 3.5 }],
+  "custom": [
+    {
+      "asset": "../demo/public/assets/assembly-fitting.gltf",
+      "pose": { "translation": [0, 1.5, -2.8], "rotation": [0, 0, 0, 1] }
+    }
+  ]
+}

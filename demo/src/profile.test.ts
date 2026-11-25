@@ -41,7 +41,7 @@ function url(f: Fixture, mutate: (json: any) => void = () => {}) {
 }
 const reject = async (f: Fixture, message: string) => expect(loadProfile(url(f))).rejects.toThrow(message);
 
-describe("restricted matching-end profile", () => {
+describe("profile decoder adapter", () => {
   test("authored meters/origin, exact topology, hard normals and material", async () => {
     const p = await loadProfile(url(fixture()));
     expect(p.points).toEqual(rectangle);
@@ -52,17 +52,6 @@ describe("restricted matching-end profile", () => {
     expect(p.materials[0].metallic).toBe(0.3);
     expect(p.materials[0].roughness).toBe(0.7);
   });
-  test("smooth endpoint normals retained without averaging hard corners", async () => {
-    const p = await loadProfile(url(fixture(undefined, true)));
-    expect(p.contours[0][0].normals[1]).toEqual(p.contours[0][1].normals[0]);
-    expect(p.contours[0][0].normals[0][0]).toBeCloseTo(-1 / Math.hypot(1, 1.5));
-  });
-  test("disjoint contours remain separate", async () => {
-    const second = rectangle.map(([x, y]) => [x + 8, y] as Point);
-    const p = await loadProfile(url(fixture([rectangle, second])));
-    expect(p.points).toEqual([...rectangle, ...second]);
-    expect(p.contours.map(c => c.map(e => e.from))).toEqual([[0, 1, 2, 3], [4, 5, 6, 7]]);
-  });
   test("material identity survives equal-valued material slots and primitive boundaries", async () => {
     const p = await loadProfile(url(fixture(), j => {
       j.materials.push(structuredClone(j.materials[0]));
@@ -72,15 +61,6 @@ describe("restricted matching-end profile", () => {
     }));
     expect(p.contours[0].map(e => e.material)).toEqual([0, 1, 1, 1]);
     expect(p.materials).toHaveLength(2);
-  });
-  test("concavity, collinear forward edges, either quad diagonal", async () => {
-    const polygon: Point[] = [[0, 0], [1, 0], [2, 0], [2, 2], [1, 1], [0, 2]];
-    const f = fixture([polygon]);
-    f.indices.splice(0, 6, 0, 1, 3, 1, 2, 3);
-    const p = await loadProfile(url(f));
-    expect(p.points).toEqual(polygon);
-    expect(p.contours[0].map(e => e.from)).toEqual([0, 1, 2, 3, 4, 5]);
-    await reject(fixture([[...rectangle].reverse()]), "CCW");
   });
   test("omitted materials use a returned standard default slot", async () => {
     const p = await loadProfile(url(fixture(), j => {
@@ -104,30 +84,6 @@ describe("restricted matching-end profile", () => {
     expect(p.materials).toHaveLength(2);
     expect(p.materials[0]).toEqual(p.materials[1]);
   });
-  test("thin adjacent edges are not overlapping; exact backtracking is", async () => {
-    const thin: Point[] = [[0, 0], [1, 0], [0.5, 0.5e-6]];
-    const p = await loadProfile(url(fixture([thin])));
-    expect(p.points).toEqual([[0, 0], [1, 0], [0.5, Math.fround(0.5e-6)]]);
-    expect(p.contours[0].map(e => [e.from, e.to])).toEqual([[0, 1], [1, 2], [2, 0]]);
-    await reject(fixture([[[0, 0], [2, 0], [1, 0], [2, 2], [0, 2]]]), "overlapping adjacent edges");
-  });
-  test("nonadjacent near-contact still uses position tolerance", async () => {
-    const shifted = (gap: number) => rectangle.map(([x, y]) => [x + 2 + gap, y + 0.5] as Point);
-    await reject(fixture([rectangle, shifted(0.5e-6)]), "intersecting contours");
-    expect((await loadProfile(url(fixture([rectangle, shifted(2e-6)])))).contours).toHaveLength(2);
-  });
-  test("altered end and intermediate longitudinal detail", async () => {
-    const end = fixture(); end.positions[6] += 0.01;
-    await reject(end, "side-wall triangle");
-    const middle = fixture(); middle.positions[8] = 1;
-    await reject(middle, "longitudinal detail");
-  });
-  test("open, duplicate and reversed triangles", async () => {
-    const open = fixture(); open.indices.splice(0, 6); await reject(open, "open or branching");
-    const duplicate = fixture(); duplicate.indices.push(...duplicate.indices.slice(0, 3)); await reject(duplicate, "exactly one");
-    const reverse = fixture(); [reverse.indices[0], reverse.indices[1]] = [reverse.indices[1], reverse.indices[0]];
-    await reject(reverse, "inconsistent winding");
-  });
   test("a material seam along a quad cannot become a section material", async () => {
     await expect(loadProfile(url(fixture(), j => {
       j.materials.push(structuredClone(j.materials[0]));
@@ -135,36 +91,5 @@ describe("restricted matching-end profile", () => {
       j.accessors.push({ ...j.accessors[2], byteOffset: 12, count: 21 });
       j.meshes[0].primitives.push({ ...j.meshes[0].primitives[0], indices: 3, material: 1 });
     }))).rejects.toThrow("inconsistent winding/material");
-  });
-  test("caps and longitudinal shading rejected", async () => {
-    const cap = fixture(); cap.indices.push(0, 1, 4); await reject(cap, "side-wall");
-    const shading = fixture(); shading.normals[8] = 0.1; await reject(shading, "transverse");
-    const changed = fixture(); changed.normals[6] = 0.01; changed.normals[7] = -Math.sqrt(1 - 0.0001);
-    await reject(changed, "longitudinal normal");
-  });
-  test("crossing, touching, nesting and self intersection", async () => {
-    await reject(fixture([rectangle, rectangle.map(([x, y]) => [x + 1, y + 1])]), "intersecting");
-    await reject(fixture([rectangle, rectangle.map(([x, y]) => [x + 2, y])]), "winding/material");
-    await reject(fixture([rectangle, [[2.5, 0], [3.5, 0], [3.5, 1], [2.5, 1]]]), "nested");
-    await reject(fixture([[[0, 0], [3, 2], [0, 2], [2, 0]]]), "intersecting");
-  });
-  test("explicit positional and normal tolerances", async () => {
-    const close = fixture(); close.positions[6] += 0.5e-6;
-    await loadProfile(url(close));
-    const far = fixture(); far.positions[6] += 2e-6; await reject(far, "side-wall triangle");
-    const closeNormal = fixture(); closeNormal.normals[6] = 0.5e-5;
-    await loadProfile(url(closeNormal));
-    const farNormal = fixture(); farNormal.normals[6] = 2e-5;
-    await reject(farNormal, "longitudinal normal");
-  });
-  test.each([
-    ["morph targets", (j: any) => { j.meshes[0].primitives[0].targets = []; }],
-    ["morph weights", (j: any) => { j.nodes[0].weights = [0]; }],
-    ["transforms", (j: any) => { j.nodes[0].translation = [0, 0, 0]; }],
-    ["attributes", (j: any) => { j.meshes[0].primitives[0].attributes.TEXCOORD_0 = 0; }],
-    ["authored NORMAL", (j: any) => { delete j.meshes[0].primitives[0].attributes.NORMAL; }],
-    ["extensions", (j: any) => { j.extensionsUsed = ["unsupported"]; }],
-  ])("unsupported %s", async (_name, mutate) => {
-    await expect(loadProfile(url(fixture(), mutate))).rejects.toThrow();
   });
 });

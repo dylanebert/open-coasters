@@ -40,9 +40,9 @@ for (const separation of [0.6, 1, 1.6]) {
   for (const width of [0.15, 0.28, 0.6]) {
     test(`yoke spine contact: gauge ${separation}, width ${width}`, () => {
       const mesh = generate({ ...defaults, configuration: "straight", separation, width });
-      // The second tie is centered at z=-5.35; inspect inside its thickness,
+      // The second tie is centered at z=5.35; inspect inside its thickness,
       // away from both cap planes and the sweep's ring stations.
-      const z = -5.35 + 0.017;
+      const z = 5.35 - 0.017;
       const spine = section(mesh, "spine", z), yoke = section(mesh, "ties", z);
       const joint: P = [0, 1.5 - 0.22];
       expect(boundaryDistance(joint, spine)).toBeLessThan(2e-6);
@@ -63,7 +63,7 @@ for (const separation of [0.6, 1, 1.6]) {
   for (const side of [-1, 1]) {
     test(`yoke lower rail seat: gauge ${separation}, side ${side}`, () => {
       const mesh = generate({ ...defaults, configuration: "straight", separation });
-      const z = -5.35 + 0.017;
+      const z = 5.35 - 0.017;
       const rails = section(mesh, "rails", z), yoke = section(mesh, "ties", z);
       // Midpoints of BOTH lower dodecagon facets, not an ideal circle. A seat
       // follows these facets instead of passing a broad bar through the tube.

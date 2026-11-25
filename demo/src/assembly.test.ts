@@ -68,8 +68,8 @@ test('invalid geometry and unclaimed capabilities refuse rather than repair', ()
 
 test('straight rigid rail/tie placements have independently known coordinates and no scaling', () => {
   const a = resolveAssembly({...assemblyDefaults,path:'straight',spacing:1.5,separation:1.4});
-  expect(a.railFrames.map(r => [r[0].p,r.at(-1)!.p])).toEqual([[[-.7,1.5,-6],[-.7,1.5,6]],[[.7,1.5,-6],[.7,1.5,6]]]);
-  expect(a.ties.map(p => p.translation)).toEqual(Array.from({length:8},(_,i) => [0,1.5,-6+1.5*i]));
+  expect(a.railFrames.map(r => [r[0].p,r.at(-1)!.p])).toEqual([[[-.7,1.5,6],[-.7,1.5,-6]],[[.7,1.5,6],[.7,1.5,-6]]]);
+  expect(a.ties.map(p => p.translation)).toEqual(Array.from({length:8},(_,i) => [0,1.5,6-1.5*i]));
   expect(a.ties.every(p => p.rotation.every((v,i) => Math.abs(v-[0,0,0,1][i])<1e-10))).toBe(true);
   const m = assemblyRails(section,a.railFrames);
   const xyz = [0,1,2].map(axis => Array.from(m.vertices).filter((_,i) => i%8===axis));
@@ -80,28 +80,28 @@ test('straight rigid rail/tie placements have independently known coordinates an
   // Exposed caps point out, not toward the path.
   const normal = (vertex: number) => Array.from(m.vertices.slice(vertex*8+4,vertex*8+7));
   // Shared native sweep interleaves the start/end triangle fans.
-  expect([...normal(96*16*6),...normal(96*16*6+3)].map(v => v || 0)).toEqual([0,0,-1,0,0,1]);
+  expect([...normal(96*16*6),...normal(96*16*6+3)].map(v => v || 0)).toEqual([0,0,1,0,0,-1]);
 });
 
 test('banked curve midpoint and endpoints are independent analytic expectations', () => {
   const a = resolveAssembly({...assemblyDefaults,spacing: Math.PI/3, separation:1.6});
   const sqrt = Math.sqrt;
   for (const rail of a.railFrames) {
-    rail[48].x.forEach((v,k) => expect(v).toBeCloseTo([sqrt(3)/2,.5,0][k],7));
+    rail[48].x.forEach((v,k) => expect(v).toBeCloseTo([-sqrt(3)/2,-.5,0][k],7));
     rail[48].y.forEach((v,k) => expect(v).toBeCloseTo([-.5,sqrt(3)/2,0][k],7));
-    rail[48].z.forEach((v,k) => expect(v).toBeCloseTo([0,0,1][k],7));
-    rail[0].x.forEach((v,k) => expect(v).toBeCloseTo([sqrt(6)/4,.5,-sqrt(6)/4][k],7));
+    rail[48].z.forEach((v,k) => expect(v).toBeCloseTo([0,0,-1][k],7));
+    rail[0].x.forEach((v,k) => expect(v).toBeCloseTo([-sqrt(6)/4,-.5,sqrt(6)/4][k],7));
     rail[0].y.forEach((v,k) => expect(v).toBeCloseTo([-sqrt(2)/4,sqrt(3)/2,sqrt(2)/4][k],7));
-    rail[0].z.forEach((v,k) => expect(v).toBeCloseTo([sqrt(2)/2,0,sqrt(2)/2][k],7));
+    rail[0].z.forEach((v,k) => expect(v).toBeCloseTo([-sqrt(2)/2,0,-sqrt(2)/2][k],7));
   }
   for (const [i,side] of [-1,1].entries()) {
-    a.railFrames[i][48].p.forEach((v,k) => expect(v).toBeCloseTo([2+side*.4*sqrt(3),1.5+side*.4,0][k],7));
-    a.railFrames[i][0].p.forEach((v,k) => expect(v).toBeCloseTo([4*sqrt(2)-6+side*.2*sqrt(6),1.5+side*.4,-4*sqrt(2)-side*.2*sqrt(6)][k],7));
+    a.railFrames[i][48].p.forEach((v,k) => expect(v).toBeCloseTo([2-side*.4*sqrt(3),1.5-side*.4,0][k],7));
+    a.railFrames[i][0].p.forEach((v,k) => expect(v).toBeCloseTo([4*sqrt(2)-6-side*.2*sqrt(6),1.5-side*.4,-4*sqrt(2)+side*.2*sqrt(6)][k],7));
   }
   expect(a.ties.length).toBe(12);
   a.ties[6].translation.forEach((v,k) => expect(v).toBeCloseTo([2,1.5,0][k],7));
-  // At midpoint: pure +30 degree local Z bank.
-  a.ties[6].rotation.forEach((v,k) => expect(v).toBeCloseTo([0,0,Math.sin(Math.PI/12),Math.cos(Math.PI/12)][k],7));
+  // At midpoint: 180 degree yaw after the original bank.
+  a.ties[6].rotation.forEach((v,k) => expect(v).toBeCloseTo([Math.sin(Math.PI/12),-Math.cos(Math.PI/12),0,0][k],7));
   // Every emitted station retains the source radius, including banked offsets.
   const m = assemblyRails(section,a.railFrames);
   for (const i of [0,48,95]) for (const rail of [0,1]) {

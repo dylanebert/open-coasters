@@ -53,36 +53,40 @@ def extract(path):
 class Track:
     def __init__(self):
         self.rows=json.loads((ROOT/'demo/src/loop-path.json').read_text())
-        self.apex=max(self.rows,key=lambda r:r[2])[1]
+        self.crown=max(self.rows,key=lambda r:r[2])
     def length(self,kind): return 12 if kind=='straight' else 4*math.pi if kind=='curve' else self.rows[-1][0]
     def frame(self,kind,s):
-        if kind=='straight': return Vector((0,1.5,s-6)),Vector((1,0,0)),Vector((0,1,0))
+        if kind=='straight': return (0,1.5,6-s),Vector((1,0,0)),Vector((0,1,0))
         if kind=='curve':
             a=s/8-math.pi/4; b=math.pi/6
-            return Vector((8*math.cos(a)-6,1.5,8*math.sin(a))),Vector((math.cos(a)*math.cos(b),math.sin(b),math.sin(a)*math.cos(b))),Vector((-math.cos(a)*math.sin(b),math.cos(b),-math.sin(a)*math.sin(b)))
+            c,d=math.cos(a),math.sin(a)
+            up=Vector((-c*math.sin(b),math.cos(b),-d*math.sin(b)))
+            travel=Vector((-d,0,c))
+            return (8*c-6,1.5,8*d),travel.cross(up),up
         s=max(0,min(self.length(kind),s))
         i=next((i for i in range(len(self.rows)-1) if self.rows[i+1][0]>=s),len(self.rows)-2)
         a,b=self.rows[i:i+2]; t=(s-a[0])/(b[0]-a[0])
-        p=Vector(a[1:4]).lerp(Vector(b[1:4]),t)
+        px,py,pz=(x+(y-x)*t for x,y in zip(a[1:4],b[1:4]))
         qa=Quaternion((a[7],*a[4:7])); qb=Quaternion((b[7],*b[4:7]))
         if qa.dot(qb)<0: qb.negate()
         q=Quaternion(tuple(x+(y-x)*t for x,y in zip(qa,qb))).normalized()
         right=q @ Vector((1,0,0)); up=q @ Vector((0,1,0))
-        return Vector((-p.x+self.apex,p.y+1.5,-p.z-4.3)),Vector((right.x,-right.y,right.z)),Vector((-up.x,up.y,-up.z))
+        return (self.crown[1]-px,py+1.5,self.crown[3]-pz),Vector((-right.x,right.y,-right.z)),Vector((-up.x,up.y,-up.z))
 
 def construct(edges,kind,track):
     vertices=[]; normals=[]; faces=[]; output=[]
     for edge in edges:
-        start=len(vertices); ps=[]; ns=[]
+        start=len(vertices)
         for station in range(193):
             p,x,y=track.frame(kind,track.length(kind)*station/192)
             for xy,n in zip((edge['a'],edge['b']),edge['normals']):
-                v=p+x*xy[0]+y*xy[1]; normal=x*n[0]+y*n[1]
-                ps.append(tuple(v)); ns.append(tuple(normal))
-                vertices.append((v.x,-v.z,v.y)); normals.append((normal.x,-normal.z,normal.y))
+                # Round world positions only when storing them in the mesh.
+                vx,vy,vz=(o+r*xy[0]+u*xy[1] for o,r,u in zip(p,x,y))
+                normal=x*n[0]+y*n[1]
+                vertices.append((vx,-vz,vy)); normals.append((normal.x,-normal.z,normal.y))
         for i in range(192):
-            a=start+2*i; faces.extend([(a,a+1,a+3),(a,a+3,a+2)])
-        output.append(dict(a=edge['a'],b=edge['b'],material=edge['material'],positions=ps,normals=ns))
+            a=start+2*i; faces.extend([(a,a+3,a+1),(a,a+2,a+3)])
+        output.append(dict(a=edge['a'],b=edge['b'],material=edge['material']))
     mesh=bpy.data.meshes.new(kind); mesh.from_pydata(vertices,[],faces);mesh.update()
     for p in mesh.polygons:p.use_smooth=True
     mesh.normals_split_custom_set([normals[i] for f in faces for i in f])

@@ -2,7 +2,34 @@ import { expect, test, setDefaultTimeout } from "bun:test";
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 setDefaultTimeout(TIMEOUT.node);
 import { defaults, generate, length, ties, type Configuration } from "./track";
-import { crossing, dot, groups, localBounds, norm, normal, railPoint, sub, triangleDistance, triangles, type Triangle } from "./yoke-oracle";
+import { cross, crossing, dot, groups, localBounds, norm, normal, railPoint, sub, triangleDistance, triangles, type Triangle } from "./yoke-oracle";
+
+test("loop: 59.85 m near-ring yoke stays closed without a clipped sliver", () => {
+  const p = {...defaults, configuration: "loop" as const, spacing: .35, separation: .65};
+  const mesh = generate(p), station = 171;
+  const body = groups(mesh, p)[station];
+  expect(Math.min(...body.map(([a,b,c]) => norm(cross(sub(b,a),sub(c,a)))))).toBeGreaterThan(1e-10);
+  const edges = new Map<string, number>();
+  for (const face of body) for (let i = 0; i < 3; i++) {
+    const key = `${face[i]}|${face[(i+1)%3]}`;
+    edges.set(key, (edges.get(key) ?? 0) + 1);
+  }
+  for (const [key, count] of edges) {
+    const [a,b] = key.split("|");
+    expect(count).toBe(1);
+    expect(edges.get(`${b}|${a}`)).toBe(1);
+  }
+  const f = ties(p)[station], bounds = localBounds(body,p,station);
+  expect(f.s).toBeCloseTo(59.85, 10);
+  expect(bounds[2][0]).toBeGreaterThan(-.065);
+  expect(bounds[2][1]).toBeLessThan(.065);
+  expect(bounds[2][1] - bounds[2][0]).toBeGreaterThan(.1);
+  const rails = triangles(mesh,"rails");
+  for (const side of [0,1]) for (const facet of [8,9]) for (const offset of [-.043,0,.043]) {
+    const pt = railPoint(rails,p,side,facet,f.s+offset,.5);
+    expect(Math.min(...body.map(t => triangleDistance(pt,t)))).toBeLessThan(2e-6);
+  }
+});
 
 function nearBoxes(a: Triangle,b: Triangle) {
   for (let k=0;k<3;k++) {

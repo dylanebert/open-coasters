@@ -39,7 +39,7 @@ function packed(mesh:ReturnType<typeof generate>, part:string) {
 // Independent endpoint planes: analytic path equations and recorded quaternions,
 // not the production frame/point functions.
 function endpoint(kind:Configuration,end:number) {
-  if(kind==='straight') return {p:[0,1.5,end?6:-6],n:[0,0,end?1:-1]};
+  if(kind==='straight') return {p:[0,1.5,end?-6:6],n:[0,0,end?-1:1]};
   if(kind==='curve') { const a=(end?1:-1)*Math.PI/4; return {p:[8*Math.cos(a)-6,1.5,8*Math.sin(a)],n:[-Math.sin(a),0,Math.cos(a)].map(v=>v*(end?1:-1))}; }
   const row=loop[end?loop.length-1:0], [x,y,z,w]=row.slice(4);
   const apex=loop.reduce((a,b)=>a[2]>b[2]?a:b)[1];
@@ -131,4 +131,28 @@ test('concave, collinear and disconnected contours retain their exact boundary',
     expect(cap.reduce((s,t)=>s+Math.hypot(...cross(sub(t[1],t[0]),sub(t[2],t[0])))/2,0)).toBe(4);
     for(let i=0;i<cap.length;i++) for(let j=0;j<i;j++) expect(intersectionArea(cap[i],cap[j])).toBeLessThan(1e-12);
   }
+});
+
+// The asymmetric section extends to local +X, which points down and inward
+// on the banked curve. The first edge is horizontal in section coordinates.
+test('Modern banked sweep transports the authored basis and winds outward',()=>{
+  const mesh=sweepProfile(profile,'curve',7);
+  const root=Math.SQRT1_2, right=[-root*Math.sqrt(3)/2,-.5,root*Math.sqrt(3)/2];
+  const up=[-.5*root,Math.sqrt(3)/2,.5*root];
+  const start=[8*root-6,1.5,-8*root];
+  mesh.positions[1].forEach((v,k)=>expect(v).toBeCloseTo(start[k]+right[k],8));
+  mesh.normals[0].forEach((v,k)=>expect(v).toBeCloseTo((.2*right[k]-up[k])/Math.hypot(.2,1),8));
+  const [a,b,c]=mesh.indices.slice(0,3).map(i=>mesh.positions[i]);
+  expect(dot(cross(sub(b,a),sub(c,a)),up)).toBeLessThan(-.01);
+});
+
+test('procedural straight starts at +Z with an outward rail wall and yoke extension cap',()=>{
+  const mesh=generate({...defaults,configuration:'straight'});
+  const p=(i:number)=>Array.from(mesh.vertices.slice(i*8,i*8+3));
+  const [a,b,c]=Array.from(mesh.indices.slice(0,3),p);
+  expect(a[2]).toBe(6);
+  expect(cross(sub(b,a),sub(c,a))[0]).toBeGreaterThan(.001);
+  const [d,e,f]=Array.from(mesh.indices.slice(mesh.parts[2].index,mesh.parts[2].index+3),p);
+  for(const v of [d,e,f]) expect(v[2]).toBeCloseTo(6.055,6);
+  expect(cross(sub(e,d),sub(f,d))[2]).toBeGreaterThan(0);
 });

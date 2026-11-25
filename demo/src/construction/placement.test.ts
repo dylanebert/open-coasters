@@ -1,10 +1,9 @@
 import { TIMEOUT } from "@dylanebert/shallot/testing";
 import { expect, test } from 'bun:test';
 import { parseGltf, type GltfJson } from '@dylanebert/shallot/gltf';
-import { adjustFrames, fixedDistances, frame, framesAt, ids, instance, join, nominal, path, quaternion } from '../../../construction/geometry';
-import { contentValue, nativeSnapshot, resolvedNative, type Construction } from '../../../construction/native';
-import { ties } from '../../../construction/ties';
-const tiesSource = await Bun.file(new URL('../../../construction/ties.json', import.meta.url)).text();
+import { compose, offsetFrames, repeatDistances, frame, sampleFrames, instance, join, path, quaternion } from '../../../construction/geometry';
+import { constructionValue, contentValue, nativeSnapshot, resolvedNative, type Construction, type Content } from '../../../construction/native';
+import { repeat } from '../../../construction/repeat';
 const I = [0, 0, 0, 1], H = Math.SQRT1_2;
 const basePath = { distances: [0, 6], positions: [[0, 1.5, 0], [0, 1.5, 6]], rotations: [I, I] };
 function fixture() {
@@ -26,36 +25,40 @@ function point(f: { translation: readonly number[]; rotation: readonly number[] 
     const rows = [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]];
     return rows.map((r, i) => r.reduce((sum, v, j) => sum + v * p[j], f.translation[i]));
 }
-function run(content: ReturnType<typeof contentValue>, extra: Record<string, any> = {}): Construction {
-    return ties(tiesSource, { path: { type: nominal(ids.path), value: basePath }, content: { type: nominal(ids.content), value: content }, allowed: { type: { list: nominal(ids.span) }, value: [{ start: 0, end: 6 }] }, ...extra });
+function run(content: Content, extra: Partial<Parameters<typeof repeat>[1]> = {}): Construction {
+    return repeat(content, { path: basePath, allowed: [{ start: 0, end: 6 }], ...extra });
 }
 
-test('binary64 origin candidates: nonzero phase, unions, exclusions and exact/near endpoints', () => {
+test('binary64 origin candidates: nonzero startOffset, unions, exclusions and exact/near endpoints', () => {
     const all = [{ start: 0, end: 6 }];
-    expect(fixedDistances(6, 1, 0, all, [{ start: 2, end: 3.5 }])).toEqual([0, 1, 4, 5]);
-    expect(fixedDistances(6, 1, .5, all, [{ start: 2, end: 3.5 }])).toEqual([.5, 1.5, 3.5, 4.5, 5.5]);
-    expect(fixedDistances(6, 1, .5, [{ start: 0, end: 4 }, { start: 2, end: 6 }], [{ start: 1, end: 2 }, { start: 1.5, end: 3 }])).toEqual([.5, 3.5, 4.5, 5.5]);
-    expect(fixedDistances(6, 1, 0, [], [])).toEqual([]);
-    expect(fixedDistances(1, .1, 0, [{ start: 0, end: 1 }], [])).toEqual(Array.from({ length: 10 }, (_, k) => k * .1));
-    expect(fixedDistances(1, .25, 0, [{ start: 0, end: 1 }], [])).toEqual([0, .25, .5, .75]);
-    expect(fixedDistances(1 + Number.EPSILON, 1, 0, [{ start: 0, end: 1 + Number.EPSILON }], [])).toEqual([0, 1]);
-    expect(fixedDistances(1 - Number.EPSILON / 2, 1, 0, [{ start: 0, end: 1 - Number.EPSILON / 2 }], [])).toEqual([0]);
-    expect(fixedDistances(1, .1, 0, [{ start: .3, end: .30000000000000004 }], [])).toEqual([]);
-    for (const args of [[0, 1, 0], [1, 0, 0], [1, 1, 1], [1, 1, -.1], [Infinity, 1, 0]]) expect(() => fixedDistances(...args as [number, number, number], [], [])).toThrow();
-    expect(() => fixedDistances(1, 1, 0, [{ start: 0, end: 2 }], [])).toThrow('outside');
+    expect(repeatDistances(6, 1, 0, all, [{ start: 2, end: 3.5 }])).toEqual([0, 1, 4, 5]);
+    expect(repeatDistances(6, 1, .5, all, [{ start: 2, end: 3.5 }])).toEqual([.5, 1.5, 3.5, 4.5, 5.5]);
+    expect(repeatDistances(6, 1, .5, [{ start: 0, end: 4 }, { start: 2, end: 6 }], [{ start: 1, end: 2 }, { start: 1.5, end: 3 }])).toEqual([.5, 3.5, 4.5, 5.5]);
+    expect(repeatDistances(6, 1, 0, [], [])).toEqual([]);
+    expect(repeatDistances(1, .1, 0, [{ start: 0, end: 1 }], [])).toEqual(Array.from({ length: 10 }, (_, k) => k * .1));
+    expect(repeatDistances(1, .25, 0, [{ start: 0, end: 1 }], [])).toEqual([0, .25, .5, .75]);
+    expect(repeatDistances(1 + Number.EPSILON, 1, 0, [{ start: 0, end: 1 + Number.EPSILON }], [])).toEqual([0, 1]);
+    expect(repeatDistances(1 - Number.EPSILON / 2, 1, 0, [{ start: 0, end: 1 - Number.EPSILON / 2 }], [])).toEqual([0]);
+    expect(repeatDistances(1, .1, 0, [{ start: .3, end: .30000000000000004 }], [])).toEqual([]);
+    for (const args of [[0, 1, 0], [1, 0, 0], [1, 1, 1], [1, 1, -.1], [Infinity, 1, 0]]) expect(() => repeatDistances(...args as [number, number, number], [], [])).toThrow();
+    expect(() => repeatDistances(1, 1, 0, [{ start: 0, end: 2 }], [])).toThrow('outside');
     let published: readonly number[] | undefined;
-    expect(() => published = fixedDistances(6, 1, 0, all, [], 3)).toThrow('host candidate-work budget'); expect(published).toBeUndefined();
+    expect(() => published = repeatDistances(6, 1, 0, all, [], 3)).toThrow('host candidate-work budget'); expect(published).toBeUndefined();
+}, TIMEOUT.cheap);
+
+test('frame refuses a hole in translation', () => {
+ expect(() => frame({translation:[0,,4],rotation:[0,0,0,1]})).toThrow('finite number required');
 }, TIMEOUT.cheap);
 
 test('path boundaries, quaternion normalization and distinguishing shortest-arc SLERP', () => {
     const source = structuredClone(basePath), before = structuredClone(source);
-    const sampled = framesAt(path(source), [6, 0, 2, 2]);
+    const sampled = sampleFrames(path(source), [6, 0, 2, 2]);
     expect(sampled.map(f => f.translation)).toEqual([[0, 1.5, 6], [0, 1.5, 0], [0, 1.5, 2], [0, 1.5, 2]]);
-    expect(() => framesAt(path(source), [-Number.MIN_VALUE])).toThrow('outside');
-    expect(() => framesAt(path(source), [6 + 2 * Number.EPSILON * 6])).toThrow('outside');
+    expect(() => sampleFrames(path(source), [-Number.MIN_VALUE])).toThrow('outside');
+    expect(() => sampleFrames(path(source), [6 + 2 * Number.EPSILON * 6])).toThrow('outside');
     const turn = path({ distances: [0, 4], positions: [[0, 0, 0], [0, 0, 4]], rotations: [I, [0, 1, 0, 0]] });
-    near(framesAt(turn, [1])[0].rotation, [0, Math.sin(Math.PI / 8), 0, Math.cos(Math.PI / 8)]);
-    near(point(framesAt(turn, [1])[0], [1, 0, 0]), [H, 0, 1 - H]);
+    near(sampleFrames(turn, [1])[0].rotation, [0, Math.sin(Math.PI / 8), 0, Math.cos(Math.PI / 8)]);
+    near(point(sampleFrames(turn, [1])[0], [1, 0, 0]), [H, 0, 1 - H]);
     expect(source).toEqual(before); expect(Object.isFrozen(source)).toBe(false);
     expect(quaternion([0, 0, 0, -1 - 5e-13])).toEqual(I);
     expect(() => quaternion([0, 0, 0, 1 + 2e-12])).toThrow('unit');
@@ -68,11 +71,11 @@ test('asymmetric straight/banked/inverted landmarks prove path × local × autho
     const inputs = [I, [0, 0, H, H], [0, 0, 1, 0]];
     const expected = [[.6, 1.6, 2.2], [-.1, 2.1, 2.2], [-.6, 1.4, 2.2]];
     inputs.forEach((rotation, i) => {
-        const adjusted = adjustFrames([frame({ translation: [0, 1.5, 2], rotation })], local)[0];
+        const adjusted = offsetFrames([frame({ translation: [0, 1.5, 2], rotation })], local)[0];
         near(point(adjusted, [.1, .2, .4]), expected[i]);
     });
     // Authored child translation remains inside the two rigid placement transforms.
-    near(point(adjustFrames([frame({ translation: [0, 1.5, 2], rotation: I })], local)[0], [1.1, .2, .4]), [.6, 1.6, 1.2]);
+    near(point(offsetFrames([frame({ translation: [0, 1.5, 2], rotation: I })], local)[0], [1.1, .2, .4]), [.6, 1.6, 1.2]);
 }, TIMEOUT.cheap);
 
 test('Ties is reusable, owns immutable native bytes, preserves identity/hierarchy and joins without flattening', () => {
@@ -93,8 +96,20 @@ test('Ties is reusable, owns immutable native bytes, preserves identity/hierarch
     expect(resolved.scenes[0].nodes).toHaveLength(6); expect(resolved.nodes[0].children).toHaveLength(2);
     expect(resolved.nodes[1].name).toBe('authored group'); expect(resolved.nodes[1].children).toEqual([2]); expect(resolved.nodes[3].translation).toEqual([1, 0, 0]);
     let published: Construction | undefined;
-    expect(() => published = run(content, { spacing: { type: nominal(ids.number), value: 0 } })).toThrow('evaluation'); expect(published).toBeUndefined();
-    expect(run(content, { phase: { type: nominal(ids.number), value: .5 } }).placements.map(p => p.frame.translation[2])).toEqual([.5, 1.5, 2.5, 3.5, 4.5, 5.5]);
+    expect(() => published = run(content, { spacing: 0 })).toThrow('invalid repetition parameters'); expect(published).toBeUndefined();
+    expect(run(content, { startOffset: .5 }).placements.map(p => p.frame.translation[2])).toEqual([.5, 1.5, 2.5, 3.5, 4.5, 5.5]);
+}, TIMEOUT.cheap);
+
+test('Ties reads an own non-enumerable spacing option', () => {
+    const { content } = fixture();
+    const options = { path: basePath, allowed: [{ start: 0, end: 6 }] };
+    Object.defineProperty(options, 'spacing', { value: 2, enumerable: false });
+    expect(repeat(content, options).placements.map(p => p.frame.translation[2])).toEqual([0, 2, 4]);
+});
+
+test('Ties keeps nonzero phase across a half-open gap', () => {
+    const { content } = fixture();
+    expect(run(content, { startOffset: .5, excluded: [{ start: 1.5, end: 3.25 }, { start: 4, end: 4.5 }] }).placements.map(p => p.frame.translation[2])).toEqual([.5, 3.5, 4.5, 5.5]);
 }, TIMEOUT.cheap);
 
 test('independent native reader consumes resolved witness with no recipe execution', async () => {
@@ -121,9 +136,9 @@ test('parameterized Ties carries local adjustments through bank/inversion into i
     const expected = [[.6, 1.6, 2.2], [-.1, 2.1, 2.2], [-.6, 1.4, 2.2]];
     [I, [0, 0, H, H], [0, 0, 1, 0]].forEach((rotation, k) => {
         const result = run(content, {
-            path: { type: nominal(ids.path), value: { ...basePath, rotations: [rotation, rotation] } },
-            localFrame: { type: nominal(ids.frame), value: { translation: [.2, -.1, .3], rotation: [0, H, 0, H] } },
-            spacing: { type: nominal(ids.number), value: 2 },
+            path: { ...basePath, rotations: [rotation, rotation] },
+            localFrame: { translation: [.2, -.1, .3], rotation: [0, H, 0, H] },
+            spacing: 2,
         });
         expect(result.placements).toHaveLength(3);
         near(point(result.placements[1].frame, [.1, .2, .4]), expected[k]);
@@ -132,6 +147,11 @@ test('parameterized Ties carries local adjustments through bank/inversion into i
         const scene = parseGltf(json, buffers), placed = scene.instances[2], m = placed.matrix, v = scene.meshes[placed.mesh].vertices;
         near([0, 1, 2].map(row => m[row] * v[0] + m[4 + row] * v[1] + m[8 + row] * v[2] + m[12 + row]), expected[k], 1e-7);
     });
+}, TIMEOUT.cheap);
+
+test('Ties refuses fabricated content even with no stations', () => {
+    const { snapshot } = fixture();
+    expect(() => run({ snapshot: { ...snapshot } }, { allowed: [] })).toThrow('checked immutable snapshot');
 }, TIMEOUT.cheap);
 
 test('native boundary refuses live/fabricated resources and invalid selection/subsets atomically', () => {
@@ -147,3 +167,80 @@ test('native boundary refuses live/fabricated resources and invalid selection/su
         (s: any) => s.accessors[0].count = 1000,
     ]) { const { source, bytes } = fixture(); mutate(source); expect(() => nativeSnapshot(source, [bytes.buffer])).toThrow('native resource'); }
 }, TIMEOUT.cheap);
+
+const malformedLists = [Array(1), Object.assign(Object.create([0]), { length: 1 })];
+
+const placementCalls: Record<string, (list: any, content: Content) => unknown> = {
+    sample: list => sampleFrames(basePath, list),
+    join: list => join(list),
+    'instance with forged content': list => instance({ snapshot: {} } as Content, list),
+    instance: (list, content) => instance(content, list),
+    construction: list => constructionValue({ placements: list }),
+    export: list => resolvedNative({ placements: list }),
+};
+for (const [name, call] of Object.entries(placementCalls)) {
+    test(`${name} refuses malformed direct placement lists atomically`, () => {
+        const { content } = fixture();
+        for (const list of malformedLists) {
+            let published: unknown;
+            expect(() => { published = call(list, content); }).toThrow();
+            expect(published).toBeUndefined();
+        }
+    });
+}
+
+test('direct placement lists accept valid empty inputs', () => {
+    const { content } = fixture();
+    expect(sampleFrames(basePath, [])).toEqual([]);
+    expect(instance(content, [])).toEqual({ placements: [] });
+    expect(join([])).toEqual({ placements: [] });
+    expect(constructionValue({ placements: [] })).toEqual({ placements: [] });
+    expect(() => instance({ snapshot: {} } as Content, [])).toThrow();
+});
+
+test('direct placement lists preserve valid dense inputs', () => {
+    const { content } = fixture();
+    const frames = sampleFrames(basePath, [0, 6]);
+    expect(frames.map(f => f.translation)).toEqual(basePath.positions);
+    const result = { placements: frames.map(frame => ({ frame, content })) };
+    expect(instance(content, frames)).toEqual(result);
+    expect(constructionValue(result)).toEqual(result);
+    expect(join([result, result]).placements).toEqual([...result.placements, ...result.placements]);
+});
+
+test('offset, path and span lists require own slots in arrays', () => {
+    const pose = frame({ translation: [0, 0, 0], rotation: I });
+    const holeWithInherited = [0, 6];
+    delete holeWithInherited[1];
+    Object.setPrototypeOf(holeWithInherited, [0, 6]);
+    expect(() => path({ ...basePath, distances: holeWithInherited })).toThrow();
+    for (const key of ['distances', 'positions', 'rotations']) {
+        expect(() => path({ ...basePath, [key]: Array(2) })).toThrow();
+        expect(() => path({ ...basePath, [key]: { ...basePath[key as keyof typeof basePath], length: 2 } })).toThrow();
+    }
+    for (const list of malformedLists) {
+        expect(() => offsetFrames(list, pose)).toThrow();
+        expect(() => repeatDistances(6, 1, 0, list, [])).toThrow();
+        expect(() => repeatDistances(6, 1, 0, [], list)).toThrow();
+    }
+});
+
+test('compose rejects non-unit operands even when their product is a unit quaternion', () => {
+    const a = { translation: [0, 0, 0], rotation: [0, 0, 0, 2] };
+    const b = { translation: [0, 0, 0], rotation: [0, 0, 0, .5] };
+    expect(() => compose(a, b)).toThrow('unit quaternion required');
+    expect(() => compose(b, a)).toThrow('unit quaternion required');
+    // One operand alone is outside tolerance; their product is still within it.
+    const within = { ...a, rotation: [0, 0, 0, 1 - .75e-12] };
+    const outside = { ...b, rotation: [0, 0, 0, 1 + 1.5e-12] };
+    expect(() => compose(within, outside)).toThrow('unit quaternion required');
+    expect(() => compose(outside, within)).toThrow('unit quaternion required');
+});
+
+test('compose applies the second pose in the first pose’s coordinates', () => {
+    const a = { translation: [4, 5, 6], rotation: [0, 0, H, H] };
+    const b = { translation: [2, 3, 4], rotation: [0, 0, -H, H] };
+    const result = compose(a, b);
+    near(result.translation, [1, 7, 10]);
+    near(result.rotation, I);
+});

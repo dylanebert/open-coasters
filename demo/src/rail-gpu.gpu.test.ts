@@ -6,9 +6,10 @@ import { TIMEOUT } from '@dylanebert/shallot/testing';
 import { decodePos } from '@dylanebert/shallot/mesh';
 import { octDecodeNormal } from '@dylanebert/shallot/utils';
 import { MeshPreprocessSystem } from '@dylanebert/shallot/standard/rendering';
-import { framesAt, path, adjustFrames, type Frame } from '../../construction/geometry';
+import { sampleFrames, path, offsetFrames, type Frame } from '../../construction/geometry';
 import { sampledSection } from '../../construction/section';
-import { sweepConvex } from '../../construction/sweep';
+import { forceColor } from './loop-force';
+import { sweep } from '../../construction/sweep';
 import { nativeSnapshot } from '../../construction/native';
 import { railGpu, RailGpu, RailEmitSystem } from './rail-gpu';
 
@@ -26,11 +27,12 @@ const warn=console.warn;
 const bank=.37, angle=.8, radius=8;
 const positions:number[][]=[], rotations:number[][]=[];
 for(let i=0;i<97;i++) {
-    const t=angle*i/96, sy=Math.sin(t/2), cy=Math.cos(t/2), sz=Math.sin(bank/2), cz=Math.cos(bank/2);
-    positions.push([radius*(1-Math.cos(t)),0,radius*Math.sin(t)]);
+    const t=angle*i/96, sy=-Math.sin(t/2), cy=Math.cos(t/2), sz=Math.sin(bank/2), cz=Math.cos(bank/2);
+    positions.push([radius*(1-Math.cos(t)),0,-radius*Math.sin(t)]);
     rotations.push([sy*sz,sy*cz,cy*sz,cy*cz]);
 }
 const sampled=path({distances:Array.from({length:97},(_,i)=>radius*angle*i/96),positions,rotations});
+const colors=positions.map((_,i)=>forceColor(2+3*i/96));
 let material: {snapshot:ReturnType<typeof nativeSnapshot>;material:number};
 const cpuReferences=new Map<number,number[]>();
 
@@ -38,15 +40,18 @@ beforeAll(async()=>{
     console.warn=(...args)=>{warnings.push(args.map(String).join(' '));warn(...args);};
     const json=await Bun.file(new URL('../public/assets/assembly-section.gltf',import.meta.url)).json();
     const bytes=await Bun.file(new URL('../public/assets/assembly-section.bin',import.meta.url)).arrayBuffer();
-    section=sampledSection(json,[bytes]); frames=framesAt(sampled,sampled.distances);
+    // Affine edit of the fixture only: unequal radii, asymmetric origin, same directed cycle.
+    const xyz=new Float32Array(bytes,0,48);
+    for(let j=0;j<16;j++){xyz[j*3]=xyz[j*3]*1.7+.013;xyz[j*3+1]=xyz[j*3+1]*.8-.021;}
+    section=sampledSection(json,[bytes]); frames=sampleFrames(sampled,sampled.distances);
     const doc=await Bun.file(new URL('../../construction/witness/resolved-ties.gltf',import.meta.url)).json();
     const raw=new Float32Array([.1,.2,.4,.4,.2,.4,.1,.5,.4]);
     doc.buffers=[{byteLength:raw.byteLength}]; doc.materials=[{pbrMetallicRoughness:{baseColorFactor:[.8,.4,.1,1]}}];
     material={snapshot:nativeSnapshot(doc,[new Uint8Array(raw.buffer)]),material:0};
     for(const separation of [.6,1.1,1.6,.85])cpuReferences.set(separation,cpu(separation));
     expect(section.length).toBe(16);
-    expect(Math.max(...section.map(p=>Math.hypot(...p)))).toBeCloseTo(.06,7);
-    const scene:Plugin={name:'rail-proof-view',dependencies:[railGpu(frames,section)],initialize(w){
+    const scene:Plugin={name:'rail-proof-view',dependencies:[railGpu(frames,section,colors)],initialize(w){
+        w.resource(RailGpu).colored=true;
         railEntity=w.create();w.add(railEntity,Transform);w.add(railEntity,MeshInstance,{mesh:w.resource(RailGpu).handle});
         w.add(railEntity,MeshMaterial,w.resource(Materials).add(StandardMaterial({baseColor:[.8,.4,.1,1]})));
         camera=w.create(); w.add(camera,Camera,{clearColor:0x121212}); w.add(camera,StandardRenderer); w.add(camera,DepthPrepass);
@@ -78,8 +83,8 @@ afterAll(async()=>{
 function cpu(separation:number) {
     const out:number[]=[];
     for(const sign of [-1,1]) {
-        const shifted=adjustFrames(frames,{translation:[sign*separation/2,0,0],rotation:[0,0,0,1]});
-        const result=sweepConvex(section,shifted,material,material);
+        const shifted=offsetFrames(frames,{translation:[sign*separation/2,0,0],rotation:[0,0,0,1]});
+        const result=sweep(section,shifted,material,material);
         const snap=result.placements[0].content.snapshot;
         const bytes=Buffer.from(snap.buffers[0],'base64');
         // Native sweep has wall POSITION/NORMAL then cap POSITION/NORMAL.
@@ -165,14 +170,42 @@ test('retained banked rails: low/interior/high, shared f32 sweep, analytic oracl
             maxNormal=Math.max(maxNormal,error);
             maxQuantNormal=Math.max(maxQuantNormal,Math.hypot(...q.map((v,k)=>v-emitted[k])));
         }
-        // Independent closed-form banked arc, first corner of each wall quad.
-        for(let rail=0;rail<2;rail++) for(let station=0;station<96;station++) for(let j=0;j<16;j++) {
-            const t=angle*station/96, x=section[j][0]+(rail?1:-1)*separation/2,y=section[j][1];
-            const bx=Math.cos(bank)*x-Math.sin(bank)*y, by=Math.sin(bank)*x+Math.cos(bank)*y;
-            const expected=[radius*(1-Math.cos(t))+Math.cos(t)*bx,by,radius*Math.sin(t)-Math.sin(t)*bx];
-            const index=rail*(96*16*6+28*3)+(station*16+j)*6;
-            analyticError=Math.max(analyticError,...expected.map((v,k)=>Math.abs(v-decoded[index][k])));
+        // Corners in independently authored arc coordinates; the CCW section
+        // faces back at the start and forward at the end. Walls keep the a–c diagonal.
+        let index=0, colorError=0, worstSignedDot=1;
+        for(const side of [-1,1]) {
+            const point=(s:number,j:number)=>{
+                const t=angle*s/96, phi=j*Math.PI/8;
+                const x=.102*Math.cos(phi)+.013+side*separation/2, y=.048*Math.sin(phi)-.021;
+                const bx=Math.cos(bank)*x-Math.sin(bank)*y, by=Math.sin(bank)*x+Math.cos(bank)*y;
+                return [radius*(1-Math.cos(t))+Math.cos(t)*bx,by,-radius*Math.sin(t)+Math.sin(t)*bx];
+            };
+            const face=(refs:readonly (readonly [number,number])[],outward?:number[])=>{
+                const corners=refs.map(([s,j])=>point(s,j));
+                const emitted=octDecodeNormal(actual[index*4+2]);
+                const n=outward??normal(corners[0],corners[1],corners[2]);
+                worstSignedDot=Math.min(worstSignedDot,n[0]*emitted.x+n[1]*emitted.y+n[2]*emitted.z);
+                refs.forEach(([s],k)=>{
+                    analyticError=Math.max(analyticError,...corners[k].map((v,a)=>Math.abs(v-decoded[index][a])));
+                    const at=mesh.indexCount*4+index*2, rg=actual[at],ba=actual[at+1];
+                    [rg&65535,rg>>>16,ba&65535,ba>>>16].forEach((v,c)=>{
+                        colorError=Math.max(colorError,Math.abs(v/65535-colors[s][c]));
+                    });
+                    index++;
+                });
+            };
+            for(let s=0;s<96;s++) for(let j=0;j<16;j++) {
+                const k=(j+1)%16;
+                face([[s,j],[s+1,k],[s,k]]);face([[s,j],[s+1,j],[s+1,k]]);
+            }
+            for(let j=1;j<15;j++) {
+                face([[0,0],[0,j],[0,j+1]],[0,0,1]);
+                face([[96,0],[96,j+1],[96,j]],[Math.sin(angle),0,-Math.cos(angle)]);
+            }
         }
+        expect(index).toBe(mesh.indexCount);
+        expect(worstSignedDot).toBeGreaterThan(.99999);
+        expect(colorError).toBeLessThan(1/65535);
         expect(topologyErrors+streamErrors+boundsErrors).toBe(0);
         expect(analyticError).toBeLessThan(quantError+3e-6);
         expect(maxPosition).toBeLessThan(quantError+3e-6);
@@ -205,7 +238,7 @@ test('aborted draw does not commit a rail output marker; retry emits the pending
     expect(s.dispatches).toBe(count);expect(s.submitted).toBe(submitted);
     expect(await read(s.buffers[0])).toEqual(before);
     w.step(0);await w.frameFence;
-    expect(s.dispatches).toBe(count+1);expect(s.submitted).toEqual([.85,0,false]);
+    expect(s.dispatches).toBe(count+1);expect(s.submitted).toEqual([.85,0,true]);
     const actual=await read(s.buffers[0]),quant=(await s.mesh.quant!.read())[0],reference=cpuReferences.get(.85)!;
     for(let i=0;i<s.mesh.indexCount;i++) {
         const p=decodePos(actual[i*4],actual[i*4+1],quant);

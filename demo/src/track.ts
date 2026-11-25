@@ -30,16 +30,12 @@ function loopFrame(s: number) {
   const norm = Math.hypot(...q);
   const axis = (x: number, y: number, z: number) =>
     qRotate(q[0] / norm, q[1] / norm, q[2] / norm, q[3] / norm, x, y, z);
-  const right = axis(1, 0, 0),
-    up = axis(0, 1, 0),
-    forward = axis(0, 0, -1);
-  // World Y half-turn + translation, never scale. Reverse BOTH local X and Z
-  // from KexEdit's -Z-forward frame so demo +Z tangent remains right-handed.
+  const world = ([x, y, z]: readonly number[]): Vec => [-x, y, -z];
   return {
     p: placeLoopPosition(p),
-    x: [right[0], -right[1], right[2]] as Vec,
-    y: [-up[0], up[1], -up[2]] as Vec,
-    z: [-forward[0], forward[1], -forward[2]] as Vec,
+    x: world(axis(1, 0, 0)),
+    y: world(axis(0, 1, 0)),
+    z: world(axis(0, 0, 1)),
   };
 }
 export type Vec = [number, number, number];
@@ -71,7 +67,7 @@ export function length(kind: Configuration) {
 export function frame(kind: Configuration, s: number) {
   if (kind === "straight")
     return {
-      p: [0, 1.5, s - 6] as Vec,
+      p: [0, 1.5, 6 - s] as Vec,
       x: [1, 0, 0] as Vec,
       y: [0, 1, 0] as Vec,
       z: [0, 0, 1] as Vec,
@@ -82,16 +78,16 @@ export function frame(kind: Configuration, s: number) {
   return {
     p: [8 * Math.cos(a) - 6, 1.5, 8 * Math.sin(a)] as Vec,
     x: [
-      Math.cos(a) * Math.cos(b),
-      Math.sin(b),
-      Math.sin(a) * Math.cos(b),
+      -Math.cos(a) * Math.cos(b),
+      -Math.sin(b),
+      -Math.sin(a) * Math.cos(b),
     ] as Vec,
     y: [
       -Math.cos(a) * Math.sin(b),
       Math.cos(b),
       -Math.sin(a) * Math.sin(b),
     ] as Vec,
-    z: [-Math.sin(a), 0, Math.cos(a)] as Vec,
+    z: [Math.sin(a), 0, -Math.cos(a)] as Vec,
   };
 }
 export function point(
@@ -116,12 +112,12 @@ export function generate(p: Parameters) {
     // Nonplanar loop sections do not make planar quads. Give each triangle its
     // own geometric normal instead of lighting the second with the first's.
     if (p.configuration === "loop") {
-      triangle(a, b, c);
-      triangle(a, c, d);
+      triangle(a, c, b);
+      triangle(a, d, c);
       return;
     }
-    const u = b.map((v, i) => v - a[i]),
-      v = c.map((v, i) => v - a[i]);
+    const u = c.map((v, i) => v - a[i]),
+      v = b.map((v, i) => v - a[i]);
     const n = [
       u[1] * v[2] - u[2] * v[1],
       u[2] * v[0] - u[0] * v[2],
@@ -131,7 +127,7 @@ export function generate(p: Parameters) {
     const start = vertices.length / 8;
     for (const pt of [a, b, c, d])
       vertices.push(...pt, 0, ...n.map((v) => v / l), 0);
-    indices.push(start, start + 1, start + 2, start, start + 2, start + 3);
+    indices.push(start, start + 2, start + 1, start, start + 3, start + 2);
   }
   function triangle(a: Vec, b: Vec, c: Vec) {
     // Normals describe the emitted Float32 triangle, including small clipped
@@ -156,9 +152,9 @@ export function generate(p: Parameters) {
     for (const section of pendingCaps) for (const end of [0, 1]) {
       const f = frame(p.configuration, end * length(p.configuration));
       const start = vertices.length / 8;
-      for (const xy of section) vertices.push(...point(f, ...xy), 0, ...f.z.map(v => v * (end ? 1 : -1)), 0);
+      for (const xy of section) vertices.push(...point(f, ...xy), 0, ...f.z.map(v => v * (end ? -1 : 1)), 0);
       for (const [a,b,c] of sectionTriangles(section))
-        indices.push(start+a, start+(end ? b : c), start+(end ? c : b));
+        indices.push(start+a, start+(end ? c : b), start+(end ? b : c));
     }
     pendingCaps.length = 0;
   }
@@ -211,26 +207,45 @@ export function generate(p: Parameters) {
   function strip(s: number) {
     const cell = Math.max(0, Math.min(191, Math.floor(s / step)));
     const a = frame(p.configuration, cell * step), b = frame(p.configuration, (cell + 1) * step);
-    return { a, b, t: (s - cell * step) / step };
+    return { a, b, cell, t: (s - cell * step) / step };
   }
-  function at(s: number, xy: [number, number]) {
+  // The rail ring runs from the negative lateral corner through the bottom
+  // to the positive corner (vertices 8, 9, 10). Read the emitted quad's
+  // a–c diagonal and both facets in that same signed order.
+  function seatCorners(cell: number, edge: number) {
+    const side = edge >= 5 ? 1 : 0;
+    const facet = 8 + edge - side * 5;
+    const index = ((side * 192 + cell) * 12 + facet) * 6;
+    return [0, 2, 1, 4].map(j => {
+      const start = indices[index + j] * 8;
+      return vertices.slice(start, start + 3).map(Math.fround) as Vec;
+    });
+  }
+  function at(s: number, i: number) {
+    const xy = profile[i];
     const end = Math.max(0, Math.min(length(p.configuration), s));
-    if (end !== s) return point(frame(p.configuration, end), ...xy, s - end);
-    const { a, b, t } = strip(s);
+    if (end !== s) return point(frame(p.configuration, end), ...xy, end - s);
+    const { a, b, cell, t } = strip(s);
+    if (seats.has(i) || seats.has(i - 1)) {
+      const startsSeat = seats.has(i);
+      const corners = seatCorners(cell, startsSeat ? i : i - 1);
+      return interpolate(corners[startsSeat ? 0 : 1], corners[startsSeat ? 3 : 2], t);
+    }
     return interpolate(point(a, ...xy), point(b, ...xy), t);
   }
   // A seat follows the emitted triangles, NOT a circular tube or bilinear
   // quad. Clip each of the two existing facet triangles to the tie's depth.
   // The same diagonal kink is included in the end-cap boundary.
   function cap(s: number, reverse: boolean) {
-    const { a, b, t } = strip(Math.max(0, Math.min(length(p.configuration), s)));
+    const { cell, t } = strip(Math.max(0, Math.min(length(p.configuration), s)));
     const ring: { xy: [number, number]; p: Vec }[] = [];
     profile.forEach((xy, i) => {
-      ring.push({ xy, p: at(s, xy) });
+      ring.push({ xy, p: at(s, i) });
       if (s < 0 || s > length(p.configuration) || !seats.has(i) || t < 1e-7 || t > 1 - 1e-7) return;
       const next = profile[(i + 1) % profile.length];
+      const [a, , c] = seatCorners(cell, i);
       ring.push({ xy: [xy[0] + t * (next[0] - xy[0]), xy[1] + t * (next[1] - xy[1])],
-        p: interpolate(point(a, ...xy), point(b, ...next), t) });
+        p: interpolate(a, c, t) });
     });
     const turn = (a: number[], b: number[], c: number[]) =>
       (b[0]-a[0])*(c[1]-a[1]) - (b[1]-a[1])*(c[0]-a[0]);
@@ -252,27 +267,35 @@ export function generate(p: Parameters) {
       if (!found) throw new Error("Invalid yoke cap");
     }
   }
+  function coalesceCut(s: number) {
+    const ring = Math.round(s / step) * step;
+    // A 37.489 µm residual produced 8.185e-11 m² of twice-area.
+    // The corner shrinks in two directions: 60 µm puts that measured
+    // quadratic scale above 2e-10 m², while using under 1% of the
+    // 10 mm longitudinal margin between the nominal cap and seat envelope.
+    return Math.abs(ring - s) <= 0.000060 ? ring : s;
+  }
   for (const { s } of ties(p)) {
-    const lo = s - 0.055, hi = s + 0.055;
+    const lo = coalesceCut(s - 0.055), hi = coalesceCut(s + 0.055);
     const cuts = [lo, hi];
     for (let i = 0; i <= 192; i++) if (i * step > lo && i * step < hi) cuts.push(i * step);
     cuts.sort((a, b) => a - b);
-    cap(lo, false);
-    cap(hi, true);
+    cap(lo, true);
+    cap(hi, false);
     for (let k = 0; k < cuts.length - 1; k++) {
       const low = cuts[k], high = cuts[k + 1];
-      profile.forEach((xy, i) => {
-        const next = profile[(i + 1) % profile.length];
+      profile.forEach((_, i) => {
+        const next = (i + 1) % profile.length;
         if (!seats.has(i) || high <= 0 || low >= length(p.configuration)) {
           // Geometric normals are required on every nonplanar strip, even on
           // the banked curve. Seat clipping also makes strips variable-sized.
-          const a = at(low, xy), b = at(high, xy), c = at(high, next), d = at(low, next);
-          triangle(a, b, c); triangle(a, c, d);
+          const a = at(low, i), b = at(high, i), c = at(high, next), d = at(low, next);
+          triangle(a, c, b); triangle(a, d, c);
           return;
         }
-        const { a, b } = strip((low + high) / 2);
-        const cell = Math.floor((low + high) / 2 / step), t0 = (low - cell * step) / step, t1 = (high - cell * step) / step;
-        const corners = [point(a, ...xy), point(a, ...next), point(b, ...next), point(b, ...xy)];
+        const { cell } = strip((low + high) / 2);
+        const t0 = (low - cell * step) / step, t1 = (high - cell * step) / step;
+        const corners = seatCorners(cell, i);
         for (const ids of [[0,1,2],[0,2,3]]) {
           let polygon = ids.map(j => ({ p: corners[j], t: j < 2 ? 0 : 1 }));
           for (const [bound, sign] of [[t0,1],[t1,-1]]) {
@@ -290,7 +313,7 @@ export function generate(p: Parameters) {
           // Clipping at an existing ring can repeat a corner. Drop those
           // repetitions rather than emitting zero-area triangles.
           polygon = polygon.filter((v,j) => Math.hypot(...v.p.map((x,k) => x-polygon[(j+polygon.length-1)%polygon.length].p[k])) > 1e-10);
-          for (let j = 1; j + 1 < polygon.length; j++) triangle(polygon[0].p, polygon[j+1].p, polygon[j].p);
+          for (let j = 1; j + 1 < polygon.length; j++) triangle(polygon[0].p, polygon[j].p, polygon[j+1].p);
         }
       });
     }

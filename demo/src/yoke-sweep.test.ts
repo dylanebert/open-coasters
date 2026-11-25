@@ -15,7 +15,7 @@ test("seat oracle rejects a flat ledge through the two symmetric facet midpoints
   // both sloping facets. Do not let two symmetric samples define shaped seats.
   const p={...defaults,configuration:"straight" as const};
   const rails=triangles(generate(p),"rails");
-  const y=1.5-.065*(1+Math.sqrt(3)/2)/2, z=-5.35;
+  const y=1.5-.065*(1+Math.sqrt(3)/2)/2, z=5.35;
   const ledge: Triangle[]=[
     [[-.65,y,z-.055],[.65,y,z-.055],[.65,y,z+.055]],
     [[-.65,y,z-.055],[.65,y,z+.055],[-.65,y,z+.055]],

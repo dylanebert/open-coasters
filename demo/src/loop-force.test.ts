@@ -5,7 +5,7 @@ import { loopForces, normalForce, forceColor } from './loop-force';
 import { assemblyDefaults, packRails, railAppearance, resolveAssembly } from './assembly';
 import { rotation } from './track';
 import { loadSampledSection } from './sampled-section';
-import { sweepConvex } from '../../construction/sweep';
+import { sweep } from '../../construction/sweep';
 const section = await loadSampledSection(new URL('../public/assets/assembly-section.gltf',import.meta.url));
 
 // Authored targets are an expectation, never the production field. The separate
@@ -59,7 +59,7 @@ function expectedColor(s:number) {
 }
 test('unchanged section receives longitudinal corner colors; flat, transverse and shifted output controls fail', () => {
   const rails=resolveAssembly({...assemblyDefaults,path:'loop'}).railFrames;
-  const construction={placements:rails.flatMap(r=>sweepConvex(section,r.map(f=>({translation:f.p,rotation:rotation(f)})),railAppearance,railAppearance).placements)};
+  const construction={placements:rails.flatMap(r=>sweep(section,r.map(f=>({translation:f.p,rotation:rotation(f)})),railAppearance,railAppearance).placements)};
   const pack=(appearance?: (s:number)=>readonly number[])=>packRails(construction,rails[0].map(f=>f.s),section.length,appearance);
   const plain=pack(), colored=pack(s=>forceColor(normalForce(s)));
   expect(colored.vertices).toEqual(plain.vertices);
@@ -67,7 +67,7 @@ test('unchanged section receives longitudinal corner colors; flat, transverse an
   const stations:number[]=[];
   for(let rail=0;rail<2;rail++) {
     for(let i=0;i<96;i++) for(let j=0;j<section.length;j++)
-      for(const k of [i,i,i+1,i,i+1,i+1]) stations.push(108.5071019065*k/96);
+      for(const k of [i,i+1,i,i,i+1,i+1]) stations.push(108.5071019065*k/96);
     // Shared native sweep alternates start/end triangles for each fan edge.
     for(let fan=0;fan<section.length-2;fan++) for(const end of [0,96]) for(let j=0;j<3;j++) stations.push(108.5071019065*end/96);
   }

@@ -31,8 +31,8 @@ for (const kind of ["straight", "curve"] as Configuration[]) {
     const c = Math.SQRT1_2,
       b = Math.sqrt(3) / 2;
     const origin =
-      kind === "straight" ? [0, 1.5, -6] : [8 * c - 6, 1.5, -8 * c];
-    const across = kind === "curve" ? [c * b, 0.5, -c * b] : [1, 0, 0];
+      kind === "straight" ? [0, 1.5, 6] : [8 * c - 6, 1.5, -8 * c];
+    const across = kind === "curve" ? [-c * b, -0.5, c * b] : [1, 0, 0];
     const up = kind === "curve" ? [-c * 0.5, b, c * 0.5] : [0, 1, 0];
     const local = (vertex: number, axis: number[]) =>
       axis.reduce(
@@ -50,7 +50,7 @@ for (const kind of ["straight", "curve"] as Configuration[]) {
       const f = stations[i];
       const distance =
         kind === "straight"
-          ? f.p[2] + 6
+          ? 6 - f.p[2]
           : 8 * (Math.atan2(f.p[2], f.p[0] + 6) + Math.PI / 4);
       expect(distance).toBeCloseTo(i * 0.7, 6);
       for (const axis of [f.x, f.y, f.z])
@@ -83,7 +83,7 @@ for (const configuration of ["straight", "curve"] as Configuration[]) {
     // No production frame/point helper is used to measure the generated mesh.
     const origin = configuration === "curve" ? [2, 1.5, 0] : [0, 1.5, 0];
     const across =
-      configuration === "curve" ? [Math.sqrt(3) / 2, 0.5, 0] : [1, 0, 0];
+      configuration === "curve" ? [-Math.sqrt(3) / 2, -0.5, 0] : [1, 0, 0];
     const up =
       configuration === "curve" ? [-0.5, Math.sqrt(3) / 2, 0] : [0, 1, 0];
     const range = (data: Float32Array, vertices: number[], axis: number[]) => {
@@ -169,9 +169,9 @@ for (const configuration of ["straight", "curve"] as Configuration[]) {
     // the horizontal radius-8 arc.
     const secondStation =
       configuration === "straight"
-        ? [0, 1.5, -4.8]
+        ? [0, 1.5, 4.8]
         : [0.438683608715, 1.5, -4.747984139278];
-    const tangent = configuration === "straight" ? [0,0,1] : [0.59349801741,0,0.80483545109];
+    const tangent = configuration === "straight" ? [0,0,-1] : [0.59349801741,0,0.80483545109];
     const projected=spacedBodies[1].flatMap(t=>t.map(v=>v.reduce((sum,x,k)=>sum+(x-secondStation[k])*tangent[k],0)));
     expect(Math.abs(Math.min(...projected)+Math.max(...projected))).toBeLessThan(.002);
   });
@@ -179,7 +179,7 @@ for (const configuration of ["straight", "curve"] as Configuration[]) {
 test("independent orientation landmarks: straight and 30 degree bank", () => {
   near(frame("straight", 6).p, [0, 1.5, 0]);
   near(frame("straight", 6).y, [0, 1, 0]);
-  near(frame("curve", 2 * Math.PI).x, [Math.sqrt(3) / 2, 0.5, 0]);
+  near(frame("curve", 2 * Math.PI).x, [-Math.sqrt(3) / 2, -0.5, 0]);
   near(frame("curve", 2 * Math.PI).y, [-0.5, Math.sqrt(3) / 2, 0]);
 });
 test("generated dimensions are independently bounded and all controls affect actual vertices", () => {

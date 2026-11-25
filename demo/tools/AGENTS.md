@@ -14,7 +14,7 @@ The selected loop is a deliberately approximate construction example, not a Medu
 
 The final record is a physical partial step at the terminal forward-Y root, not a snapped position or rotation. Recompute free energy for that duration. Retain actual sample timestamps for the unequal terminal derivative stencil.
 
-Source -Z is forward; demo +Z follows increasing distance. Reverse both local X and Z to preserve handedness, never one axis. World placement is rigid; camera framing is separate. Nonplanar sweep quads need per-triangle geometric normals.
+Source and demo frames both use −Z forward. Place the recorded loop with the rigid world transform only; do not flip its local axes. Nonplanar sweep quads need per-triangle geometric normals.
 
 Requalify record, interpolation, profile or supported-control changes with the independent force checks in `demo/src/loop.test.ts` and emitted-envelope/local-piece checks in `demo/src/loop.node.ts`. Tube containment alone does not establish local mesh separation. The `track.generate` witness certificate does not qualify live NormalTrack, Blitz or Modern geometry.
 
