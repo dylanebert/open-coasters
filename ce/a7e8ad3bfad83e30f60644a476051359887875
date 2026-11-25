@@ -1,0 +1,2 @@
+stage: 7
+finding: `placement-reference.md` — Exact (prose check): “placements at regular intervals, filtered by span” attributes regular intervals to the returned placements. `repeat` spaces the candidates, not necessarily the placements: with 1 m spacing, startOffset 0, allowed [0, 4) and excluded [1, 2), it returns stations 0, 2 and 3, with unequal gaps. The stride belongs to the candidates; the short return description should not imply it survives filtering. The call-form/link tests pass without testing this distinction.
