@@ -116,10 +116,30 @@ test('asymmetric local adjustment straight, banked and inverted, plus faceted di
  }
  }
 }, TIMEOUT.cheap);
+test('sweep accepts a decoded section but refuses an equal plain array',()=>{
+ const frames = [0,-1].map(z=>frame({translation:[0,0,z],rotation:I}));
+ expect(sweep(section,frames,wall,cap).placements).toHaveLength(1);
+ const plain = Object.freeze([...section]);
+ expect(plain).toEqual(section);
+ // @ts-expect-error Deliberately cross the type boundary to check runtime refusal.
+ expect(()=>sweep(plain,frames,wall,cap)).toThrow('decoded assembly');
+}, TIMEOUT.cheap);
+
+test('section refuses a negative buffer view offset even when accessor bytes are unchanged',()=>{
+ const invalid = structuredClone(json);
+ // POSITION still reads [0, 192) in the same known-good buffer.
+ invalid.bufferViews[0].byteOffset = -4;
+ invalid.bufferViews[0].byteLength += 4;
+ invalid.accessors[0].byteOffset = 4;
+ const view = invalid.bufferViews[0], start = view.byteOffset + invalid.accessors[0].byteOffset;
+ expect([start, view.byteOffset + view.byteLength]).toEqual([0, 192]);
+ expect(sampledSection(json,[bytes])).toBeArrayOfSize(16);
+ expect(()=>sampledSection(invalid,[bytes])).toThrow('negative buffer view offset');
+}, TIMEOUT.cheap);
+
 test('unsupported section, geometry and appearance fail without publishing results',()=>{
  const f=frame({translation:[0,0,0],rotation:I});
  for(const frames of [[f],[f,f],[f,frame({translation:[0,0,-1e-14],rotation:I})]]) expect(()=>sweep(section,frames,wall,cap)).toThrow();
- expect(()=>sweep([[0,0],[1,0],[0,1]], [f,f],wall,cap)).toThrow('decoded assembly');
  for(const patch of [{alphaMode:'BLEND'},{normalTexture:{index:0}},{pbrMetallicRoughness:{baseColorTexture:{index:0}}}]) {
   const d=structuredClone(doc); d.materials[0]=patch;
   expect(()=>materialValue({snapshot:nativeSnapshot(d,[new Uint8Array(raw.buffer)]),material:0})).toThrow();

@@ -2,14 +2,19 @@ import { mapList } from './list';
 /** Structural native JSON input; no renderer dependency. */
 type GltfJson = { [key: string]: any };
 
-export type ConvexSection = readonly (readonly [number, number])[];
+declare const decodedSection: unique symbol;
+/** Frozen XY points issued by sampledSection, not an arbitrary Profile or point array. */
+export type ConvexSection = readonly (readonly [number, number])[] & { readonly [decodedSection]: true };
 const sections = new WeakSet<object>();
 export function sectionValue(value: unknown): ConvexSection {
   if (!value || typeof value !== 'object' || !sections.has(value)) throw Error('Section requires decoded assembly binding');
   return value as ConvexSection;
 }
-/** Bounded geometry-only binding: one directed closed convex XY line cycle in
- * its identity local frame. This is not glTF sweep semantics or a format validator. */
+/** Decode one directed, indexed glTF LINES cycle in an identity local frame.
+ * Source Z must be within 1e-6 m of zero. Returns the XY points in metres only
+ * if they form a strictly convex, counterclockwise cycle under the decoder's
+ * edge and turn tolerances.
+ * This is not glTF sweep semantics or a format validator. */
 export function sampledSection(json: GltfJson, resources: readonly ArrayBuffer[]): ConvexSection {
   const fail = (): never => { throw new Error('Sampled section: unsupported or invalid geometry'); };
   // Explicit subset: refuse semantic fields rather than silently losing them.
@@ -37,6 +42,7 @@ export function sampledSection(json: GltfJson, resources: readonly ArrayBuffer[]
     if (!Number.isInteger(index) || !a || !v || !Number.isInteger(a.count) || a.count < 1 || a.count > 4096 || (positions ? a.type !== 'VEC3' || a.componentType !== 5126 : a.type !== 'SCALAR' || ![5121,5123,5125].includes(a.componentType))) return fail();
     const size = a.componentType === 5121 ? 1 : a.componentType === 5123 ? 2 : 4;
     const width = positions ? 3 : 1, stride = v.byteStride ?? width * size;
+    if ((v.byteOffset ?? 0) < 0) throw Error('Sampled section: negative buffer view offset');
     const start = (v.byteOffset ?? 0) + (a.byteOffset ?? 0), data = buffers[v.buffer];
     if (!data || !Number.isInteger(v.buffer) || !Number.isInteger(v.byteOffset ?? 0) || !Number.isInteger(a.byteOffset ?? 0) || !Number.isInteger(v.byteLength) || v.byteLength < 0 || !Number.isInteger(stride) || stride < width * size || stride % size || start % size || start < 0 || (a.byteOffset ?? 0) < 0 || start + (a.count - 1) * stride + width * size > (v.byteOffset ?? 0) + v.byteLength || (v.byteOffset ?? 0) + v.byteLength > data.byteLength) return fail();
     const view = new DataView(data);
@@ -65,5 +71,5 @@ export function sampledSection(json: GltfJson, resources: readonly ArrayBuffer[]
   }
   const section = Object.freeze(points.map(p => Object.freeze(p)));
   sections.add(section);
-  return section;
+  return section as ConvexSection;
 }

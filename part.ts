@@ -9,6 +9,11 @@ function immutable<T>(value: T): T {
 /** Native glTF JSON, not a parallel geometry representation. */
 export type NativeDocument = { [key: string]: any };
 export type ImmutableNativeSnapshot = { readonly document: NativeDocument; readonly buffers: readonly string[] };
+const snapshots = new WeakSet<object>();
+/** Test exact identity, not structural equality with a checked part. */
+export function isNativeSnapshot(value: unknown): value is ImmutableNativeSnapshot {
+    return value !== null && typeof value === 'object' && snapshots.has(value);
+}
 const assert = (ok: unknown, cause: string): void => {
     if (!ok) throw new Error(`native resource: ${cause}`);
 };
@@ -126,7 +131,7 @@ export function requireStaticInstance(json: NativeDocument): void {
  * Only selected scene roots contribute; retain native hierarchy and matrix/TRS
  * verbatim (no consumer TRS decomposition). Preserve native material records and
  * primitive material indices, including glTF's default material when absent.
- * Resources are supplied in buffer order at exactly declared byteLength. The
+ * Resources are supplied as an array in buffer order at exactly declared byteLength. The
  * result owns deeply frozen JSON and base64 bytes; input mutation cannot alter it.
  * Throws on invalid inputs or unsupported provisional capabilities, even in
  * unselected scenes: static triangles only, opaque untextured core materials,
@@ -135,6 +140,7 @@ export function requireStaticInstance(json: NativeDocument): void {
  * these feature refusals are not universal portable asset requirements.
  */
 export function nativeSnapshot(source: NativeDocument, resources: readonly (ArrayBuffer | Uint8Array)[]): ImmutableNativeSnapshot {
+    assert(Array.isArray(resources), 'resources must be an array');
     const finiteJSON = (v: unknown): void => {
         if (v === null || typeof v === 'string' || typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v))) return;
         assert(!!v && typeof v === 'object' && (Array.isArray(v) || Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null), 'finite plain JSON required');
@@ -247,5 +253,7 @@ export function nativeSnapshot(source: NativeDocument, resources: readonly (Arra
         for (const root of s.nodes ?? []) { index(root, doc.nodes, 'root'); assert(!parents.has(root), 'scene root has parent'); }
     }
     assert(doc.scenes[selected].nodes.map(visit).some(Boolean), 'selected scene requires geometry');
-    const snapshot = immutable({ document: doc, buffers }); return snapshot;
+    const snapshot = immutable({ document: doc, buffers });
+    snapshots.add(snapshot);
+    return snapshot;
 }

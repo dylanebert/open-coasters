@@ -1,21 +1,12 @@
 import { mapList } from './list';
 import { frame, type Frame } from './geometry';
-import { nativeSnapshot as partSnapshot } from '../part';
-import type { NativeDocument, ImmutableNativeSnapshot } from '../part';
-export type { NativeDocument, ImmutableNativeSnapshot } from '../part';
+import { isNativeSnapshot, nativeSnapshot, type NativeDocument, type ImmutableNativeSnapshot } from '../part';
+export { nativeSnapshot, type NativeDocument, type ImmutableNativeSnapshot } from '../part';
 export type Content = { readonly snapshot: ImmutableNativeSnapshot };
 export type Construction = { readonly placements: readonly { readonly content: Content; readonly frame: Frame }[] };
-const snapshots = new WeakSet<object>();
 const assert = (ok: unknown, cause: string): void => {
     if (!ok) throw Error(`native resource: ${cause}`);
 };
-/** Construction adapter; the part owner alone decides native acceptance. */
-export function nativeSnapshot(source: NativeDocument, resources: readonly (ArrayBuffer | Uint8Array)[]): ImmutableNativeSnapshot {
-    assert(Array.isArray(resources), 'resources must be an array');
-    const snapshot = partSnapshot(source, resources);
-    snapshots.add(snapshot);
-    return snapshot;
-}
 /** Read JSON glTF with explicit buffer URIs. Resolve and own every declared
  * buffer before publishing a snapshot checked by the part contract.
  * Explicit native-result reading; this never executes or searches for a recipe. */
@@ -40,8 +31,9 @@ export function snapshotBytes(snapshot: ImmutableNativeSnapshot, buffer: number)
     return Uint8Array.from(atob(snapshot.buffers[buffer]), c => c.charCodeAt(0));
 }
 export function contentValue(v: any): Content {
-    assert(v && Object.keys(v).length === 1 && snapshots.has(v.snapshot), 'Content requires checked immutable snapshot');
-    return Object.freeze({ snapshot: v.snapshot });
+    const snapshot = v && Object.keys(v).length === 1 ? v.snapshot : undefined;
+    assert(isNativeSnapshot(snapshot), 'Content requires checked immutable snapshot');
+    return Object.freeze({ snapshot });
 }
 export function constructionValue(v: any): Construction {
     assert(v && Object.keys(v).length === 1, 'invalid Construction');

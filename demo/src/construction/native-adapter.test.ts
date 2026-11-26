@@ -3,6 +3,7 @@ import { TIMEOUT } from '@dylanebert/shallot/testing';
 import { loadGltf } from '@dylanebert/shallot/gltf';
 import { nativeSnapshot, readNative, nativeURL, snapshotBytes, contentValue, resolvedNative } from '../../../construction/native';
 import { frame, instance, join } from '../../../construction/geometry';
+import { nativeSnapshot as partSnapshot } from '../../../part';
 
 const positions=new Float32Array([1,0,0,0,2,0,0,0,3]);
 const normals=new Float32Array([0,0,1,0,0,1,0,0,1]);
@@ -12,7 +13,10 @@ function authored() {
 }
 test('ordinary native export retains selected roots, authored hierarchy, identity reuse and dependent bytes independently of recipe',async()=>{
  const source=authored(), resources=[positions.buffer,normals.buffer];
- const a=nativeSnapshot(source,resources), b=nativeSnapshot(source,resources);
+ const a=partSnapshot(source,resources), b=nativeSnapshot(source,resources);
+ const copySnapshot=Object.freeze({...a});
+ expect(copySnapshot).toEqual(a);
+ expect(()=>contentValue({snapshot:copySnapshot})).toThrow('checked immutable snapshot');
  const pose=frame({translation:[10,20,30],rotation:[0,Math.SQRT1_2,0,Math.SQRT1_2]});
  const result=join([instance(contentValue({snapshot:a}),[pose,pose]),instance(contentValue({snapshot:b}),[pose])]);
  const native=resolvedNative(result);
@@ -34,6 +38,11 @@ test('ordinary native export retains selected roots, authored hierarchy, identit
  for(const i of [0,1,4,5,8,9]) point(i).forEach((v,c)=>expect(v).toBeCloseTo([14,26,28][c],5));
  for(const i of [2,3,6,7,10,11]) point(i).forEach((v,c)=>expect(v).toBeCloseTo([10,20,30][c],5));
  const copy=snapshotBytes(a,0); copy.fill(255); expect(snapshotBytes(a,0)).toEqual(new Uint8Array(positions.buffer));
+},TIMEOUT.cheap);
+
+test('part owner refuses array-like resources even with all declared bytes',()=>{
+ const resources={0:positions.buffer,1:normals.buffer,length:2};
+ expect(()=>partSnapshot(authored(),resources as unknown as readonly ArrayBuffer[])).toThrow('resources must be an array');
 },TIMEOUT.cheap);
 
 test('native float32-authored node rotation remains verbatim, distinct from recipe frame normalization',()=>{
