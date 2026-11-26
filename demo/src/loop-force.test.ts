@@ -59,7 +59,7 @@ function expectedColor(s:number) {
 }
 test('unchanged section receives longitudinal corner colors; flat, transverse and shifted output controls fail', () => {
   const rails=resolveAssembly({...assemblyDefaults,path:'loop'}).railFrames;
-  const construction={placements:rails.flatMap(r=>sweep(section,r.map(f=>({translation:f.p,rotation:rotation(f)})),railAppearance,railAppearance).placements)};
+  const construction={placements:rails.flatMap(r=>sweep(section,r.map(f=>({translation:f.p,rotation:rotation(f)})),railAppearance).placements)};
   const pack=(appearance?: (s:number)=>readonly number[])=>packRails(construction,rails[0].map(f=>f.s),section.length,appearance);
   const plain=pack(), colored=pack(s=>forceColor(normalForce(s)));
   expect(colored.vertices).toEqual(plain.vertices);

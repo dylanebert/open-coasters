@@ -28,12 +28,14 @@ export function materialValue(v: any): Material {
  * Each chord must project strictly positively onto both adjacent frames' local
  * −Z axes. First and last frame origins must differ, regardless of rotation.
  * Return one identity placement of a standalone open-path sweep with a–c wall
- * diagonals and fan caps at both ends. Neither the travel rule nor tessellation
- * rules out folds or intersections. The faceted glTF triangles have no UVs.
- * Float32 POSITION determines winding normals and degeneracy:
+ * diagonals and fan caps that fill the flat local XY section at each endpoint
+ * frame. Neither the travel rule nor tessellation rules out folds or intersections.
+ * The wall and caps are separate glTF primitives sharing one selected opaque,
+ * untextured material and have no UVs. Float32 rounding may disrupt cap
+ * coplanarity. Emitted POSITION determines winding normals and degeneracy:
  * nonfinite triangles or cross lengths ≤ 1e-12 refuse the whole sweep. */
-export function sweep(section: ConvexSection, source: readonly Frame[], wall: Material, cap: Material): Construction {
-    sectionValue(section); wall = materialValue(wall); cap = materialValue(cap);
+export function sweep(section: ConvexSection, source: readonly Frame[], material: Material): Construction {
+    sectionValue(section); material = materialValue(material);
     const frames = mapList(source, 'sweep frames', frame);
     if (frames.length < 2) throw Error('at least two frames required');
     const first = frames[0].translation, last = frames.at(-1)!.translation;
@@ -66,15 +68,22 @@ export function sweep(section: ConvexSection, source: readonly Frame[], wall: Ma
     }
     const start = rings[0], end = rings.at(-1)!;
     for (let j = 1; j < n-1; j++) { triangle(1, start[0], start[j], start[j+1]); triangle(1, end[0], end[j+1], end[j]); }
-    // Separate faceted vertices in ordinary glTF accessors. Identity uses the selected snapshot/index pair, never value equality.
-    const same = wall.snapshot === cap.snapshot && wall.material === cap.material;
-    const materials = [wall.snapshot.document.materials[wall.material], ...same ? [] : [cap.snapshot.document.materials[cap.material]]];
+    const materials = [material.snapshot.document.materials[material.material]];
     const arrays = [positions[0], normals[0], positions[1], normals[1]].map(v => new Float32Array(v));
     if (arrays.some(a => Array.from(a).some(x => !Number.isFinite(x)))) throw Error('geometry outside native float32 range');
     const bytes = new Uint8Array(arrays.reduce((sum, a) => sum + a.byteLength, 0));
     let offset = 0;
     const bufferViews = arrays.map(a => { const view = { buffer: 0, byteOffset: offset, byteLength: a.byteLength }; bytes.set(new Uint8Array(a.buffer), offset); offset += a.byteLength; return view; });
-    const accessors = arrays.map((a, i) => ({ bufferView: i, componentType: 5126, count: a.length / 3, type: 'VEC3', ...(i % 2 === 0 ? { min: [0,1,2].map(c => Math.min(...Array.from(a).filter((_, j) => j % 3 === c))), max: [0,1,2].map(c => Math.max(...Array.from(a).filter((_, j) => j % 3 === c))) } : {}) }));
-    const snapshot = nativeSnapshot({ asset: { version: '2.0' }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }], meshes: [{ primitives: [{ attributes: { POSITION: 0, NORMAL: 1 }, material: 0 }, { attributes: { POSITION: 2, NORMAL: 3 }, material: same ? 0 : 1 }] }], materials, accessors, bufferViews, buffers: [{ byteLength: bytes.length }] }, [bytes]);
+    const accessors = arrays.map((a, i) => {
+        const accessor = { bufferView: i, componentType: 5126, count: a.length / 3, type: 'VEC3' };
+        if (i % 2 !== 0) return accessor;
+        const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+        for (let j = 0; j < a.length; j += 3) for (let c = 0; c < 3; c++) {
+            min[c] = Math.min(min[c], a[j + c]);
+            max[c] = Math.max(max[c], a[j + c]);
+        }
+        return { ...accessor, min, max };
+    });
+    const snapshot = nativeSnapshot({ asset: { version: '2.0' }, scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0 }], meshes: [{ primitives: [{ attributes: { POSITION: 0, NORMAL: 1 }, material: 0 }, { attributes: { POSITION: 2, NORMAL: 3 }, material: 0 }] }], materials, accessors, bufferViews, buffers: [{ byteLength: bytes.length }] }, [bytes]);
     return Object.freeze({ placements: Object.freeze([Object.freeze({ content: contentValue({ snapshot }), frame: frame({ translation: [0,0,0], rotation: [0,0,0,1] }) })]) });
 }

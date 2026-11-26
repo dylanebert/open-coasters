@@ -6,19 +6,19 @@ import { sweep, type Material } from './sweep';
 import { repeat } from './repeat';
 
 export type NormalTrackParameters = {
-    path: Path; section: ConvexSection; tieContent: Content; separation: number; spacing: number; wall: Material; cap: Material;
+    path: Path; section: ConvexSection; tieContent: Content; separation: number; spacing: number; material: Material;
     startOffset?: number; excluded?: readonly Span[]; tieLocalFrame?: Frame;
 };
 
-export function normalTrack({ path: source, section, tieContent, separation, spacing, wall, cap,
+export function normalTrack({ path: source, section, tieContent, separation, spacing, material,
     startOffset, excluded, tieLocalFrame }: NormalTrackParameters): Construction {
     number(spacing); // Required here, even though repeat has its own spacing default.
     const checked = path(source);
     const frames = checked.positions.map((translation, i) => frame({ translation, rotation: checked.rotations[i] }));
     const { left, right } = railOffsets(separation);
     return join([
-        sweep(section, offsetFrames(frames, left), wall, cap),
-        sweep(section, offsetFrames(frames, right), wall, cap),
+        sweep(section, offsetFrames(frames, left), material),
+        sweep(section, offsetFrames(frames, right), material),
         repeat(tieContent, { path: checked, spacing, startOffset, excluded, localFrame: tieLocalFrame,
             allowed: fullSpan(checked.distances[checked.distances.length - 1]) }),
     ]);

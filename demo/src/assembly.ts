@@ -77,6 +77,6 @@ export function packRails(construction: Construction, stations: readonly number[
 }
 /** Native reference for assembly geometry fixtures; live rails emit on GPU. */
 export function assemblyRails(section: ConvexSection, rails: ReturnType<typeof resolveAssembly>['railFrames'], appearance?: (station:number)=>readonly number[]) {
-  const placements=rails.flatMap(r=>sweep(section,r.map(f=>({translation:f.p,rotation:rotation(f)})),railAppearance,railAppearance).placements);
+  const placements=rails.flatMap(r=>sweep(section,r.map(f=>({translation:f.p,rotation:rotation(f)})),railAppearance).placements);
   return packRails({placements},rails[0].map(f=>f.s),section.length,appearance);
 }

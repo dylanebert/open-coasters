@@ -14,7 +14,7 @@ export const diagnosticPost=nativeSnapshot(diagnosticDocument,diagnosticDocument
 export function constructDemo(a: Assembly, section: ConvexSection, tie: Content, post: Content) {
   const witness=a.witness??assemblyDefaults.witness;
   const resolved=resolveAssembly({...a,path:witness==='supports'?'straight':a.path});
-  const parameters={path:resolved.path,section,tieContent:tie,separation:a.separation,spacing:a.spacing,wall:railAppearance,cap:railAppearance};
+  const parameters={path:resolved.path,section,tieContent:tie,separation:a.separation,spacing:a.spacing,material:railAppearance};
   let construction: Construction;
   if(witness==='station') {
     const start=a.gapStart ?? gapDefaults.start, end=a.gapEnd ?? gapDefaults.end;

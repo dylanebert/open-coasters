@@ -103,7 +103,7 @@ async function run(input: URL) {
     }
     const parameters = {
         path: params.path, section, tieContent, separation: params.separation, spacing: params.spacing,
-        startOffset: params.startOffset, excluded: params.excluded, wall: railAppearance, cap: railAppearance,
+        startOffset: params.startOffset, excluded: params.excluded, material: railAppearance,
     };
     const result = custom.length ? stationGap(parameters, custom) : normalTrack(parameters);
     const document = resolvedNative(result) as GltfJson;

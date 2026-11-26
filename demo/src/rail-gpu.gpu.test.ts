@@ -84,7 +84,7 @@ function cpu(separation:number) {
     const out:number[]=[];
     for(const sign of [-1,1]) {
         const shifted=offsetFrames(frames,{translation:[sign*separation/2,0,0],rotation:[0,0,0,1]});
-        const result=sweep(section,shifted,material,material);
+        const result=sweep(section,shifted,material);
         const snap=result.placements[0].content.snapshot;
         const bytes=Buffer.from(snap.buffers[0],'base64');
         // Native sweep has wall POSITION/NORMAL then cap POSITION/NORMAL.

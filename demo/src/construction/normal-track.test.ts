@@ -12,12 +12,12 @@ const bytes = await Bun.file(new URL('assembly-section.bin', root)).arrayBuffer(
 const section = sampledSection(json,[bytes]);
 const doc = await Bun.file(new URL('../../../construction/witness/resolved-ties.gltf',import.meta.url)).json();
 const raw = new Float32Array([.1,.2,.4,.4,.2,.4,.1,.5,.4]);
-doc.buffers = [{byteLength:raw.byteLength}]; doc.materials = [{pbrMetallicRoughness:{baseColorFactor:[.2,.3,.4,1]}},{pbrMetallicRoughness:{baseColorFactor:[.2,.3,.4,1]}}];
+doc.buffers = [{byteLength:raw.byteLength}]; doc.materials = [{pbrMetallicRoughness:{baseColorFactor:[.2,.3,.4,1]}},{pbrMetallicRoughness:{baseColorFactor:[.6,.7,.8,1]}}];
 const snapshot = nativeSnapshot(doc,[new Uint8Array(raw.buffer)]);
 const tieContent = contentValue({snapshot});
-const wall = materialValue({snapshot,material:0}), cap = materialValue({snapshot,material:1});
+const material = materialValue({snapshot,material:1});
 const I = [0,0,0,1];
-const parameters = {path:path({distances:[0,6],positions:[[0,1.5,0],[0,1.5,-6]],rotations:[I,I]}),section,tieContent,separation:1.4,spacing:1,wall,cap};
+const parameters = {path:path({distances:[0,6],positions:[[0,1.5,0],[0,1.5,-6]],rotations:[I,I]}),section,tieContent,separation:1.4,spacing:1,material};
 // Independent raw native accessor reader; never calls the generator's transform or decoder.
 function read(s: typeof snapshot, index: number): number[][] {
  const a=s.document.accessors[index], v=s.document.bufferViews[a.bufferView];
@@ -62,20 +62,24 @@ test('straight and curved sweeps wind native walls and caps outward', () => {
   };
  });
  for (const stations of [...straight,curved]) {
-  const result = sweep(section, stations.map(s=>s.pose), wall, cap);
+  const result = sweep(section, stations.map(s=>s.pose), material);
   expect(result.placements).toHaveLength(1);
   const placement = result.placements[0], s = placement.content.snapshot;
   expect(placement.frame).toEqual(frame({translation:[0,0,0],rotation:I}));
-  expect(s.document.materials).toEqual(snapshot.document.materials);
+  expect(s.document.materials).toEqual([snapshot.document.materials[1]]);
   const walls = stations.slice(0,-1).flatMap(({ring,side},k)=>ring.flatMap((a,i)=>{
    const j = (i+1)%3, b = ring[j], c = stations[k+1].ring[j], d = stations[k+1].ring[i];
    const outward = side(xy[j][1]-xy[i][1],xy[i][0]-xy[j][0]);
-   return [{corners:[a,b,c],outward},{corners:[a,c,d],outward}];
+   return [{corners:[a,c,b],outward},{corners:[a,d,c],outward}];
   }));
   const start = stations[0], end = stations.at(-1)!;
-  const caps = [{corners:start.ring,outward:start.back},{corners:end.ring,outward:end.back.map(x=>-x)}];
+  const [a,b,c] = end.ring;
+  const caps = [{corners:start.ring,outward:start.back},{corners:[a,c,b],outward:end.back.map(x=>-x)}];
   const primitives = s.document.meshes[0].primitives;
-  expect(primitives.map((p:any)=>p.material)).toEqual([0,1]);
+  expect(primitives).toEqual([
+   {attributes:{POSITION:0,NORMAL:1},material:0},
+   {attributes:{POSITION:2,NORMAL:3},material:0},
+  ]);
   for (const [k,triangles] of [walls,caps].entries()) {
    const {POSITION,NORMAL} = primitives[k].attributes;
    const ps = read(s,POSITION), ns = read(s,NORMAL);
@@ -83,7 +87,7 @@ test('straight and curved sweeps wind native walls and caps outward', () => {
    expect(ns).toHaveLength(ps.length);
    for (const [i,{corners,outward}] of triangles.entries()) {
     const actual = ps.slice(3*i,3*i+3);
-    expect(actual.map(p=>p.join(',')).sort()).toEqual(corners.map(p=>p.join(',')).sort());
+    expect(actual.map(p=>p.join(','))).toEqual(corners.map(p=>p.join(',')));
     const [a,b,c] = actual, u = b.map((x,j)=>x-a[j]), v = c.map((x,j)=>x-a[j]);
     const cross = [u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]];
     expect(dot(cross,outward)).toBeGreaterThan(0);
@@ -93,6 +97,25 @@ test('straight and curved sweeps wind native walls and caps outward', () => {
   }
  }
 }, TIMEOUT.cheap);
+test('shipped section keeps known native bounds at 8,193 frames',()=>{
+ const frames = Array.from({length:8193},(_,i)=>frame({translation:[0,0,4096-i],rotation:I}));
+ const s = sweep(section,frames,material).placements[0].content.snapshot;
+ const r = Math.fround(.06); // Shipped section has cardinal vertices at ±.06 m.
+ const min = [-r,-r,-4096], max = [r,r,4096];
+ const data = new DataView(snapshotBytes(s,0).buffer);
+ for (const [index,count] of [[0,8192*16*6],[2,14*6]]) {
+  const a = s.document.accessors[index], view = s.document.bufferViews[a.bufferView];
+  expect(a.count).toBe(count);
+  expect(a.min).toEqual(min); expect(a.max).toEqual(max);
+  const low = [Infinity,Infinity,Infinity], high = [-Infinity,-Infinity,-Infinity];
+  for (let i=0; i<count; i++) for (let c=0; c<3; c++) {
+   const v = data.getFloat32((view.byteOffset??0)+(a.byteOffset??0)+i*(view.byteStride??12)+4*c,true);
+   low[c] = Math.min(low[c],v); high[c] = Math.max(high[c],v);
+  }
+  expect(low).toEqual(min); expect(high).toEqual(max);
+ }
+}, TIMEOUT.node);
+
 test('NormalTrack base counts, independent native bounds, mesh counts and fresh owned material identities',()=>{
  const result=normalTrack(parameters), again=normalTrack(parameters);
  expect(result.placements.length).toBe(8);
@@ -102,7 +125,8 @@ test('NormalTrack base counts, independent native bounds, mesh counts and fresh 
  close([0,1,2].map(i=>Math.max(...points.map(p=>p[i]))),[.76,1.56,0],1e-7);
  for(const [i,p] of result.placements.slice(0,2).entries()) {
   const s=p.content.snapshot; expect(read(s,0).length).toBe(96); expect(read(s,2).length).toBe(84);
-  expect(s.document.materials.length).toBe(2); expect(s.document.meshes[0].primitives.map((p:any)=>p.material)).toEqual([0,1]);
+  expect(s.document.materials).toEqual([snapshot.document.materials[1]]);
+  expect(s.document.meshes[0].primitives.map((p:any)=>p.material)).toEqual([0,0]);
   expect(s).not.toBe(again.placements[i].content.snapshot); expect(Object.isFrozen(s.buffers[0])).toBe(true);
  }
  expect(result.placements[2].content.snapshot).toBe(snapshot);
@@ -119,7 +143,7 @@ test('asymmetric local adjustment straight, banked and inverted, plus faceted di
  for(const [q,expected] of [[I,[.6,1.6,2.2]],[[0,0,Math.SQRT1_2,Math.SQRT1_2],[-.1,2.1,2.2]],[[0,0,1,0],[-.6,1.4,2.2]]] as const){
  const f=offsetFrames([frame({translation:[0,1.5,2],rotation:q})],local)[0];
  close(rotate(f.rotation,[.1,.2,.4]).map((x,i)=>x+f.translation[i]),expected);
- const s=sweep(section,[frame({translation:[0,0,0],rotation:q}),frame({translation:[0,0,-6],rotation:q})],wall,cap).placements[0].content.snapshot;
+ const s=sweep(section,[frame({translation:[0,0,0],rotation:q}),frame({translation:[0,0,-6],rotation:q})],material).placements[0].content.snapshot;
  for(const [pi,ni] of [[0,1],[2,3]]){
   const ps=read(s,pi), ns=read(s,ni);
   for(let i=0;i<ps.length;i+=3){
@@ -140,7 +164,7 @@ for (const [label,translation,start,end] of [
  ['backward at the end only',[0,0,-2],I,yaw(2*Math.PI/3)],
 ] as const) test(`sweep refuses ${label}`,()=>{
  const frames = [frame({translation:[0,0,0],rotation:start}),frame({translation,rotation:end})];
- expect(()=>sweep(section,frames,wall,cap)).toThrow('sweep chord 0 must advance along both endpoint forward axes');
+ expect(()=>sweep(section,frames,material)).toThrow('sweep chord 0 must advance along both endpoint forward axes');
 }, TIMEOUT.cheap);
 
 test('sweep refuses coincident endpoint origins despite different rotations and forward chords',()=>{
@@ -152,18 +176,18 @@ test('sweep refuses coincident endpoint origins despite different rotations and 
   frame({translation:[0,0,0],rotation:yaw(Math.PI/2)}),
  ];
  // The two open subpaths together exercise every unchanged chord.
- expect(sweep(section,frames.slice(0,-1),wall,cap).placements).toHaveLength(1);
- expect(sweep(section,frames.slice(1),wall,cap).placements).toHaveLength(1);
- expect(()=>sweep(section,frames,wall,cap)).toThrow('sweep endpoint origins coincide');
+ expect(sweep(section,frames.slice(0,-1),material).placements).toHaveLength(1);
+ expect(sweep(section,frames.slice(1),material).placements).toHaveLength(1);
+ expect(()=>sweep(section,frames,material)).toThrow('sweep endpoint origins coincide');
 }, TIMEOUT.cheap);
 
 test('sweep accepts a decoded section but refuses an equal plain array',()=>{
  const frames = [0,-1].map(z=>frame({translation:[0,0,z],rotation:I}));
- expect(sweep(section,frames,wall,cap).placements).toHaveLength(1);
+ expect(sweep(section,frames,material).placements).toHaveLength(1);
  const plain = Object.freeze([...section]);
  expect(plain).toEqual(section);
  // @ts-expect-error Deliberately cross the type boundary to check runtime refusal.
- expect(()=>sweep(plain,frames,wall,cap)).toThrow('decoded assembly');
+ expect(()=>sweep(plain,frames,material)).toThrow('decoded assembly');
 }, TIMEOUT.cheap);
 
 test('section refuses a negative buffer view offset even when accessor bytes are unchanged',()=>{
@@ -178,13 +202,24 @@ test('section refuses a negative buffer view offset even when accessor bytes are
  expect(()=>sampledSection(invalid,[bytes])).toThrow('negative buffer view offset');
 }, TIMEOUT.cheap);
 
-test('unsupported section, geometry and appearance fail without publishing results',()=>{
- const f=frame({translation:[0,0,0],rotation:I});
- for(const frames of [[f],[f,f],[f,frame({translation:[0,0,-1e-14],rotation:I})]]) expect(()=>sweep(section,frames,wall,cap)).toThrow();
- for(const patch of [{alphaMode:'BLEND'},{normalTexture:{index:0}},{pbrMetallicRoughness:{baseColorTexture:{index:0}}}]) {
-  const d=structuredClone(doc); d.materials[0]=patch;
-  expect(()=>materialValue({snapshot:nativeSnapshot(d,[new Uint8Array(raw.buffer)]),material:0})).toThrow();
+test('sweep refuses unsupported appearance from an issued snapshot',()=>{
+ const frames = [0,-1].map(z=>frame({translation:[0,0,z],rotation:I}));
+ for(const [record,error] of [
+  [{alphaCutoff:.5},'unsupported material appearance'],
+  [{pbrMetallicRoughness:{roughnessFactor:1.5}},'invalid material factor'],
+  [{doubleSided:'true'},'invalid doubleSided'],
+ ] as const) {
+  const d=structuredClone(doc); d.materials[1]=record;
+  const source=nativeSnapshot(d,[new Uint8Array(raw.buffer)]);
+  expect(sweep(section,frames,{snapshot:source,material:0}).placements).toHaveLength(1);
+  expect(()=>sweep(section,frames,{snapshot:source,material:1})).toThrow(error);
  }
+ expect(()=>sweep(section,frames,{snapshot,material:2})).toThrow('invalid selected material');
+}, TIMEOUT.cheap);
+
+test('unsupported section and geometry fail without publishing results',()=>{
+ const f=frame({translation:[0,0,0],rotation:I});
+ for(const frames of [[f],[f,f],[f,frame({translation:[0,0,-1e-14],rotation:I})]]) expect(()=>sweep(section,frames,material)).toThrow();
  for(const change of [(j:any)=>j.nodes[0].translation=[1,0,0],(j:any)=>j.meshes[0].primitives[0].mode=3]){
   const j=structuredClone(json);change(j);expect(()=>sampledSection(j,[bytes])).toThrow();
  }
@@ -221,11 +256,11 @@ test('native float32 precision collapse refuses atomically at ordinary and trans
   [[0,2**24,0],[0,2**24,-6]],
  ]) {
   let published: unknown;
-  expect(()=>{published=sweep(section,[frame({translation:a,rotation:I}),frame({translation:b,rotation:I})],wall,cap);}).toThrow('degenerate sweep triangle');
+  expect(()=>{published=sweep(section,[frame({translation:a,rotation:I}),frame({translation:b,rotation:I})],material);}).toThrow('degenerate sweep triangle');
   expect(published).toBeUndefined();
  }
  // Finiteness is also an emitted-coordinate property.
- expect(()=>sweep(section,[frame({translation:[0,0,1e39],rotation:I}),frame({translation:[0,0,-2e39],rotation:I})],wall,cap)).toThrow('nonfinite');
+ expect(()=>sweep(section,[frame({translation:[0,0,1e39],rotation:I}),frame({translation:[0,0,-2e39],rotation:I})],material)).toThrow('nonfinite');
 }, TIMEOUT.cheap);
 
 test('native accessor positions own degeneracy and directed normals on banked nonplanar and precision-boundary sweeps',()=>{
@@ -234,7 +269,7 @@ test('native accessor positions own degeneracy and directed normals on banked no
   [frame({translation:[.13,.27,1],rotation:I}),frame({translation:[.19,.31,-3.1],rotation:[Math.sin(.13),0,0,Math.cos(.13)]})],
   [frame({translation:[0,0,1],rotation:I}),frame({translation:[0,0,1-2**-23],rotation:I})],
  ]) {
-  const placement=sweep(section,frames,wall,cap).placements[0];
+  const placement=sweep(section,frames,material).placements[0];
   // Generated native node and placement are identity: raw accessors are world coordinates.
   expect(placement.frame).toEqual({translation:[0,0,0],rotation:I});
   expect(placement.content.snapshot.document.nodes).toEqual([{mesh:0}]);
@@ -260,7 +295,7 @@ test('sweep frames and custom part lists require own slots in arrays', () => {
  const inherited = <T>(values: T[]) => Object.setPrototypeOf(Array(values.length), values) as T[];
  const arrayLike = <T>(values: T[]) => Object.assign(Object.create(values), {length:values.length});
  for (const list of [inherited(frames), arrayLike(frames)]) {
-  expect(()=>sweep(section,list,wall,cap)).toThrow();
+  expect(()=>sweep(section,list,material)).toThrow();
   expect(()=>stationGap(parameters,[{content:tieContent,frames:list}])).toThrow();
  }
  for (const list of [inherited(custom), arrayLike(custom)]) expect(()=>stationGap(parameters,list)).toThrow();

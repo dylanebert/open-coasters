@@ -120,7 +120,7 @@ test('two static native snapshots move both fixture-local track pieces and only 
  const I = [0,0,0,1];
  const track = (x: number, z: number) => normalTrack({
   path: path({ distances:[0,1], positions:[[x,1.5,z],[x,1.5,z-1]], rotations:[I,I] }),
-  section, tieContent:contentValue({ snapshot:tieSnapshot }), separation:1.4, spacing:1, wall:steel, cap:steel,
+  section, tieContent:contentValue({ snapshot:tieSnapshot }), separation:1.4, spacing:1, material:steel,
  });
  // Separate stations identify each owner's geometry; these are not connected routes.
  const extension = track(7,-9);
