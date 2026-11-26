@@ -106,15 +106,15 @@ test('far custom bounds retain the exported placement and nested native transfor
     });
 });
 
-test('help locates the editable default, which works from another directory', async () => {
+test('help identifies input contracts and the editable default runs from another directory', async () => {
     await fixture(async tmp => {
         const help = invoke(tmp, '--help');
         expect(help.exitCode).toBe(0);
         const usage = help.stdout.toString();
         expect(usage).toContain('examples/normal-track.json');
         expect(usage).toContain('construction/geometry.ts');
-        expect(usage).toMatch(/endpoints must differ[\s\S]*local -Z at both frames \(construction\/sweep\.ts\)/);
-        expect(usage).toMatch(/profile\s+Restricted \.gltf section[\s\S]*indexed LINES[\s\S]*construction\/section\.ts, sampledSection/);
+        expect(usage).toMatch(/first and last frame origins must differ[\s\S]*local -Z at both frames\s+\(construction\/sweep\.ts\)/);
+        expect(usage).toMatch(/profile\s+One directed, indexed LINES cycle in a \.gltf file[\s\S]*construction\/section\.ts, sampledSection/);
         expect(usage).toContain('construction/normal-track.ts');
         expect(readdirSync(tmp)).toEqual(['inputs']);
         const run = invoke(tmp);
