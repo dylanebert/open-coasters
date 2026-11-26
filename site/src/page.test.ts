@@ -131,8 +131,12 @@ test('recipes link to their function entries after Examples',()=>{
     expect(recipe).toContain(`href="#${id}"><code>${fn}</code>`);
     expect(llms).toContain(`[\`${fn}\`](/open-coasters/#${id})`);
   }
+  const section = 'https://github.com/dylanebert/open-coasters/blob/main/construction/section.ts';
+  expect(reference).toContain('[decoded section](construction/section.ts)');
+  expect(table).toContain(`<a href="${section}">decoded section</a>`);
+  expect(llms).toContain(`[decoded section](${section})`);
   expect(recipe).toContain('href="https://github.com/dylanebert/open-coasters/blob/main/examples/repeated-tie.ts"><code>bun examples/repeated-tie.ts</code>');
-  const repeated = 'const result = repeat(tie, {\n  path: trackPath,\n  spacing,\n  startOffset: 0.15,\n  allowed: [{ start: 0, end: 1.95 }],\n});';
+  const repeated = 'const result = repeat(tie, {\n  path: trackPath,\n  spacing,\n  startOffset: 0.15,\n  allowed: [{ start: 0, end: 1.951 }],\n});';
   expect(recipe).toContain(repeated);
   expect(readFileSync(resolve(root,'examples/repeated-tie-recipe.ts'),'utf8').replace(/^  /gm, '')).toContain(repeated);
   const link = '#placement-reference';

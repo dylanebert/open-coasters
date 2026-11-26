@@ -20,7 +20,7 @@ The tie banks with the path.
 
 ## repeated ties
 
-Place copies of the Blitz `tie` along `trackPath`, a straight 1.95 m path. Use [`repeat`](placement-reference.md#repeat) to space them evenly. The first tie stays 0.15 m from the start as the spacing changes.
+Place copies of the Blitz `tie` along `trackPath` on a straight 1.95 m track. Use [`repeat`](placement-reference.md#repeat) to space them evenly. The first tie stays 0.15 m from the start as the spacing changes.
 
 ```ts
 const spacing = 0.4;
@@ -28,7 +28,7 @@ const result = repeat(tie, {
   path: trackPath,
   spacing,
   startOffset: 0.15,
-  allowed: [{ start: 0, end: 1.95 }],
+  allowed: [{ start: 0, end: 1.951 }],
 });
 ```
 

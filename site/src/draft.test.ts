@@ -7,7 +7,7 @@ import { buildPage, root } from '../scripts/build';
 import { staticHandler } from '../scripts/serve';
 
 const recipeOwners = { sampleFrames: 'geometry', instance: 'geometry', repeat: 'repeat', sweep: 'sweep', join: 'geometry' };
-const owners = ['examples/one-tie.ts', 'examples/repeated-tie.ts', ...new Set(Object.values(recipeOwners).map(owner => `construction/${owner}.ts`))];
+const owners = ['examples/one-tie.ts', 'examples/repeated-tie.ts', 'construction/section.ts', ...new Set(Object.values(recipeOwners).map(owner => `construction/${owner}.ts`))];
 test('draft authority is linked and served byte-for-byte without leaking draft routes', async () => {
   const dir = mkdtempSync(resolve(tmpdir(), 'coasters-draft-'));
   const destination = resolve(dir, 'open-coasters');
@@ -45,7 +45,7 @@ test('draft authority is linked and served byte-for-byte without leaking draft r
       expect(table).toContain(`<a href="${path}"><code>${fn}</code></a>`);
       expect(llms).toContain(`| [\`${fn}\`](${path}) |`);
     }
-    expect((await fetch(new URL('open-coasters/draft/construction/section.ts.txt', server.url))).status).toBe(404);
+    expect(table).toContain('<a href="/open-coasters/draft/construction/section.ts.txt">decoded section</a>');
     expect(guide).not.toContain('repeated-tie-recipe.ts');
     expect(llms).not.toContain('repeated-tie-recipe.ts');
     for (const path of ['draft/examples/repeated-tie-recipe.ts.txt', 'draft/construction/normal-track.ts.txt', 'draft/part.test.ts.txt', 'draft/part-rules.md.txt', 'draft/AGENTS.md.txt', 'draft/%2f..%2f..%2f..%2fAGENTS.md', 'draft/%zz']) {

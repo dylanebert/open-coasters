@@ -110,7 +110,12 @@ test('help locates the editable default, which works from another directory', as
     await fixture(async tmp => {
         const help = invoke(tmp, '--help');
         expect(help.exitCode).toBe(0);
-        expect(help.stdout.toString()).toContain('examples/normal-track.json');
+        const usage = help.stdout.toString();
+        expect(usage).toContain('examples/normal-track.json');
+        expect(usage).toContain('construction/geometry.ts');
+        expect(usage).toMatch(/endpoints must differ[\s\S]*local -Z at both frames \(construction\/sweep\.ts\)/);
+        expect(usage).toMatch(/profile\s+Restricted \.gltf section[\s\S]*indexed LINES[\s\S]*construction\/section\.ts, sampledSection/);
+        expect(usage).toContain('construction/normal-track.ts');
         expect(readdirSync(tmp)).toEqual(['inputs']);
         const run = invoke(tmp);
         expect(run.exitCode).toBe(0);

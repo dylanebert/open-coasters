@@ -2,6 +2,8 @@ import { expect, test } from 'bun:test';
 import { lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { nativeSnapshot } from '../construction/native';
+import { placeTies } from './repeated-tie-recipe';
 
 // Literal analytic expectations, independent of the policy's sampling helpers.
 const expected = [[0, 0, .6], [0, 0, .2], [0, 0, -.2], [0, 0, -.6], [0, 0, -1]];
@@ -27,7 +29,12 @@ test('documented invocations own output and preserve unrelated symlink targets',
             accessors: [{ bufferView: 0, componentType: 5126, count: 3, type: 'VEC3' }],
         };
         writeFileSync(input, JSON.stringify(fixture));
-        writeFileSync(join(temp, 'part.bin'), new Uint8Array(new Float32Array([1,2,3, 2,2,3, 1,4,3]).buffer));
+        const bytes = new Float32Array([1,2,3, 2,2,3, 1,4,3]).buffer;
+        writeFileSync(join(temp, 'part.bin'), new Uint8Array(bytes));
+        const tie = { snapshot: nativeSnapshot(fixture, [bytes]) };
+        // 0.6001 m spacing puts the fourth station at 1.9503 m, past the rail end.
+        expect(placeTies(tie, .6001).placements.map(({ frame }) => round([...frame.translation])))
+            .toEqual([[0, 0, .6], [0, 0, -.0001], [0, 0, -.6002], [0, 0, -1.2003]]);
         const outputs = new Set<string>();
         for (const args of [[], [input]]) {
             const child = Bun.spawn([process.execPath, 'examples/repeated-tie.ts', ...args], {

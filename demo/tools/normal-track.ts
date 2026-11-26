@@ -15,8 +15,12 @@ const usage = `Usage: bun demo/tools/normal-track.ts [<params.json>]
 Default parameters: examples/normal-track.json
 
 Inputs (meters; XYZW rotations; local -Z travel):
-  path        Sample distances, positions and rotations
-  profile     Closed convex XY section (.gltf)
+  path        Sample distances, positions and rotations (construction/geometry.ts).
+              Each rail's endpoints must differ, and each chord must advance
+              along local -Z at both frames (construction/sweep.ts).
+  profile     Restricted .gltf section, not an arbitrary Profile: a directed,
+              indexed LINES cycle in an identity local frame, decoded to a
+              strictly convex CCW XY section (construction/section.ts, sampledSection).
   tie         Static part (.gltf)
   separation  Center-to-center rail distance
   spacing     Tie spacing
@@ -24,8 +28,9 @@ Inputs (meters; XYZW rotations; local -Z travel):
   excluded    Optional half-open distance spans [{start, end}]
   custom      Optional parts [{asset, pose}] with explicit world poses
 
-Local asset paths resolve relative to the parameter file. Rail walls and caps
-use the demo's fixed native material, independent of the tie.
+Local asset paths resolve relative to the parameter file. See
+construction/normal-track.ts for rail and tie parameter bindings. Rail walls
+and caps use the demo's fixed native material, independent of the tie.
 
 Output: JSON with placementCount, poses (rails, ties, then custom parts),
 world bounds {min, max}, and gltfPath to a self-contained temporary .gltf file.`;
