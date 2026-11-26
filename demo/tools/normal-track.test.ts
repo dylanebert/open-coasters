@@ -118,19 +118,19 @@ test('help locates the editable default, which works from another directory', as
     });
 });
 
-test('invalid spacing and missing custom resource refuse without stdout or export', async () => {
+for (const [label, diagnostic, invalidate] of [
+    ['reversed sweep travel', 'sweep chord 0 must advance along both endpoint forward axes', (p: any) => p.path.positions.reverse()],
+    ['invalid spacing', 'repetition', (p: any) => p.spacing = 0],
+    ['missing custom resource', 'missing.gltf', (p: any) => p.custom[0].asset = 'missing.gltf'],
+] as const) test(`${label} refuses without stdout or export`, async () => {
     await fixture(async (tmp, input, parameters) => {
-        for (const [invalid, diagnostic] of [
-            [{ ...parameters, spacing: 0 }, 'repetition'],
-            [{ ...parameters, custom: [{ ...parameters.custom[0], asset: 'missing.gltf' }] }, 'missing.gltf'],
-        ] as const) {
-            await Bun.write(input, JSON.stringify(invalid));
-            const run = invoke(tmp, input);
-            expect(run.exitCode).not.toBe(0);
-            expect(run.stdout.toString()).toBe('');
-            expect(run.stderr.toString()).toContain(diagnostic);
-            expect(readdirSync(tmp)).toEqual(['inputs']);
-            expect(readdirSync(dirname(input))).toEqual(['parameters with spaces.json']);
-        }
+        invalidate(parameters);
+        await Bun.write(input, JSON.stringify(parameters));
+        const run = invoke(tmp, input);
+        expect(run.exitCode).not.toBe(0);
+        expect(run.stdout.toString()).toBe('');
+        expect(run.stderr.toString()).toContain(diagnostic);
+        expect(readdirSync(tmp)).toEqual(['inputs']);
+        expect(readdirSync(dirname(input))).toEqual(['parameters with spaces.json']);
     });
 });

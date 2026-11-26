@@ -24,16 +24,30 @@ export function materialValue(v: any): Material {
     }
     return Object.freeze({ snapshot, material: v.material });
 }
-/** Sweep CCW local XY rings through at least two ordered frames. Winding assumes
- * local −Z travel; it is not inferred from chords. Each wall quad keeps its a–c
- * diagonal, with fan caps at the ends. Return one identity placement of faceted
- * glTF triangles without UVs, smooth normals or clearance/intersection checks.
+/** Sweep CCW local XY rings through at least two frames in caller order.
+ * Each chord must project strictly positively onto both adjacent frames' local
+ * −Z axes. First and last frame origins must differ, regardless of rotation.
+ * Return one identity placement of a standalone open-path sweep with a–c wall
+ * diagonals and fan caps at both ends. Neither the travel rule nor tessellation
+ * rules out folds or intersections. The faceted glTF triangles have no UVs.
  * Float32 POSITION determines winding normals and degeneracy:
  * nonfinite triangles or cross lengths ≤ 1e-12 refuse the whole sweep. */
 export function sweep(section: ConvexSection, source: readonly Frame[], wall: Material, cap: Material): Construction {
     sectionValue(section); wall = materialValue(wall); cap = materialValue(cap);
     const frames = mapList(source, 'sweep frames', frame);
     if (frames.length < 2) throw Error('at least two frames required');
+    const first = frames[0].translation, last = frames.at(-1)!.translation;
+    if (first.every((x, i) => x === last[i])) throw Error('sweep endpoint origins coincide');
+    let forward = rotate(frames[0].rotation, [0, 0, -1]);
+    for (let i = 0; i < frames.length - 1; i++) {
+        const next = frames[i + 1], nextForward = rotate(next.rotation, [0, 0, -1]);
+        const chord = next.translation.map((x, j) => x - frames[i].translation[j]);
+        const projection = (axis: readonly number[]) => chord.reduce((sum, x, j) => sum + x * axis[j], 0);
+        if (!(projection(forward) > 0 && projection(nextForward) > 0)) {
+            throw Error(`sweep chord ${i} must advance along both endpoint forward axes`);
+        }
+        forward = nextForward;
+    }
     // POSITION is native float32: validate and derive normals from those exact
     // emitted coordinates, not from a binary64 surrogate that rounding can collapse.
     const rings = frames.map(f => section.map(([x, y]) => rotate(f.rotation, [x, y, 0]).map((v, i) => Math.fround(v + f.translation[i]))));

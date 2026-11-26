@@ -26,7 +26,7 @@ function read(s: typeof snapshot, index: number): number[][] {
 }
 const close = (a: readonly number[], b: readonly number[], tolerance=1e-12) => a.forEach((x,i)=>expect(Math.abs(x-b[i])).toBeLessThanOrEqual(tolerance));
 
-test('direct −Z sweep winds native walls and caps upright, banked and inverted', () => {
+test('straight and curved sweeps wind native walls and caps outward', () => {
  const xy = [[2,3],[5,3],[3,5]];
  const buffer = new ArrayBuffer(42);
  new Float32Array(buffer,0,9).set(xy.flatMap(([x,y])=>[x,y,0]));
@@ -39,25 +39,41 @@ test('direct −Z sweep winds native walls and caps upright, banked and inverted
  }, [buffer]);
 
  const dot = (a: number[], b: number[]) => a.reduce((sum,x,i)=>sum+x*b[i],0);
- const cases = [
+ const straight = [
   {q:I,turn:(x:number,y:number)=>[x,y]},
   {q:[0,0,Math.SQRT1_2,Math.SQRT1_2],turn:(x:number,y:number)=>[-y,x]},
   {q:[0,0,1,0],turn:(x:number,y:number)=>[-x,-y]},
- ];
- const z = -2;
- for (const {q,turn} of cases) {
-  const result = sweep(section, [0,z].map(z=>frame({translation:[0,0,z],rotation:q})), wall, cap);
+ ].map(({q,turn})=>[0,-2].map(z=>({
+  pose:frame({translation:[0,0,z],rotation:q}),
+  ring:xy.map(([x,y])=>[...turn(x,y),z]),
+  side:(x:number,y:number)=>[...turn(x,y),0],
+  back:[0,0,1],
+ })));
+ // A bend about Y: half-angle tangent ±1/2 gives cos=.6 and sin=±.8.
+ // Compute landmarks and outward directions without using the sweep's rotation.
+ const curved = [-1,0,1].map(turn=>{
+  const x0 = turn ? -4 : 0, z0 = -4*turn;
+  const c = turn ? .6 : 1, s = .8*turn;
+  return {
+   pose:frame({translation:[x0,0,z0],rotation:[0,turn/2,0,1].map(x=>x/Math.hypot(turn/2,1))}),
+   ring:xy.map(([x,y])=>[c*x+x0,y,z0-s*x].map(Math.fround)),
+   side:(x:number,y:number)=>[c*x,y,-s*x],
+   back:[s,0,c],
+  };
+ });
+ for (const stations of [...straight,curved]) {
+  const result = sweep(section, stations.map(s=>s.pose), wall, cap);
   expect(result.placements).toHaveLength(1);
   const placement = result.placements[0], s = placement.content.snapshot;
   expect(placement.frame).toEqual(frame({translation:[0,0,0],rotation:I}));
   expect(s.document.materials).toEqual(snapshot.document.materials);
-  const start = xy.map(([x,y])=>[...turn(x,y),0]), end = start.map(([x,y])=>[x,y,z]);
-  const walls = start.flatMap((a,i)=>{
-   const j = (i+1)%3, b = start[j], c = end[j], d = end[i];
-   const outward = [b[1]-a[1],a[0]-b[0],0];
+  const walls = stations.slice(0,-1).flatMap(({ring,side},k)=>ring.flatMap((a,i)=>{
+   const j = (i+1)%3, b = ring[j], c = stations[k+1].ring[j], d = stations[k+1].ring[i];
+   const outward = side(xy[j][1]-xy[i][1],xy[i][0]-xy[j][0]);
    return [{corners:[a,b,c],outward},{corners:[a,c,d],outward}];
-  });
-  const caps = [{corners:start,outward:[0,0,-Math.sign(z)]},{corners:end,outward:[0,0,Math.sign(z)]}];
+  }));
+  const start = stations[0], end = stations.at(-1)!;
+  const caps = [{corners:start.ring,outward:start.back},{corners:end.ring,outward:end.back.map(x=>-x)}];
   const primitives = s.document.meshes[0].primitives;
   expect(primitives.map((p:any)=>p.material)).toEqual([0,1]);
   for (const [k,triangles] of [walls,caps].entries()) {
@@ -116,6 +132,31 @@ test('asymmetric local adjustment straight, banked and inverted, plus faceted di
  }
  }
 }, TIMEOUT.cheap);
+const yaw = (angle: number) => [0,Math.sin(angle/2),0,Math.cos(angle/2)];
+for (const [label,translation,start,end] of [
+ ['reversed travel',[0,0,2],I,I],
+ ['perpendicular travel',[1,Math.SQRT2,0],I,I],
+ ['backward at the start only',[0,0,-2],yaw(2*Math.PI/3),I],
+ ['backward at the end only',[0,0,-2],I,yaw(2*Math.PI/3)],
+] as const) test(`sweep refuses ${label}`,()=>{
+ const frames = [frame({translation:[0,0,0],rotation:start}),frame({translation,rotation:end})];
+ expect(()=>sweep(section,frames,wall,cap)).toThrow('sweep chord 0 must advance along both endpoint forward axes');
+}, TIMEOUT.cheap);
+
+test('sweep refuses coincident endpoint origins despite different rotations and forward chords',()=>{
+ const frames = [
+  frame({translation:[0,0,0],rotation:I}),
+  frame({translation:[0,0,-2],rotation:yaw(-Math.PI/4)}),
+  frame({translation:[2,0,-2],rotation:yaw(-3*Math.PI/4)}),
+  frame({translation:[2,0,0],rotation:yaw(3*Math.PI/4)}),
+  frame({translation:[0,0,0],rotation:yaw(Math.PI/2)}),
+ ];
+ // The two open subpaths together exercise every unchanged chord.
+ expect(sweep(section,frames.slice(0,-1),wall,cap).placements).toHaveLength(1);
+ expect(sweep(section,frames.slice(1),wall,cap).placements).toHaveLength(1);
+ expect(()=>sweep(section,frames,wall,cap)).toThrow('sweep endpoint origins coincide');
+}, TIMEOUT.cheap);
+
 test('sweep accepts a decoded section but refuses an equal plain array',()=>{
  const frames = [0,-1].map(z=>frame({translation:[0,0,z],rotation:I}));
  expect(sweep(section,frames,wall,cap).placements).toHaveLength(1);
