@@ -1,0 +1,50 @@
+#usda 1.0
+(
+    metersPerUnit = 0.25
+    upAxis = "Z"
+)
+
+def Xform "Source"
+{
+    matrix4d xformOp:transform = ((0, 2, 0, 0), (-3, 0, 0, 0), (0, 0, 1, 0), (40, -20, 0, 1))
+    uniform token[] xformOpOrder = ["xformOp:transform"]
+
+    def Xform "Frame"
+    {
+        double3 xformOp:translate = (4, 5, 0)
+        float3 xformOp:scale = (2, 1, 1)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+
+        def Xform "Offset"
+        {
+            double3 xformOp:translate = (2, -1, 0)
+            float3 xformOp:scale = (2, 3, 1)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:scale"]
+
+            def BasisCurves "Loops"
+            {
+                uniform token type = "linear"
+                uniform token wrap = "periodic"
+                int[] curveVertexCounts = [3, 3]
+                point3f[] points = [(1, 0, 0), (0, 0, 0), (0, 1, 0),
+                                    (1, 0, 0), (2, 1, 0), (1, 1, 0)]
+            }
+        }
+
+        def BasisCurves "Strip"
+        {
+            uniform token type = "linear"
+            uniform token wrap = "nonperiodic"
+            int[] curveVertexCounts = [3]
+            point3f[] points = [(1, 0, 0), (-1, 2, 0), (0, 1, 0)]
+        }
+
+        def BasisCurves "Unselected"
+        {
+            uniform token type = "linear"
+            uniform token wrap = "nonperiodic"
+            int[] curveVertexCounts = [2]
+            point3f[] points = [(8, 0, 0), (12, 0, 0)]
+        }
+    }
+}
