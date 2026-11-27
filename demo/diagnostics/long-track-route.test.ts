@@ -1,43 +1,61 @@
 import { expect, test } from 'bun:test';
-import { defaults } from '../src/track';
+import { defaults, point } from '../src/track';
 import { profileTopology, sweepIntervals } from '../src/profile-sweep';
 import { loadWitness } from './long-track-capacity';
-import { length, metres, route } from './long-track-route';
+import { routeFixture, stripCounts } from './long-track-route';
 import { revisions, spanLength, tieStations, worldPoint } from './long-track-span';
 
-test('1 km uniform profile strips, shared boundary frames, only route caps and global tie phase', async () => {
-  expect(route).toHaveLength(80);
+for (const metres of [1000,5000] as const) test(`${metres} m: stock-density strips, directed joins, exposed caps and global tie phase`, async () => {
+  const {route,length,middle}=routeFixture(metres);
+  expect(route).toHaveLength(metres/12.5);
+  expect(length).toBe(12.5);
   expect(length).toBeLessThanOrEqual(spanLength);
-  expect(route.reduce((s,span)=>s+span.length,0)).toBe(1000);
+  expect(route.reduce((sum,s)=>sum+s.length,0)).toBe(metres);
   expect(route[0].start).toBe(0);
-  expect(route.at(-1)!.end).toBe(1000);
+  expect(route.at(-1)!.end).toBe(metres);
   expect(sweepIntervals).toBe(192);
-  expect(route.length*sweepIntervals).toBe(15360);
   const {profiles}=await loadWitness();
   for(const [i,s] of route.entries()) {
     expect(s.caps).toEqual([i===0,i===route.length-1]);
-    if(i) expect(s.start).toBe(route[i-1].end);
+    const prev=route[i-1];
+    if(prev) expect(s.start).toBe(prev.end);
     for(const rev of revisions) {
-      if(i) {
-        const prev=route[i-1], a=prev.at(-rev,length), b=s.at(rev,0);
-        expect([a.x,a.y,a.z]).toEqual([b.x,b.y,b.z]);
-        expect(worldPoint(prev,a.p)[2]).toBeCloseTo(worldPoint(s,b.p)[2],11);
+      if (!prev) continue;
+      const a=prev.at(-rev,length), b=s.at(rev,0);
+      // Equality of the complete directed basis covers every profile edge at every join.
+      expect([a.x,a.y,a.z]).toEqual([b.x,b.y,b.z]);
+      const pa=worldPoint(prev,a.p), pb=worldPoint(s,b.p);
+      for (let j=0;j<3;j++) expect(pa[j]).toBeCloseTo(pb[j],11);
+      if ([1,middle,route.length-1].includes(i)) for (const profile of Object.values(profiles)) {
+        for (const contour of profile.contours) for (const edge of contour) {
+          for (const [k,v] of [edge.from,edge.to].entries()) {
+            const xy=profile.points[v], [nx,ny]=edge.normals[k];
+            const pa=worldPoint(prev,point(a,...xy)), pb=worldPoint(s,point(b,...xy));
+            for (let j=0;j<3;j++) expect(pa[j]).toBeCloseTo(pb[j],11);
+            expect(a.x.map((x,j)=>x*nx+a.y[j]*ny)).toEqual(b.x.map((x,j)=>x*nx+b.y[j]*ny));
+          }
+        }
       }
-      let prior=s.at(rev,0).p, distance=0;
-      for(let j=1;j<=sweepIntervals;j++) {
-        const p=s.at(rev,length*j/sweepIntervals).p;
-        const ds=Math.hypot(...p.map((x,k)=>x-prior[k]));
-        expect(ds).toBeCloseTo(length/192,7);
-        distance+=ds; prior=p;
-      }
-      expect(distance).toBeCloseTo(length,5);
     }
   }
-  for(const profile of Object.values(profiles)) {
-    const indices=(caps: readonly [boolean,boolean])=>profileTopology(profile,0,()=>{},caps).indices.length;
-    const walls=profile.contours.flat().length*192*6;
-    expect(indices([false,false])).toBe(walls);
-    expect(route.reduce((n,s)=>n+indices(s.caps),0)).toBe((route.length-1)*walls+indices([true,true]));
+  // Every span uses the same scaled arc; sample its full station grid once per revision.
+  for (const rev of revisions) {
+    let prior=route[middle].at(rev,0).p, distance=0;
+    for(let j=1;j<=sweepIntervals;j++) {
+      const p=route[middle].at(rev,length*j/sweepIntervals).p;
+      const ds=Math.hypot(...p.map((x,k)=>x-prior[k]));
+      expect(ds).toBeCloseTo(length/192,7);
+      distance+=ds; prior=p;
+    }
+    expect(distance).toBeCloseTo(length,5);
+  }
+  for(const profile of Object.values(profiles)) for (const i of [0,middle,route.length-1]) {
+    const {caps}=route[i], count=stripCounts(profile,caps), capStations:number[]=[];
+    const walls=stripCounts(profile,[false,false]).vertices;
+    let vertices=0;
+    const {indices}=profileTopology(profile,0,s=>{if(vertices++>=walls) capStations.push(s);},caps);
+    expect({vertices,indices:indices.length}).toEqual(count);
+    expect([...new Set(capStations)]).toEqual(i===0?[0]:i===middle?[]:[sweepIntervals]);
   }
   expect(route.flatMap(tieStations)).toEqual(Array.from({length:Math.ceil(metres/defaults.spacing)},(_,i)=>i*defaults.spacing));
 });

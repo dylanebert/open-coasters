@@ -8,13 +8,14 @@ import { create, globals } from 'webgpu';
 import { defaultPaint, linearColor } from '../src/configuration';
 import { observeTrackWork, readMesh } from '../src/gpu-probe';
 import { cacheAsset, Live, place } from '../src/live';
-import { profileTopology, sweepIntervals } from '../src/profile-sweep';
+import { sweepIntervals } from '../src/profile-sweep';
 import { initializeView, Scene } from '../src/scene';
 import { point } from '../src/track';
 import { prepareTrackSpan, TrackDeformationPlugin } from '../src/track-deformation-gpu';
 import { asset, nativePoint, posePoint } from '../src/track-deformation-oracle';
 import { loadWitness } from './long-track-capacity';
-import { length, middle, route, targetAt } from './long-track-route';
+import { inspectNativeTie, inspectSweep, near as within, normError, worldAllowance } from './long-track-precision';
+import { routeFixture, stripCounts } from './long-track-route';
 import { revisions, tiePoses, tieStations, worldPoint } from './long-track-span';
 import { dt, measure, step, warmup } from './track-timing';
 
@@ -73,11 +74,12 @@ async function readTransformRow(w:World, e:number) {
     encoder.copyBufferToBuffer(table.buffer,index*48,staging,0,48);
     device.queue.submit([encoder.finish()]);
     await staging.mapAsync(GPUMapMode.READ);
-    return Array.from(new Float32Array(staging.getMappedRange()));
+    return new Float32Array(staging.getMappedRange()).slice();
   } finally {staging.destroy();}
 }
 
-async function run(device:GPUDevice, adapter:GPUAdapter) {
+async function run(device:GPUDevice, adapter:GPUAdapter, metres:1000|5000) {
+  const {route,length,middle,targetAt}=routeFixture(metres);
   const probe=trackBuffers(device);
   let app: Awaited<ReturnType<typeof createApp>> | undefined;
   let phase='setup', firstError:string|undefined;
@@ -99,7 +101,7 @@ async function run(device:GPUDevice, adapter:GPUAdapter) {
     const {profiles, instancesPerTie}=await loadWitness();
     const parts=[profiles.rails,profiles.spine];
     app=await createApp({adapter,device,plugins:[ProfilePlugin,{
-      name:'one-kilometre-witness',dependencies:[TrackDeformationPlugin,OrbitPlugin,GridPlugin],
+      name:'retained-route-witness',dependencies:[TrackDeformationPlugin,OrbitPlugin,GridPlugin],
       async initialize(w) {
         initializeView(w);
         w.storage(Grid).opacity.set(w.resource(Scene).grid,0);
@@ -176,17 +178,21 @@ async function run(device:GPUDevice, adapter:GPUAdapter) {
     const stripHandles=states.map((s,i)=>s.parts.map((p,j)=>{
       expect(s.submitted).toBe(0);
       expect(instances.mesh.get(strips[i][j])).toBe(p.mesh);
-      const profile=parts[j], edges=profile.contours.flat().length;
-      expect(p.count).toBe(edges*(2*(sweepIntervals+1)+Number(route[i].caps[0])+Number(route[i].caps[1])));
+      const authored=stripCounts(parts[j],route[i].caps);
+      expect(p.count,`span ${i}, part ${j} vertices`).toBe(authored.vertices);
       const count=meshes.get(p.mesh)!.indexCount;
-      expect(count).toBe(profileTopology(profile,0,()=>{},route[i].caps).indices.length);
+      expect(count,`span ${i}, part ${j} indices`).toBe(authored.indices);
       indices+=count; vertices+=p.count;
       return p.mesh;
     }));
-    console.log('first verified draw', {setupWithEmptyFrameMs:setupMs, prepareWithUploadCallsMs:prepared-buildStart,
+    console.log('retained route build through first frame fence (visibility sampled)', {
+      metres, spans:route.length, intervals:route.length*sweepIntervals, metresPerInterval:length/sweepIntervals,
+      setupWithEmptyFrameMs:setupMs, prepareWithUploadCallsMs:prepared-buildStart,
       stepSubmissionMs:submitted-prepared, afterSubmitThroughFenceMs:completed-submitted, emptyToFenceMs:completed-buildStart,
       queueWriteBufferRouteDeltaBytes:buildBuffers.queueWriteBufferBytes-beforeBuild.queueWriteBufferBytes,
-      beforeBuild, buildBuffers, rssStart, rssAfterBuild, firstPixels, vertices, indices, tieInstances:ties.flat().length});
+      trackedExplicitBuffersBeforeBuild:beforeBuild, trackedExplicitBuffersThroughBuild:buildBuffers,
+      hostRssBeforeSetupBytes:rssStart, hostRssAfterBuildBytes:rssAfterBuild,
+      firstPixels, vertices, indices, tieInstances:ties.flat().length});
 
     const last=route.length-1;
     // Fixed continuous sweep of the same orbit target, front to end inclusive.
@@ -221,8 +227,8 @@ async function run(device:GPUDevice, adapter:GPUAdapter) {
         }
       });
     } finally {traversal.restore();}
-    console.log('untimed held traversal: zero tracked work at every camera target and span', {
-      cameraTargets:samples, observedSpans:traversal.work.length,
+    console.log('untimed held replay: zero tracked track dispatches and upload bytes', {
+      fencedFramesChecked:samples, spansCheckedPerFrame:traversal.work.length,
     });
 
     // Negative control: re-upload a resident basis, without changing geometry.
@@ -256,11 +262,11 @@ async function run(device:GPUDevice, adapter:GPUAdapter) {
       const span=route[i], stations=tieStations(span), t=Math.floor(stations.length/2);
       const rail=meshes.get(stripHandles[i][0])!;
       const pose=await readTransformRow(w,strips[i][0]);
-      expect(pose).toEqual([...span.origin.map(Math.fround),0,0,0,0,1,1,1,1,0]);
+      expect(Array.from(pose)).toEqual([...span.origin.map(Math.fround),0,0,0,0,1,1,1,1,0]);
       const row=await readTransformRow(w,ties[i][t*instancesPerTie]);
       const f=span.at(rev,stations[t]-span.start);
       const want=posePoint({...f,p:worldPoint(span,f.p)},nativePoint(native.primitives[0].matrix,0,0,0));
-      for(let i=0;i<3;i++) expect(Math.abs(row[i]-want[i])).toBeLessThan(.00008);
+      for(let j=0;j<3;j++) within(row[j],want[j],worldAllowance(want[j],row[j])+4e-6,`span ${i} tie origin axis ${j}`);
       const stream=await readMesh(w,rail);
       const xy=profiles.rails.points[profiles.rails.contours[0][0].from];
       const vertex=2*(sweepIntervals/2);
@@ -268,7 +274,7 @@ async function run(device:GPUDevice, adapter:GPUAdapter) {
       expect(k).toBeGreaterThanOrEqual(0);
       const actual=stream.points[k], expected=point(span.at(rev,length/2),...xy);
       for(let i=0;i<3;i++) expect(Math.abs(actual[i]-expected[i])).toBeLessThan(.00021);
-      return {row,vertex:actual};
+      return {row:Array.from(row),vertex:actual};
     }
     const spot=async (label:string, change:()=>void, dirty:boolean)=>{
       const observer=observeTrackWork(w,workTargets);
@@ -310,9 +316,57 @@ async function run(device:GPUDevice, adapter:GPUAdapter) {
       }
       coverage.push({span:i,panZ:targetAt(i),railsSpineTiesRgbDeltaPixels:counts});
     }
-    console.log('untimed work and visibility (RGB delta > 8)', Bun.inspect({holdWork,editWork,before,after,editPixels,
+    if(metres===5000) {
+      const pair=[last-1,last];
+      await checked(`far join ${pair.join('/')}`, async()=>{
+        view(last-.5);
+        await step(w);
+        const sweeps=[], tieErrors=[];
+        for(const [side,i] of pair.entries()) {
+          const span=route[i], revision=states[i].submitted;
+          if(revision!==0) throw Error(`span ${i}: expected unchanged submitted revision, got ${revision}`);
+          sweeps.push(await Promise.all(parts.map(async(profile,j)=>{
+            expect(instances.mesh.get(strips[i][j]),`span ${i}, part ${j}`).toBe(stripHandles[i][j]);
+            return inspectSweep(w,span,revision,profile,stripHandles[i][j],await readTransformRow(w,strips[i][j]),side===0);
+          })));
+          const stations=tieStations(span), t=side===0?stations.length-1:0;
+          const f=span.at(revision,stations[t]-span.start), pose={...f,p:worldPoint(span,f.p)};
+          for(const [j,primitive] of native.primitives.entries()) {
+            const e=ties[i][t*instancesPerTie+j], handle=native.handles[primitive.mesh];
+            expect(instances.mesh.get(e),`span ${i}, tie ${t}, primitive ${j}`).toBe(handle);
+            const mesh=meshes.get(handle)!;
+            tieErrors.push(inspectNativeTie(await readTransformRow(w,e),(await readMesh(w,mesh)).points,
+              native.data.meshes[primitive.mesh],primitive.matrix,pose,mesh.bounds![3]));
+          }
+        }
+        let seamError=0, seamQuant=0, seamRounding=0;
+        for(const [j,left] of sweeps[0].entries()) for(const [k,a] of left.seam.entries()) {
+          const b=sweeps[1][j].seam[k], label=`part ${j}, directed seam vertex ${k}`;
+          within(normError(a.n,b.n),0,.00012,`${label} normal`);
+          for(let axis=0;axis<3;axis++) {
+            const quant=a.quantError[axis]+b.quantError[axis], rounding=a.rounding[axis]+b.rounding[axis];
+            within(a.p[axis],b.p[axis],quant+rounding+1e-12,`${label}, axis ${axis}`);
+            seamError=Math.max(seamError,Math.abs(a.p[axis]-b.p[axis]));
+            seamQuant=Math.max(seamQuant,quant); seamRounding=Math.max(seamRounding,rounding);
+          }
+        }
+        const precision=sweeps.flat();
+        console.log('untimed far join: submitted streams and native ties on both sides', {
+          spans:pair, stationMetres:route[last].start, panZ:targetAt(last-.5),
+          localMaxErrorMm:1000*Math.max(...precision.map(s=>s.localError)),
+          worldMaxErrorMm:1000*Math.max(...precision.map(s=>s.worldError)),
+          seamMaxAxisErrorMm:1000*seamError, seamMaxAxisLocalErrorBudgetMm:1000*seamQuant,
+          seamMaxAxisFloat32AllowanceMm:1000*seamRounding,
+          normalMaxError:Math.max(...precision.map(s=>s.normalError)),
+          sampledNativeTiePrimitives:tieErrors.length, nativeTieCornerMaxErrorMm:1000*Math.max(...tieErrors),
+        });
+      });
+    }
+    console.log('untimed work spots and sampled visibility (RGB delta > 8)', Bun.inspect({holdWork,editWork,before,after,editPixels,
       coverage,camera:{distance,near,far,yaw:orbit.yaw.get(camera),pitch:orbit.pitch.get(camera),
         verticalFov:w.storage(Camera).fov.get(camera)}}, {depth:Infinity}));
+  } catch (cause) {
+    throw new Error(`${metres} m: ${phase}`, {cause});
   } finally {
     probe.stop();
     device.removeEventListener('uncapturederror',error);
@@ -320,8 +374,9 @@ async function run(device:GPUDevice, adapter:GPUAdapter) {
   }
 }
 
-test('native Vulkan: submit and time the 1 km retained route', async () => {
-  if(process.env.TRACK_METRES!=='1000') throw Error('Run explicitly with TRACK_METRES=1000 on a native Vulkan device');
+const selected=process.env.TRACK_METRES;
+test('native Vulkan: submit and time one retained route', async () => {
+  if(selected!=='1000' && selected!=='5000') throw Error('Set TRACK_METRES=1000 or TRACK_METRES=5000 for the native Vulkan diagnostic');
   const previous=Object.getOwnPropertyDescriptors(globalThis), gpu=Object.getOwnPropertyDescriptor(navigator,'gpu');
   let device:GPUDevice|undefined;
   try {
@@ -336,7 +391,7 @@ test('native Vulkan: submit and time the 1 km retained route', async () => {
     console.log({adapter:verdict.identity,description:adapter.info.description,limits:{maxBufferSize:device.limits.maxBufferSize,
       maxStorageBufferBindingSize:device.limits.maxStorageBufferBindingSize,maxComputeWorkgroupsPerDimension:device.limits.maxComputeWorkgroupsPerDimension,
       maxStorageBuffersPerShaderStage:device.limits.maxStorageBuffersPerShaderStage}});
-    await run(device,adapter);
+    await run(device,adapter,selected==='1000'?1000:5000);
   } finally {
     try {if(device){device.destroy();await device.lost;}}
     finally {
@@ -346,4 +401,4 @@ test('native Vulkan: submit and time the 1 km retained route', async () => {
       }
     }
   }
-}, 43_000);
+}, selected==='5000'?59_000:43_000);
