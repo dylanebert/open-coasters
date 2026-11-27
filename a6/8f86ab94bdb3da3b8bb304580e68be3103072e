@@ -1,2 +1,2 @@
 stage: 3
-finding: The no-track-write check does not cover the unchanged camera run. The 120-frame traversal checks final span revisions and that collected deformation profiler rows are zero (78 held rows on this run); neither observes queue writes to retained strip buffers or tie transform rows. The only traffic probe for camera motion is one post-window step to view(1). A redundant tie or strip upload elsewhere in the traversal can pass both checks. Stage 3 explicitly asks to check that the unchanged run writes no track data while keeping work probes out of timing samples; this receipt establishes zero writes only for the spot, not the traversal.
+clean
