@@ -7,7 +7,7 @@ import { attachTexture, captureTexture, globalTransformTable } from '@dylanebert
 import { octDecodeNormal } from '@dylanebert/shallot/utils';
 import { openGpuApp } from '@dylanebert/shallot/testing/gpu';
 import { effective, initialConfiguration } from './configuration';
-import { readGpuBuffer, readMesh } from './gpu-probe';
+import { readGpuBuffer, readMesh, trackWork } from './gpu-probe';
 import { staticInstanceSnapshot } from './instance';
 import { Live, liveScene } from './live';
 import { loadProfile } from './profile';
@@ -129,53 +129,6 @@ async function submittedTies(w:World, native:Native, radius:number, label:string
   return {transforms,low};
 }
 
-function trackWork(w:World) {
-  const {device}=w.gpu, queue=device.queue;
-  const state=w.resource(TrackDeformation).retained!;
-  const buffers=new Set<GPUBuffer>(state.parts.flatMap(({mesh})=>{
-    const m=w.resource(Meshes).get(mesh)!;
-    return [m.vertices,m.position!,m.indices,m.quant!].map(b=>w.gpu.root.unwrap(b));
-  }));
-  const tieEntities=w.resource(Scene).instances.slice(2).flat();
-  const table=globalTransformTable(w);
-  const work={dispatches:0, frameBytes:0, meshBytes:0, tieBytes:0};
-  const write=queue.writeBuffer, encoder=w.frameEncoder;
-  queue.writeBuffer=function(...args:Parameters<GPUQueue['writeBuffer']>){
-    const [dst,offset,data,from=0,size]=args;
-    const width=ArrayBuffer.isView(data)&&'BYTES_PER_ELEMENT' in data ? Number(data.BYTES_PER_ELEMENT) : 1;
-    const bytes=size===undefined?data.byteLength-from*width:size*width;
-    if(dst===state.frames)work.frameBytes+=bytes;
-    if(buffers.has(dst)||/^track:(rails|spine):local$/.test(dst.label))work.meshBytes+=bytes;
-    // The transform table's packed native writes pass their destination row
-    // range as a byte range of the source; direct writes use the target offset.
-    const start=dst.label.startsWith('global-transform-tick-')?from*width:offset;
-    if(/^(global-transform-tick-|table-global-transform-g)/.test(dst.label))
-      for(const entity of tieEntities) {
-        const index=table.rowIndex(entity);
-        if(index>=0)work.tieBytes+=Math.max(0,Math.min(index*48+48,start+bytes)-Math.max(index*48,start));
-      }
-    return write.apply(queue,args);
-  };
-  const patched=new WeakSet<GPUCommandEncoder>();
-  w.frameEncoder=function(){
-    const e=encoder.call(w);
-    if(e&&!patched.has(e)){
-      patched.add(e);
-      const begin=e.beginComputePass;
-      e.beginComputePass=function(descriptor){
-        const pass=begin.call(e,descriptor);
-        if(descriptor?.label==='track:deform') {
-          const dispatch=pass.dispatchWorkgroups;
-          pass.dispatchWorkgroups=function(...args){work.dispatches++;return dispatch.apply(pass,args);};
-        }
-        return pass;
-      };
-    }
-    return e;
-  };
-  return {work,restore(){queue.writeBuffer=write;w.frameEncoder=encoder;}};
-}
-
 const target={width:640,height:400};
 type CaptureRgba = Awaited<ReturnType<typeof captureTexture>>['rgba'];
 
@@ -218,12 +171,13 @@ test('stock baseline then full submitted replay, rendered native ties and held w
     try {
       for(const {name,time,radius} of replaySamples) {
         live.replayAt!(time);
-        Object.assign(probe.work,{dispatches:0,frameBytes:0,meshBytes:0,tieBytes:0});
+        Object.assign(probe.work,{dispatches:0,frameBytes:0,meshBytes:0,tieMeshBytes:0,tieBytes:0});
         w.step(1/60);await w.frameFence;
         const dirty=time<=7;
         expect(probe.work.dispatches, name).toBe(dirty?2:0);
         expect(probe.work.frameBytes, name).toBe(dirty?(192+1)*16*4:0);
         expect(probe.work.meshBytes, name).toBe(0);
+        expect(probe.work.tieMeshBytes, name).toBe(0);
         if(dirty)expect(probe.work.tieBytes,name).toBeGreaterThan(0);
         else expect(probe.work.tieBytes,name).toBe(0);
         expect(retained.submitted, name).toBeCloseTo(1/radius,12);

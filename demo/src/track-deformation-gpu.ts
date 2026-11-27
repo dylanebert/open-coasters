@@ -101,7 +101,7 @@ const deform: System = {name: 'deform-track', group: 'draw', before: [MeshPrepro
     s.basis.set([...p, 0, ...x, 0, ...y, 0, ...z, 0], i*16);
   }
   world.gpu.device.queue.writeBuffer(s.frames, 0, s.basis);
-  const pass = world.frameEncoder()!.beginComputePass({label: 'track:deform'});
+  const pass = world.frameEncoder()!.beginComputePass({label: 'track:deform', timestampWrites: world.gpu.span?.('track:deform')});
   pass.setPipeline(s.pipeline);
   for (const part of s.parts) {
     pass.setBindGroup(0, part.group);
