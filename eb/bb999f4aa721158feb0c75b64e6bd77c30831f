@@ -1,2 +1,2 @@
 stage: 20
-finding: The duplicate-baseline regression guard starts at the gap heading. A second copy of the joined figure immediately before that heading (alongside the existing joined figure) preserves every ordered marker and leaves the checked gap slice unchanged in HTML and llms.txt. The old in-gap placement is caught, but a duplicate baseline can still silently reappear in the reading sequence. Assert a single joined plate across the joined-to-Examples passage in each output.
+clean
