@@ -8,7 +8,7 @@ export const routeStart = 5000 - 2 * spanLength;
 export const interval = spanLength / sweepIntervals;
 export const revisions = [0, Math.PI / 8, -Math.PI / 8];
 const quarter = spanLength / 4, angle = .06, k = angle / quarter;
-const chord = 4 * Math.sin(angle) / k;
+export const chord = 4 * Math.sin(angle) / k;
 export const sag = 2 * (1 - Math.cos(angle)) / k;
 const ends = [0, angle, 0, -angle, 0];
 const axisX: Vec = [-1,0,0], axisY: Vec = [0,1,0], axisZ: Vec = [0,0,-1];
@@ -17,7 +17,7 @@ const boundary = (z: number) => ({p: [0,0,z] as Vec, x: axisX, y: axisY, z: axis
 // Integrate the unit tangent over four equal-length circular arcs. Rolling
 // that planar locus about its chord preserves arc length, not just the sample
 // parameter. Project fixed world up into the section, not rolled bump up.
-function bump(roll: number, s: number) {
+export function bump(roll: number, s: number) {
   if (s === 0 || s === spanLength) return boundary(s === 0 ? 0 : -chord);
   const i = Math.floor(s / quarter);
   const a = ends[i], curvature = Math.sign(ends[i+1]-a)*k;
