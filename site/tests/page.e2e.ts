@@ -38,6 +38,8 @@ test('built spec: desktop/phone, themes, persistence, no JS, LLM and demo',async
       expect(46*panels[0]!.width/1200).toBeGreaterThan(13);
       await page.screenshot({path:testInfo.outputPath(`${width}-${theme}.png`),fullPage:true});
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      const closing=page.locator('pre').filter({hasText:'const track = join('});
+      expect(await closing.evaluate(pre=>pre.scrollWidth<=pre.clientWidth),`${width}px ${theme}: closing code must fit`).toBe(true);
       const toggleBox=(await toggle.boundingBox())!;
       const githubBox=(await page.getByRole('link',{name:'GitHub',exact:true}).boundingBox())!;
       expect(toggleBox.y).toBe(14);
@@ -46,7 +48,7 @@ test('built spec: desktop/phone, themes, persistence, no JS, LLM and demo',async
       await page.evaluate(()=>window.scrollBy(0,200));
       expect(await toggle.boundingBox()).toEqual(toggleBox);
       for(const img of await page.locator('picture img').all()) {
-        const box=await img.evaluate((el:HTMLImageElement)=>({width:el.width,height:el.height,naturalWidth:el.naturalWidth,naturalHeight:el.naturalHeight, cap:el.closest('.repeated-ties')?600:560}));
+        const box=await img.evaluate((el:HTMLImageElement)=>({width:el.width,height:el.height,naturalWidth:el.naturalWidth,naturalHeight:el.naturalHeight, cap:el.closest(':is(.one-tie,.repeated-ties,.swept-rail,.joined-track,.tie-gap)')?540:560}));
         expect(box.width).toBeLessThanOrEqual(box.cap);
         expect(Math.abs(box.width/box.height-box.naturalWidth/box.naturalHeight)).toBeLessThan(.01);
         if(width===390)expect(box.width).toBeGreaterThan(340);

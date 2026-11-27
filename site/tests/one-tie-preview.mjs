@@ -10,7 +10,7 @@ const url = new URL('/open-coasters/', server.url).href;
 const browser = await launchNative();
 try {
   const argument = '.tie-argument';
-  const boxes = page => page.evaluate(() => ['#construction-contract ~ pre', '.one-tie picture', '.one-tie + p'].map(selector => {
+  const boxes = page => page.evaluate(() => ['#construction-contract ~ pre', '.one-tie picture', '.one-tie + #construction-contract--repeated-ties'].map(selector => {
     const { x, y, width, height } = document.querySelector(selector).getBoundingClientRect();
     return [x, y + scrollY, width, height];
   }));

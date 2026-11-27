@@ -6,11 +6,14 @@
   import { palettes } from './palettes';
   import { openScene } from './scene';
 
+  import { defaultSpacing } from '../examples/repeated-tie-recipe';
   import { placeTies } from './repeated';
 
   const query = new URLSearchParams(location.search);
   const embedded = query.has('preview') && parent !== window;
   const repeated = query.has('repeated');
+  const panel = embedded ? query.get('recipe') : null;
+  let profileLabel = $state<readonly number[]>();
   let theme = $state<'dark' | 'light'>(matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
   const { bg, ink } = $derived(palettes[theme]);
   let canvas: HTMLCanvasElement;
@@ -27,11 +30,14 @@
     void (async () => {
       const snapshot = await readNative(new URL('assets/blitz-tie.gltf', document.baseURI));
       if (disposed) return;
-      const evaluate = (value = repeated ? .4 : 2) => repeated
+      const guide = panel ? await (await import('./guide')).guidePreview(panel, { snapshot }) : undefined;
+      if (disposed) return;
+      profileLabel = guide?.label;
+      const evaluate = guide?.evaluate ?? ((value = repeated ? defaultSpacing : 2) => repeated
         ? { construction: placeTies({ snapshot }, value), distance: value, pose: undefined }
-        : tieAt({ snapshot }, value);
+        : tieAt({ snapshot }, value));
       const result = evaluate();
-      scene = await openScene(canvas, result.construction, embedded, repeated);
+      scene = await openScene(canvas, result.construction, embedded, repeated, guide);
       if (disposed) { scene.dispose(); return; }
       if (!embedded) {
         scene.render(result.construction, bg, theme);
@@ -42,7 +48,7 @@
         }
         return;
       }
-      type Request = { id: number; distance: number; theme: 'light' | 'dark' };
+      type Request = { id: number; distance?: number; end?: number; gapEnd?: number; theme: 'light' | 'dark' };
       let pending: Request | undefined;
       let busy = false;
       function schedule() {
@@ -54,9 +60,9 @@
           pending = undefined;
           let render: () => void;
           try {
-            const tie = evaluate(next.distance);
+            const tie = evaluate(next.distance, next.end, next.gapEnd);
             const annotations = tie.pose && sceneGeometry(tie.pose, tie.distance);
-            const present = await scene!.prepareLive(tie.construction, palettes[next.theme].bg, next.theme);
+            const present = await scene!.prepareLive(tie.construction, palettes[next.theme].bg, next.theme, 'end' in tie ? tie.end : undefined);
             render = () => {
               present();
               flushSync(() => {
@@ -101,7 +107,14 @@
 <main class:repeated style:color-scheme={theme} data-ready={distance !== undefined}
   data-distance={repeated ? undefined : distance} data-spacing={repeated ? distance : undefined}>
   <div class="viewport">
-    <canvas bind:this={canvas} aria-label={repeated ? 'Blitz ties along a straight segment' : 'Blitz tie banked on the sampled path'}></canvas>
+    <canvas bind:this={canvas} aria-label={panel ? 'Live banked track recipe' : repeated ? 'Blitz ties along a straight segment' : 'Blitz tie banked on the sampled path'}></canvas>
+    {#if profileLabel}
+      {@const [x, y] = profileLabel}
+      <svg viewBox={`0 0 ${view.width} ${view.height}`} aria-hidden="true">
+        <path d={`M${x - 11},${y + 10}l-10,32`} stroke={ink} stroke-width="2.5" fill="none"/>
+        <text x={x - 29} y={y + 52} text-anchor="end" font-family="sans-serif" font-size="42" fill={ink}>profile</text>
+      </svg>
+    {/if}
     {#if geometry}
     <svg viewBox={`0 0 ${view.width} ${view.height}`} aria-hidden="true">
       <defs>{#each axisColors as color, i}
@@ -121,7 +134,7 @@
         {@const line = `M${geometry.origin}L${x},${y}`}
         <path d={line} fill="none" stroke={bg} stroke-width="7" />
         <path d={line} fill="none" stroke={axisColors[i]} stroke-width="3.5" marker-end={`url(#axis-${i})`} />
-        <text x={x + [17, -22, 17][i]} y={y + [15, -20, 4][i]} fill={ink} font-size="46">{['+X', '+Y', '−Z'][i]}</text>
+        <text x={x + [17, -12, 17][i]} y={Math.max(49, Math.min(view.height - 16, y + [15, -20, 4][i]))} text-anchor={i === 1 ? 'end' : 'start'} fill={ink} font-size="46">{['+X', '+Y', '−Z'][i]}</text>
       {/each}
       <circle cx={geometry.origin[0]} cy={geometry.origin[1]} r="5" stroke={bg} stroke-width="2" fill={ink}/>
     </svg>

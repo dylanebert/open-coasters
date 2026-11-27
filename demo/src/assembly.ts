@@ -2,8 +2,10 @@ import { frame as analyticFrame, length, rotation, placeLoopPosition, type Vec }
 import recorded from './loop-path.json';
 import { offsetFrames, sampleFrames, path, rotate, type Path, type Frame } from '../../construction/geometry';
 import { repeatFrames } from '../../construction/repeat';
-import { sweep, type Material } from '../../construction/sweep';
-import { nativeSnapshot, snapshotBytes, type Construction } from '../../construction/native';
+import { sweep } from '../../construction/sweep';
+import { snapshotBytes, type Construction } from '../../construction/native';
+import { railAppearance } from './rail-material';
+export { railAppearance } from './rail-material';
 import type { ConvexSection } from './sampled-section';
 
 export const assemblyDefaults = { path: 'curve' as 'straight' | 'curve' | 'loop', separation: 1.2, spacing: .65, tie: 'assembly-tie-bar' as 'assembly-tie-bar' | 'assembly-tie-fork', witness: 'normal' as 'normal' | 'station' | 'supports' };
@@ -49,8 +51,6 @@ export function resolveAssembly(a: Assembly) {
   return { path: nativePath, railFrames, tie:a.tie, ties };
 }
 function basis(f: Frame) { return {p:f.translation as Vec,x:rotate(f.rotation,[1,0,0]) as Vec,y:rotate(f.rotation,[0,1,0]) as Vec,z:rotate(f.rotation,[0,0,1]) as Vec}; }
-const appearanceSnapshot = nativeSnapshot({asset:{version:'2.0'},scene:0,scenes:[{nodes:[0]}],nodes:[{mesh:0}],meshes:[{primitives:[{attributes:{POSITION:0},material:0}]}],materials:[{pbrMetallicRoughness:{baseColorFactor:[.06,.7,.78,1],metallicFactor:.7,roughnessFactor:.25}}],accessors:[{bufferView:0,componentType:5126,count:3,type:'VEC3'}],bufferViews:[{buffer:0,byteLength:36}],buffers:[{byteLength:36}]},[new Float32Array([0,0,0,1,0,0,0,1,0]).buffer]);
-export const railAppearance: Material = {snapshot:appearanceSnapshot,material:0};
 /** Pack NormalTrack's sweep accessors in their emitted corner order.
  * Consumer force coloring is never written back into native snapshots/export. */
 export function packRails(construction: Construction, stations: readonly number[], sectionSize: number, appearance?: (station:number)=>readonly number[]) {

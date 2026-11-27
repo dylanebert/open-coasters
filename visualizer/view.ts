@@ -9,7 +9,7 @@ const dot = (a: Vec, b: Vec) => a.reduce((s,v,i)=>s+v*b[i]!,0);
 const cross = (a: Vec,b: Vec): Vec => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
 const unit = (v: Vec): Vec => v.map(x=>x/Math.hypot(...v)) as unknown as Vec;
 export const contextCamera = { camera: [1.1, 1.5, 2.2] as const, target: [0, 0, -.25] as const };
-export const view = { camera: [-1.1, 1.82, -2.7] as const, target: [0, .32, -.25] as const, width: 1080, height: 680, size: 1.20 };
+export const view = { camera: [-.85, 2.40, -2] as const, target: [.25, .32, .45] as const, width: 1080, height: 680, size: 1.92 };
 
 export function project(v: Vec, p: View) {
   const back=unit(p.camera.map((v,i)=>v-p.target[i]!) as unknown as Vec);

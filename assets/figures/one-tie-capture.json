@@ -28,7 +28,7 @@
         "architecture": "lovelace",
         "fallback": false
       },
-      "sha256": "1fabc04956e533638a8205917428ce99347d1546f1cca4cb71ea2f577b178c9d"
+      "sha256": "fb0053d960dc0455e325ddd9f955e66173c5f966962cbc208133af5ff1f90d72"
     },
     {
       "file": "one-tie-dark.png",
@@ -55,7 +55,7 @@
         "architecture": "lovelace",
         "fallback": false
       },
-      "sha256": "4747a46db52299df78e4cd5b05b23afb023a9ee9d2789de599fa01997ac0bc54"
+      "sha256": "84627ed2d4969ec0850fdcf81d6a96c9a88b91d386c052222f951dae09b344b7"
     }
   ]
 }

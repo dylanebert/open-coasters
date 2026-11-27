@@ -11,7 +11,6 @@ const inlineAnchor = /^<span id="(\w+)">$/;
 export type RenderOptions = { draft?: boolean };
 // Only these draft authority files are exposed, as raw text, never rendered views.
 export const draftOwners = [
-  'examples/one-tie.ts', 'examples/repeated-tie.ts',
   'construction/geometry.ts', 'construction/repeat.ts', 'construction/sweep.ts', 'construction/section.ts',
 ] as const;
 export function render(root: string, options: RenderOptions = {}) {

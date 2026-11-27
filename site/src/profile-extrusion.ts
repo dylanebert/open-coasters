@@ -19,7 +19,8 @@ export function walls(points=contour(),end=railEnd-railOrigin[2]){
  }
  return {vertices:new Float32Array(vertices),indices:new Uint32Array(indices)};
 }
-export const wallColors={light:'#77756f',dark:'#aaa79c'};
+import { wallColors } from './guide-recipe';
+export { wallColors } from './guide-recipe';
 const meshInput=(m:ReturnType<typeof walls>)=>({vertices:[...m.vertices],indices:[...m.indices]});
 export function inputs(asset=plate().asset){
  const gltf=readFileSync(asset),json=JSON.parse(gltf.toString());

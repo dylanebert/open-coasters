@@ -114,19 +114,23 @@ test('recipes link to their function entries after Examples',()=>{
   const referenceHtml = html.slice(html.indexOf('<h2 id="placement-reference"'), html.indexOf('</main>'));
   const table = referenceHtml.match(/<table>[\s\S]*?<\/table>/)![0];
   expect(referenceHtml.trim()).toEndWith('</table>');
-  const lastRow = 'Placements from the inputs, combined in input order |';
+  const lastRow = 'placements combined in input order |';
   expect(reference.trim()).toEndWith(lastRow);
   expect(llms.trim()).toEndWith(lastRow);
   expect(table.match(/<th>/g)).toHaveLength(2);
   expect(table.match(/<tbody>[\s\S]*<\/tbody>/)![0].match(/<tr>/g)).toHaveLength(5);
-  expect(llms).toContain('| Function | Result |');
-  for (const [fn, owner] of Object.entries({sampleFrames:'geometry', instance:'geometry', repeat:'repeat', sweep:'sweep', join:'geometry'})) {
+  expect(table).toContain('<th>function</th>\n<th>returns</th>');
+  expect(llms).toContain('| function | returns |');
+  for (const [fn, [owner, args]] of Object.entries({
+    sampleFrames: ['geometry', 'path, distances'], instance: ['geometry', 'content, frames'],
+    repeat: ['repeat', 'content, options'], sweep: ['sweep', 'section, frames, material'],
+    join: ['geometry', 'constructions'],
+  })) {
     const fragment = fn.toLowerCase();
     const id = `placement-reference--${fragment}`;
     const source = `https://github.com/dylanebert/open-coasters/blob/main/construction/${owner}.ts`;
-    expect(reference).toContain(`| <span id="${fragment}">[\`${fn}\`](construction/${owner}.ts)</span> |`);
-    expect(table).toContain(`<td><span id="${id}"><a href="${source}"><code>${fn}</code></a></span></td>`);
-    expect(llms).toContain(`| [\`${fn}\`](${source}) |`);
+    expect(table).toContain(`<td><span id="${id}"><a href="${source}"><code>${fn}</code></a></span><code>(${args})</code></td>`);
+    expect(llms).toContain(`| [\`${fn}\`](${source})\`(${args})\` |`);
     if (fn === 'sweep' || fn === 'join') continue;
     expect(recipe).toContain(`href="#${id}"><code>${fn}</code>`);
     expect(llms).toContain(`[\`${fn}\`](/open-coasters/#${id})`);
@@ -135,10 +139,7 @@ test('recipes link to their function entries after Examples',()=>{
   expect(reference).toContain('[decoded section](construction/section.ts)');
   expect(table).toContain(`<a href="${section}">decoded section</a>`);
   expect(llms).toContain(`[decoded section](${section})`);
-  expect(recipe).toContain('href="https://github.com/dylanebert/open-coasters/blob/main/examples/repeated-tie.ts"><code>bun examples/repeated-tie.ts</code>');
-  const repeated = 'const result = repeat(tie, {\n  path: trackPath,\n  spacing,\n  startOffset: 0.15,\n  allowed: [{ start: 0, end: 1.951 }],\n});';
-  expect(recipe).toContain(repeated);
-  expect(readFileSync(resolve(root,'examples/repeated-tie-recipe.ts'),'utf8').replace(/^  /gm, '')).toContain(repeated);
+  expect(recipe).not.toMatch(/Run only recipes|examples\/repeated-tie\.ts/);
   const link = '#placement-reference';
   expect(recipe).toContain(`href="${link}"`);
   expect(llms).toContain(`](/open-coasters/${link})`);

@@ -4,10 +4,12 @@ import type { Content } from '../construction/native';
 
 const radius = 6;
 const headingAt = (distance: number) => distance / radius - .18;
-const distances = Array.from({ length: 35 }, (_, i) => i / 10);
+export const bankedLength = 5;
+const bankEnd = 3.4;
+const distances = Array.from({ length: bankedLength * 10 + 1 }, (_, i) => i / 10);
 const samples = distances.map(distance => {
   const heading = headingAt(distance);
-  const bank = -.025 - .32 * (1 - Math.cos(Math.PI * distance / 3.4)) / 2;
+  const bank = -.025 - .32 * (1 - Math.cos(Math.PI * Math.min(distance, bankEnd) / bankEnd)) / 2;
   const s = Math.sin(heading / 2), c = Math.cos(heading / 2);
   const r = Math.sin(bank / 2), w = Math.cos(bank / 2);
   return {

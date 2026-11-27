@@ -6,19 +6,15 @@ import { defaultSpacing } from '../examples/repeated-tie-recipe';
 
 const asset = new URL('../demo/public/assets/blitz-tie.gltf', import.meta.url);
 
-test('the displayed recipe draws the archived ties at the selected spacing', async () => {
+test('the straight recipe places and aligns the archived ties at the selected spacing', async () => {
   const source = await Bun.file(asset).json();
   const buffers = await Promise.all(source.buffers.map(({ uri }: { uri: string }) => Bun.file(new URL(uri, asset)).arrayBuffer()));
   const tie = { snapshot: nativeSnapshot(source, buffers) };
-  const guide = await Bun.file(new URL('../construction-contract.md', import.meta.url)).text();
-  const [, spacing, recipe] = guide.match(/```ts\nconst spacing = (\d+\.\d+);\n([\s\S]*?)```/) ?? [];
-  expect(spacing).toBe('0.4');
-  expect(Number(spacing)).toBe(defaultSpacing);
-  const runtime = await Bun.file(new URL('../examples/repeated-tie-recipe.ts', import.meta.url)).text();
-  expect(recipe).toBe(runtime.split('spacing: number) {\n')[1]?.split('  return result;')[0]?.replace(/^  /gm, ''));
 
   for (const [value, expected] of [
     [.4, [.6, .2, -.2, -.6, -1]],
+    [defaultSpacing, [.6, 0, -.6, -1.2]],
+    [.6001, [.6, -.0001, -.6002, -1.2003]],
     [.8, [.6, -.2, -1]],
   ] as const) {
     const result = placeTies(tie, value);

@@ -3,14 +3,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test src/profile-extrusion.test.ts src/plate.test.ts src/profile-plate.test.ts src/page.test.ts src/chrome.test.ts src/http.test.ts src/draft.test.ts",
+    "test": "bun test src/profile-extrusion.test.ts src/plate.test.ts src/profile-plate.test.ts src/page.test.ts src/chrome.test.ts src/http.test.ts src/draft.test.ts src/sweep-links.test.ts src/track-composition.test.ts",
     "build": "bun scripts/build.ts",
     "preview": "bun scripts/serve.ts",
     "test:page": "playwright test",
     "capture": "bun --preload ./scripts/preload.ts scripts/capture.ts",
     "annotations": "bun scripts/annotations.ts",
     "capture:profile": "bun --preload ./scripts/preload.ts scripts/profile-capture.ts",
-    "annotations:profile": "bun scripts/profile-annotations.ts"
+    "annotations:profile": "bun scripts/profile-annotations.ts",
+    "capture:recipes": "bun --preload ./scripts/preload.ts scripts/recipe-capture.ts"
   },
   "dependencies": {
     "@dylanebert/shallot": "0.10.5",

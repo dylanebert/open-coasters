@@ -1,11 +1,7 @@
 // Loaded only by the private preview build. Keep the still until a bitmap is ready.
 if (navigator.gpu) {
   enable({ figure: 'one-tie', prefix: 'sampleFrames(path, [', initial: '2', suffix: ']);',
-    min: '0', max: '3.4', label: 'Sampled distance in meters', title: 'Live one-tie preview' });
-  if (new URL(import.meta.url).searchParams.has('repeated')) {
-    enable({ figure: 'repeated-ties', prefix: 'const spacing = ', initial: '0.4', suffix: ';',
-      min: '0.4', max: '0.8', label: 'Tie spacing in meters', title: 'Live repeated-ties preview' });
-  }
+    min: '0', max: document.querySelector('script[data-track-end]').dataset.trackEnd, label: 'Sampled distance in meters', title: 'Live one-tie preview' });
 }
 
 function enable({ figure, prefix, initial, suffix, min, max, label, title }) {
@@ -14,7 +10,6 @@ function enable({ figure, prefix, initial, suffix, min, max, label, title }) {
   const text = [...document.querySelectorAll('pre code')].map(el => el.firstChild)
     .find(node => node instanceof Text && node.data.includes(token));
   if (!picture || !text) return;
-  const repeated = figure === 'repeated-ties';
   const style = document.createElement('style');
   style.textContent = `
     .${figure} picture, .tie-sample { position: relative }
@@ -25,8 +20,9 @@ function enable({ figure, prefix, initial, suffix, min, max, label, title }) {
       accent-color: var(--gold); }
     .tie-preview { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none }
     .tie-preview[hidden] { display: block; visibility: hidden }
-    ${repeated ? `.tie-sample:has([aria-label="${label}"]) .tie-range { width: 5rem }
-    .repeated-ties picture:has(.tie-preview:not([hidden])) img { visibility: hidden }` : ''}
+    @media (max-width: 400px) {
+      pre:has(+ .one-tie) code { letter-spacing: -.05em }
+    }
   `;
   document.head.append(style);
   const index = text.data.indexOf(token) + prefix.length;
@@ -96,7 +92,7 @@ function enable({ figure, prefix, initial, suffix, min, max, label, title }) {
         clearTimeout(timer);
       } catch { fail(); }
     });
-    frame.src = repeated ? './visualizer/?preview&repeated' : './visualizer/?preview';
+    frame.src = './visualizer/?preview';
     picture.append(frame);
     timer = setTimeout(fail, 8000);
   }

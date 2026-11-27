@@ -6,7 +6,7 @@ import { nativeSnapshot } from '../construction/native';
 import { placeTies } from './repeated-tie-recipe';
 
 // Literal analytic expectations, independent of the policy's sampling helpers.
-const expected = [[0, 0, .6], [0, 0, .2], [0, 0, -.2], [0, 0, -.6], [0, 0, -1]];
+const expected = [[0, 0, .6], [0, 0, 0], [0, 0, -.6], [0, 0, -1.2]];
 const round = (translation: number[]) => translation.map(x => Number(x.toFixed(12)));
 test('documented invocations own output and preserve unrelated symlink targets', async () => {
     const root = new URL('../', import.meta.url).pathname;
@@ -53,13 +53,13 @@ test('documented invocations own output and preserve unrelated symlink targets',
             outputs.add(output);
             const native = await Bun.file(output).json();
             const roots = native.scenes[native.scene].nodes;
-            expect(roots).toHaveLength(5);
+            expect(roots).toHaveLength(expected.length);
             expect(roots.map((i: number) => round(native.nodes[i].translation))).toEqual(expected);
             expect(native.buffers.every((b: { uri: string }) => b.uri.startsWith('data:'))).toBe(true);
             expect(native.meshes).toHaveLength(1);
             if (args.length) {
                 expect(native.materials).toEqual(fixture.materials);
-                expect(roots.map((i: number) => native.nodes[native.nodes[i].children[0]].translation)).toEqual(Array(5).fill([3,4,5]));
+                expect(roots.map((i: number) => native.nodes[native.nodes[i].children[0]].translation)).toEqual(Array(expected.length).fill([3,4,5]));
             }
             expect(readFileSync(sentinel, 'utf8')).toBe('unrelated content');
             expect(lstatSync(shared).isSymbolicLink()).toBe(true);
