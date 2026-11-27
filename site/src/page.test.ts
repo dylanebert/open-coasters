@@ -14,16 +14,16 @@ test('shared figure layout retains distinct tie and profile semantic groups',()=
  expect([...html.matchAll(/class="figure-pair profile-pair"/g)]).toHaveLength(1);
  expect(html).not.toContain('class="tie-pair profile-pair"');
 });
-test('tagline and plain lead-in stay separate from the three linked bullets',()=>{
+test('tagline and plain lead-in stay separate from the two linked bullets',()=>{
   const {html}=render(root);
   const intro=html.slice(html.indexOf('<main>'),html.indexOf('<h2 id="asset-contract">'));
   expect(intro).toMatch(/<p>[^<]+<\/p>\s*<p>[^<]+<\/p>\s*<ul>/);
   const bullets=intro.match(/<ul>([\s\S]*?)<\/ul>/)?.[1] ?? '';
-  expect([...bullets.matchAll(/<li>/g)]).toHaveLength(3);
-  expect([...bullets.matchAll(/href="#([^"]+)"/g)].map(m=>m[1])).toEqual(['asset-contract','construction-contract','examples']);
+  expect([...bullets.matchAll(/<li>/g)]).toHaveLength(2);
+  expect([...bullets.matchAll(/href="#([^"]+)"/g)].map(m=>m[1])).toEqual(['asset-contract','construction-contract']);
   expect(intro).not.toContain('<h2');
   const entries=[...bullets.matchAll(/<li><a href="#([^"]+)">([^<]+)<\/a>: ([^<]+)<\/li>/g)];
-  expect(entries.map(m=>m[2])).toEqual(['asset contract','recipe contract','examples']);
+  expect(entries.map(m=>m[2])).toEqual(['asset contract','recipe contract']);
   expect(entries[0]?.[3]).toContain('how assets (e.g. ties, rails, props) are defined');
   expect(entries[1]?.[3]).toBe('how recipes for placing assets and generating geometry are defined');
 });
@@ -49,9 +49,9 @@ test('purpose precedes scoped authoring references',()=>{
 });
 test('each Contents source reaches HTML and complete LLM output',()=>fixture(dir=>{for(const source of render(dir).sources){const path=resolve(dir,source),text=readFileSync(path,'utf8');const marker='Mutation '+source;writeFileSync(path,text+'\n\n'+marker+'\n');const page=render(dir);expect(page.html).toContain(marker);expect(page.llms).toContain(marker);writeFileSync(path,text);}}));
 test('Contents determines order within the asset contract',()=>fixture(dir=>{const path=resolve(dir,'spec.md'),text=readFileSync(path,'utf8');writeFileSync(path,text.replace('   - [parts](instance-contract.md)\n   - [profiles](profile-contract.md)','   - [profiles](profile-contract.md)\n   - [parts](instance-contract.md)'));const page=render(dir);expect(page.sources.slice(2,4)).toEqual(['profile-contract.md','instance-contract.md']);expect(page.html.indexOf('id="profile-contract"')).toBeLessThan(page.html.indexOf('id="instance-contract"'));expect(page.llms.indexOf('# profiles')).toBeLessThan(page.llms.indexOf('# parts'));}));
-test('missing sources, figures and local anchors fail closed',()=>fixture(dir=>{const p=resolve(dir,'examples.md'),text=readFileSync(p,'utf8');writeFileSync(p,text+'\n[bad](construction-contract.md#absent)');expect(()=>render(dir)).toThrow('Missing anchor');writeFileSync(p,text);rmSync(resolve(dir,'assets/figures/profile-dark.png'));expect(()=>render(dir)).toThrow('Missing local target');rmSync(p);expect(()=>render(dir)).toThrow();}));
+test('missing sources, figures and local anchors fail closed',()=>fixture(dir=>{const p=resolve(dir,'placement-reference.md'),text=readFileSync(p,'utf8');writeFileSync(p,text+'\n[bad](construction-contract.md#absent)');expect(()=>render(dir)).toThrow('Missing anchor');writeFileSync(p,text);rmSync(resolve(dir,'assets/figures/profile-dark.png'));expect(()=>render(dir)).toThrow('Missing local target');rmSync(p);expect(()=>render(dir)).toThrow();}));
 test('actual static artifact contains HTML, complete LLM and unchanged images',()=>{const dir=mkdtempSync(resolve(tmpdir(),'coasters-artifact-'));try{mkdirSync(resolve(dir,'sources'));writeFileSync(resolve(dir,'sources/asset-contract.md'),'obsolete');buildPage(dir);expect(readFileSync(resolve(dir,'index.html'),'utf8')).toBe(render(root).html);expect(readFileSync(resolve(dir,'llms.txt'),'utf8')).toBe(render(root).llms);expect(existsSync(resolve(dir,'sources'))).toBe(false);for(const asset of render(root).assets)if(asset.endsWith('.png'))expect(readFileSync(resolve(dir,asset))).toEqual(readFileSync(resolve(root,asset)));}finally{rmSync(dir,{recursive:true,force:true});}});
-test('H1 and nested fragments share the rendered heading mapping',()=>fixture(dir=>{const path=resolve(dir,'examples.md');writeFileSync(path,readFileSync(path,'utf8')+'\n[title](profile-contract.md#profiles) [nested](examples.md#standard-track) [own](#examples)\n');const page=render(dir);expect(page.html).toContain('href="#profile-contract">title');expect(page.html).toContain('href="#examples--standard-track">nested');expect(page.html).toContain('href="#examples">own');expect(page.llms).toContain('[title](/open-coasters/#profile-contract)');}));
+test('H1 and nested fragments share the rendered heading mapping',()=>fixture(dir=>{const path=resolve(dir,'construction-contract.md');writeFileSync(path,readFileSync(path,'utf8')+'\n[title](profile-contract.md#profiles) [nested](construction-contract.md#repeated-ties) [own](#recipe-contract)\n');const page=render(dir);expect(page.html).toContain('href="#profile-contract">title');expect(page.html).toContain('href="#construction-contract--repeated-ties">nested');expect(page.html).toContain('href="#construction-contract">own');expect(page.llms).toContain('[title](/open-coasters/#profile-contract)');}));
 test('Contents cannot read outside product root',()=>fixture(dir=>{const path=resolve(dir,'spec.md');for(const target of ['../outside.md','/tmp/outside.md']){const text=readFileSync(path,'utf8');writeFileSync(path,text.replace('instance-contract.md',target));expect(()=>render(dir)).toThrow('Path escapes root');writeFileSync(path,text);}}));
 test('builder rejects symlinked output targets without writing outside',()=>{const dir=mkdtempSync(resolve(tmpdir(),'coasters-output-'));try{const out=resolve(dir,'out');mkdirSync(out);const control=resolve(dir,'control.txt');writeFileSync(control,'unchanged');symlinkSync(control,resolve(out,'index.html'));expect(()=>buildPage(out)).toThrow('Symlink escapes root');expect(readFileSync(control,'utf8')).toBe('unchanged');}finally{rmSync(dir,{recursive:true,force:true});}});
 test('fresh artifact includes both font family license notices',()=>{const dir=mkdtempSync(resolve(tmpdir(),'coasters-font-notices-'));try{buildPage(dir);for(const family of ['plex','mono'])expect(readFileSync(resolve(dir,'fonts',family,'OFL.txt'))).toEqual(readFileSync(resolve(root,'demo/public/fonts',family,'OFL.txt')));expect(existsSync(resolve(dir,'fonts/mono/JetBrainsMono-Bold.woff2'))).toBe(false);}finally{rmSync(dir,{recursive:true,force:true});}});
@@ -98,18 +98,16 @@ test('a mismatched Markdown still path fails the page build', () => fixture(dir 
   expect(() => render(dir)).toThrow('Missing local target: assets/figures/one-tie-absent.png');
 }));
 
-test('recipes link to their function entries after Examples',()=>{
+test('recipes link to their function entries in the following section',()=>{
   const {html,llms,sources}=render(root);
-  const recipe=html.slice(html.indexOf('<h2 id="construction-contract"'),html.indexOf('<h2 id="examples"'));
+  const recipe=html.slice(html.indexOf('<h2 id="construction-contract"'),html.indexOf('<h2 id="placement-reference"'));
   expect(recipe).toContain('<h2 id="construction-contract">recipe contract</h2>');
   expect(recipe).toContain('id="construction-contract--placements"');
   expect(recipe).toContain('Contributors can share an asset with or without a recipe.');
   expect(recipe).not.toContain('<details>');
-  const examples = html.slice(html.indexOf('<h2 id="examples"'), html.indexOf('<h2 id="placement-reference"'));
-  expect(examples).toContain('<h3 id="examples--standard-track">standard track</h3>');
-  expect(examples).not.toMatch(/<pre>|<details>|Worked example:/);
-  expect(sources.at(-1)).toBe('placement-reference.md');
-  expect(examples).not.toBe('');
+  expect(sources.slice(-2)).toEqual(['construction-contract.md','placement-reference.md']);
+  expect(html).not.toMatch(/(?:id="|href="#)examples(?:"|--)/);
+  expect(llms).not.toMatch(/^# examples$|\/open-coasters\/#examples\b/m);
   const reference = readFileSync(resolve(root,'placement-reference.md'),'utf8');
   const referenceHtml = html.slice(html.indexOf('<h2 id="placement-reference"'), html.indexOf('</main>'));
   const table = referenceHtml.match(/<table>[\s\S]*?<\/table>/)![0];

@@ -92,16 +92,17 @@ test('built spec: desktop/phone, themes, persistence, no JS, LLM and demo',async
   for(const width of [390,1280,1920])for(const theme of ['light','dark'] as const){const context=await browser.newContext({javaScriptEnabled:false,colorScheme:theme,viewport:{width:width,height:844}});const p=await context.newPage();await p.goto('/open-coasters/');await expect(p.locator('h1')).toBeVisible();await expect(p.getByRole('button',{name:'Toggle light and dark'})).toBeHidden();await expect(p.getByRole('navigation')).toHaveCount(0);expect(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await expect.poll(()=>p.locator('.profile-pair img').first().evaluate((img:HTMLImageElement)=>img.currentSrc)).toContain(`profile-${theme}.png`);await expect.poll(()=>p.locator('.tie-pair img').last().evaluate((img:HTMLImageElement)=>img.currentSrc)).toContain(`tie-context-${theme}.png`);await p.locator('.tie-pair').screenshot({path:testInfo.outputPath(`tie-pair-nojs-${width}-${theme}.png`)});await p.screenshot({path:testInfo.outputPath(`nojs-${width}-${theme}.png`),fullPage:true});await context.close();}
 });
 
-test('placement fragments remain navigable without JavaScript', async ({browser}) => {
+test('recipe fragments remain navigable without JavaScript', async ({browser}) => {
   const context = await browser.newContext({javaScriptEnabled:false});
   try {
     const page = await context.newPage();
     for (const [fragment,text] of [
       ['construction-contract--placements','A recipe places parts or sweeps profiles'],
-      ['examples--standard-track','standard track'],
+      ['placement-reference','recipe API'],
     ]) {
       await page.goto('about:blank');
       await page.goto(`/open-coasters/#${fragment}`);
+      await expect(page.locator(`[id="${fragment}"]`)).toBeAttached();
       await expect(page.getByText(text,{exact:false}).first()).toBeVisible();
     }
   } finally { await context.close(); }

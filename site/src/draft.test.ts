@@ -19,7 +19,7 @@ test('draft authority is linked and served byte-for-byte without leaking draft r
     const llms = await (await fetch(new URL('open-coasters/llms.txt', server.url))).text();
     expect(html).toBe(page.html); expect(llms).toBe(page.llms);
     expect(html).not.toContain('/sources/');
-    const guide = html.slice(html.indexOf('id="construction-contract"'), html.indexOf('id="examples"'));
+    const guide = html.slice(html.indexOf('id="construction-contract"'), html.indexOf('<h2 id="placement-reference"'));
     expect(guide).not.toContain('<details>');
     for (const output of [html, llms, render(root).html, render(root).llms]) {
       expect(output).not.toContain('examples/one-tie.ts');

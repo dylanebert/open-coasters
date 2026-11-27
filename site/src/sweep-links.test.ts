@@ -20,19 +20,19 @@ test('sweep links the API row and both stills through the static guide', () => {
   }
 });
 
-test('the joined recipe and single gap plate follow the individual operations and lead to Examples', () => {
+test('the joined recipe and single gap plate follow the individual operations and precede the recipe API', () => {
   for (const draft of [false, true]) {
     const { html, llms } = render(root, { draft });
     expect(html).toContain('id="placement-reference--join"');
-    for (const [output, recipeStart, link, examples] of [
-      [html, '<h2 id="construction-contract">', '<a href="#placement-reference--join"><code>join</code></a>', '<h2 id="examples">'],
-      [llms, '\n# recipe contract\n', `[\`join\`](${base}#placement-reference--join)`, '\n# examples\n'],
+    for (const [output, recipeStart, link, reference] of [
+      [html, '<h2 id="construction-contract">', '<a href="#placement-reference--join"><code>join</code></a>', '<h2 id="placement-reference">'],
+      [llms, '\n# recipe contract\n', `[\`join\`](${base}#placement-reference--join)`, '\n# recipe API\n'],
     ]) {
       let offset = -1;
       for (const marker of ['const ties = repeat(', 'curved-ties-light.png', 'const rail = sweep(',
         'swept-rail-light.png', link, 'const track = join([leftRail, rightRail, ties]);',
         'joined-track-light.png', 'const gapEnd = 2.2;', 'excluded: [{ start: 1.1, end: gapEnd }]',
-        'tie-gap-light.png', examples]) {
+        'tie-gap-light.png', reference]) {
         const next = output.indexOf(marker, offset + 1);
         expect(next, `missing or out of order: ${marker}`).toBeGreaterThan(offset);
         offset = next;
@@ -40,7 +40,6 @@ test('the joined recipe and single gap plate follow the individual operations an
       const recipe = output.indexOf(recipeStart);
       expect(recipe).toBeGreaterThan(-1);
       const section = output.slice(recipe, offset);
-      expect(section).not.toContain(output === html ? 'href="#examples"' : `](${base}#examples)`);
       for (const stem of ['joined-track', 'tie-gap']) {
         for (const theme of output === html ? ['light', 'dark'] : ['light']) {
           const url = `${base}assets/figures/${stem}-${theme}.png`;
