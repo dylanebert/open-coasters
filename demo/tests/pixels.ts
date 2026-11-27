@@ -3,7 +3,10 @@ import type { Page } from "@playwright/test";
 // The PNG is the presented canvas, not a second render or geometry proxy.
 // Keep decoded pixels in the page; only predicate counts cross back to Node.
 export async function pixels(page: Page, size?: [number, number]) {
-  const png = await page.locator("canvas").screenshot();
+  return pixelsFromPng(page, await page.locator("canvas").screenshot(), size);
+}
+
+export async function pixelsFromPng(page: Page, png: Buffer, size?: [number, number]) {
   return page.evaluateHandle(async ({ base64, size }) => {
     const image = await createImageBitmap(
       new Blob([Uint8Array.from(atob(base64), c => c.charCodeAt(0))]),

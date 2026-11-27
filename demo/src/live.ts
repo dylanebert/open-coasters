@@ -9,7 +9,7 @@ import { composeMat4, decomposeMat4, multiplyMat4 } from '@dylanebert/shallot/ut
 import { resetInterpolation } from '@dylanebert/shallot/transform';
 import { Orbit, OrbitPlugin } from '@dylanebert/shallot/extras';
 import { Grid, GridPlugin } from '@dylanebert/shallot-grid';
-import { frameTrack, initializeView, Scene } from './scene';
+import { frameTrack, frameTrackCenter, initializeView, Scene } from './scene';
 import { normalForce, forceColor } from './loop-force';
 import { assemblyDefaults, assemblyPath, gapDefaults, postDefaults, validateAssembly, type Assembly } from './assembly';
 import { changesSubject } from './selection';
@@ -20,7 +20,11 @@ import { supportPoses } from '../../construction/plane-supports';
 import { repeatFrames } from '../../construction/repeat';
 import { loadSampledSection, type ConvexSection } from './sampled-section';
 import { placements } from './instance';
-import { ties, rotation, type Parameters } from './track';
+import { ties, rotation, point, type Parameters } from './track';
+import { loadProfile } from './profile';
+import { sweepIntervals } from './profile-sweep';
+import { replayCurvature, replayFrame, replayLength, restCurvature } from './track-deformation';
+import { prepareTrackDeformation, TrackDeformation, TrackDeformationPlugin } from './track-deformation-gpu';
 import { trackGeometry, modernTies } from './modern-track';
 import { linearColor, defaultPaint, type Paint, type Example } from './configuration';
 import { initializeRailGeometry, RailGpu, RailGpuPlugin } from './rail-gpu';
@@ -128,6 +132,15 @@ function place(world:World,roleKey:string,name:string,poses:readonly Placement[]
 function clearTrackEntities(world:World) {
   const s=world.resource(Live);for(const e of s.trackEntities)world.destroy(e);s.trackEntities=[];
 }
+function bindTrack(world:World,parts:TrackVariant['parts']) {
+  const s=world.resource(Live);
+  while(s.trackEntities.length>parts.length)world.destroy(s.trackEntities.pop()!);
+  for(let i=0;i<parts.length;i++) {
+    const part=parts[i];let entity=s.trackEntities[i];
+    if(entity===undefined){entity=world.create();s.trackEntities.push(entity);world.add(entity,Transform);world.add(entity,MeshInstance,{mesh:part.mesh});world.add(entity,MeshMaterial,s.paints[part.name]);}
+    else if(world.storage(MeshInstance).mesh.get(entity)!==part.mesh)world.storage(MeshInstance).mesh.set(entity,part.mesh);
+  }
+}
 function railBounds(s:State,index:number,separation:number,bounds:Bounds) {
   for(const f of s.frames[index])for(const side of [-1,1])for(const xy of s.section) {
     const offset=rotate(f.rotation,[xy[0]+side*separation/2,xy[1],0]);
@@ -180,14 +193,7 @@ function updateScene(world:World,selection:Selection,aspect:number) {
     } else {
       const p=selection.parameters,variant=s.tracks.get(variantKey(p));
       if(!variant)throw Error('Unsupported prepared track variant');
-      if(!previous||previous.isolated||previous.example==='assembly'||variantKey(previous.parameters)!==variantKey(p)) {
-        while(s.trackEntities.length>variant.parts.length)world.destroy(s.trackEntities.pop()!);
-        for(let i=0;i<variant.parts.length;i++) {
-          const part=variant.parts[i];let entity=s.trackEntities[i];
-          if(entity===undefined){entity=world.create();s.trackEntities.push(entity);world.add(entity,Transform);world.add(entity,MeshInstance,{mesh:part.mesh});world.add(entity,MeshMaterial,s.paints[part.name]);}
-          else if(world.storage(MeshInstance).mesh.get(entity)!==part.mesh)world.storage(MeshInstance).mesh.set(entity,part.mesh);
-        }
-      }
+      if(!previous||previous.isolated||previous.example==='assembly'||variantKey(previous.parameters)!==variantKey(p)) bindTrack(world,variant.parts);
       if(newSubject)frameTrack(world,p,variant.vertices);
       for(const name of modernTies(p)) {
         wantedRoles.add(name);const key=`${p.configuration}:${p.spacing}`;
@@ -200,15 +206,36 @@ function updateScene(world:World,selection:Selection,aspect:number) {
   s.previous={...selection,parameters:{...selection.parameters},assembly:selection.assembly?{...selection.assembly}:undefined};
 }
 /** A small adapter facade; all scene/content/producer state is world-local plain data. */
-export function liveScene(initial:Selection,assetUrl:(name:string)=>URL,aspect=()=>1) {
+export function liveScene(initial:Selection,assetUrl:(name:string)=>URL,aspect=()=>1,replay=false) {
   let world:World;
-  const plugin:Plugin={name:'LiveScene',dependencies:[OrbitPlugin,GridPlugin,RailGpuPlugin],async initialize(w){
+  const poseReplayTies = (curvature: number) => {
+    const s=world.resource(Live);
+    place(world,'ModernTie_Med','ModernTie_Med',ties(initial.parameters,replayFrame(curvature))
+      .map(f=>({translation:f.p,rotation:rotation(f)})),String(curvature),s.paints.ties);
+  };
+  const plugin:Plugin={name:'LiveScene',dependencies:[OrbitPlugin,GridPlugin,replay?TrackDeformationPlugin:RailGpuPlugin],async initialize(w){
     world=w;const s=w.resource(Live);
     Object.assign(s,{assets:new Map(),paints:{},roles:new Map(),tracks:new Map(),trackEntities:[],paths:[],frames:[]});
     initializeView(w,initial.isolated?undefined:initial.parameters);
     w.storage(Grid).opacity.set(w.resource(Scene).grid,.12);
     for(const part of ['rails','ties','spine'] as const)s.paints[part]=w.resource(Materials).add(StandardMaterial({baseColor:linearColor((initial.paint??defaultPaint)[part]),metallic:.4,perceptualRoughness:.35}));
     s.paint={...(initial.paint??defaultPaint)};
+    if(replay) {
+      await cacheAsset(w,'ModernTie_Med',assetUrl('ModernTie_Med'));
+      const [rail,spine]=await Promise.all([loadProfile(assetUrl('ModernRail')),loadProfile(assetUrl('ModernSpine_1'))]);
+      bindTrack(w,prepareTrackDeformation(w,rail,spine));
+      // Same framing as the stock f32 sweep, without making a CPU vertex mesh.
+      const bounds=emptyBounds(),at=replayFrame(restCurvature);
+      for(let i=0;i<=sweepIntervals;i++) {
+        const f=at(replayLength*i/sweepIntervals);
+        for(const profile of [rail,spine])for(const xy of profile.points)include(bounds,point(f,...xy).map(Math.fround));
+      }
+      const center=bounds.low.map((low,a)=>(low+bounds.high[a])/2) as [number,number,number];
+      frameTrackCenter(w,initial.parameters,center);
+      poseReplayTies(restCurvature);
+      publishInstances(w);
+      return;
+    }
     s.forceMaterial=w.resource(Materials).add(StandardMaterial({baseColor:[.8,.8,.8,1],metallic:.7,perceptualRoughness:.25}));
     s.railMaterial=w.resource(Materials).add(StandardMaterial({baseColor:[.06,.7,.78,1],metallic:.7,perceptualRoughness:.25}));
     s.section=await loadSampledSection(assetUrl('assembly-section'));
@@ -230,5 +257,13 @@ export function liveScene(initial:Selection,assetUrl:(name:string)=>URL,aspect=(
     }
     updateScene(w,initial,aspect());
   }};
-  return {plugin,async update(selection:Selection){updateScene(world,selection,aspect());}};
+  return {plugin,async update(selection:Selection){updateScene(world,selection,aspect());},
+    replayAt: replay ? (seconds:number) => {
+      const retained=world.resource(TrackDeformation).retained!;
+      const curvature=replayCurvature(seconds);
+      if(curvature===retained.curvature)return;
+      poseReplayTies(curvature);
+      retained.curvature=curvature;
+    } : undefined,
+  };
 }

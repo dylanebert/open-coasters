@@ -36,9 +36,12 @@ export function geometryCenter(vertices: Float32Array): [number, number, number]
   return low.map((value, axis) => (value + high[axis]) / 2) as [number, number, number];
 }
 export function frameTrack(world: World, parameters: Parameters, vertices: Float32Array) {
+  frameTrackCenter(world, parameters, geometryCenter(vertices));
+}
+export function frameTrackCenter(world: World, parameters: Parameters, center: readonly [number, number, number]) {
   const orbit = world.storage(Orbit);
   const camera = world.resource(Scene).camera;
-  orbit.pan.set(camera, ...geometryCenter(vertices));
+  orbit.pan.set(camera, ...center);
   orbit.distance.set(camera, parameters.configuration === "loop" ? 68 : 19);
 }
 export function initializeView(world: World, parameters?: Parameters) {

@@ -3,7 +3,11 @@ import type { Mesh } from '@dylanebert/shallot/mesh';
 
 /** Read the public renderer inputs, never a CPU producer's staging arrays. */
 export async function readBuffer(world: World, buffer: Mesh['vertices'] | Mesh['indices'] | NonNullable<Mesh['quant']> | NonNullable<Mesh['position']>) {
-  const {device, root} = world.gpu, source = root.unwrap(buffer);
+  return readGpuBuffer(world, world.gpu.root.unwrap(buffer));
+}
+
+export async function readGpuBuffer(world: World, source: GPUBuffer) {
+  const {device} = world.gpu;
   const target = device.createBuffer({size:source.size,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
   try {
     const encoder=device.createCommandEncoder();

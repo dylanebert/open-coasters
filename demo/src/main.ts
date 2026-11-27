@@ -23,11 +23,22 @@ try {
     const selected = initial.selected;
     if (selected === 'ties' || selected === 'track') initial.values[selected].path = path;
   }
-  let pending: Selection | undefined = effective(initial);
+  const replay = query.get('replay') === 'track';
+  if (replay) {
+    initial.selected = 'track';
+    initial.values.track = { path: 'curve', secondSpine: false };
+  }
+  const selection = effective(initial);
+  let pending: Selection | undefined = replay ? undefined : selection;
   const canvas = document.querySelector('canvas')!;
-  const live = liveScene(pending, name => new URL(`assets/${name}.gltf`, document.baseURI), () => canvas.clientWidth / canvas.clientHeight);
+  const live = liveScene(selection, name => new URL(`assets/${name}.gltf`, document.baseURI), () => canvas.clientWidth / canvas.clientHeight, replay);
   // Mount before async startup: the model, not the DOM, owns pending edits.
-  inspector = mount(Inspector, { target: document.querySelector("aside")!, props: { initial, changed: (value: Selection) => { pending = value; } } });
+  const aside = document.querySelector('aside')!;
+  if (replay) {
+    aside.inert = true;
+    canvas.style.pointerEvents = 'none';
+  }
+  inspector = mount(Inspector, { target: aside, props: { initial, changed: (value: Selection) => { if (!replay) pending = value; } } });
   const app = await createApp({
     loading,
     plugins: [live.plugin, {
@@ -48,7 +59,8 @@ try {
   }, { once: true });
   let observe: (() => Promise<void>) | undefined;
   let serial = Promise.resolve();
-  function step(dt: number) {
+  let replayTime = 0;
+  function step(dt: number, elapsed?: number) {
     serial = serial.then(async () => {
       if (disposed) return;
       await app.world.frameFence;
@@ -60,6 +72,10 @@ try {
         await live.update(selection);
       }
       if (disposed) return;
+      if (live.replayAt) {
+        replayTime = elapsed ?? replayTime + dt;
+        live.replayAt(replayTime);
+      }
       app.world.step(dt);
       await app.world.frameFence;
       if (observe) await observe();
@@ -92,7 +108,7 @@ try {
       }
     };
     await observe();
-    Object.assign(window, { step: (dt = 1 / 60) => step(dt), demo: {
+    Object.assign(window, { step: (dt = 1 / 60, replaySeconds?: number) => step(dt, replaySeconds), demo: {
       app,
       trackPositions: () => trackPositions,
       meshes: () => selectedMeshes().map(mesh => ({ name: mesh.name, indexCount: mesh.indexCount })),
@@ -111,11 +127,12 @@ try {
       },
     } });
   } else {
-    let last = performance.now();
+    const start = performance.now();
+    let last = start;
     const tick = async (now: number) => {
       const dt = Math.max(0, Math.min((now - last) / 1000, .1));
       last = now;
-      await step(dt);
+      await step(dt, replay ? (now - start) / 1000 : undefined);
       if (!disposed) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);

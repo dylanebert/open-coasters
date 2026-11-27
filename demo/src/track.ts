@@ -73,10 +73,13 @@ export function frame(kind: Configuration, s: number) {
       z: [0, 0, 1] as Vec,
     };
   if (kind === "loop") return loopFrame(s);
-  const a = s / 8 - Math.PI / 4,
-    b = Math.PI / 6;
+  return bankedCurveFrame(s, 1 / 8);
+}
+export function bankedCurveFrame(s: number, curvature: number) {
+  const a = s * curvature - length('curve') / 2 * curvature,
+    b = Math.PI / 6, radius = 1 / curvature;
   return {
-    p: [8 * Math.cos(a) - 6, 1.5, 8 * Math.sin(a)] as Vec,
+    p: [radius * Math.cos(a) + (2 - radius), 1.5, radius * Math.sin(a)] as Vec,
     x: [
       -Math.cos(a) * Math.cos(b),
       -Math.sin(b),
@@ -98,10 +101,10 @@ export function point(
 ): Vec {
   return f.p.map((v, i) => v + f.x[i] * x + f.y[i] * y + f.z[i] * z) as Vec;
 }
-export function ties(p: Parameters) {
+export function ties(p: Parameters, at = (s: number) => frame(p.configuration, s)) {
   return Array.from(
     { length: Math.floor((length(p.configuration) - 1e-6) / p.spacing) + 1 },
-    (_, i) => ({ s: i * p.spacing, ...frame(p.configuration, i * p.spacing) }),
+    (_, i) => ({ s: i * p.spacing, ...at(i * p.spacing) }),
   );
 }
 export function generate(p: Parameters) {
