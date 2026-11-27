@@ -7,7 +7,14 @@ import { resolve } from 'node:path';
 import { render } from './page';
 import { buildPage } from '../scripts/build';
 const root=resolve(import.meta.dir,'../..');
-function fixture(run:(root:string)=>void){const dir=mkdtempSync(resolve(tmpdir(),'coasters-page-'));try{for(const name of ['spec.md',...render(root).sources.filter(s=>s!=='spec.md'),'part.ts','part.test.ts','part-rules.md','assets','demo','construction','examples','site'])cpSync(resolve(root,name),resolve(dir,name),{recursive:true,filter:s=>!s.includes('/node_modules')&&!s.includes('/out')&&!s.includes('/.git')});run(dir);}finally{rmSync(dir,{recursive:true,force:true});}}
+function fixture(run:(root:string)=>void){const dir=mkdtempSync(resolve(tmpdir(),'coasters-page-'));try{for(const name of ['spec.md',...render(root).sources.filter(s=>s!=='spec.md'),'part.ts','part.test.ts','part-rules.md','usd-binding.md','assets','demo','construction','examples','site'])cpSync(resolve(root,name),resolve(dir,name),{recursive:true,filter:s=>!s.includes('/node_modules')&&!s.includes('/out')&&!s.includes('/.git')});run(dir);}finally{rmSync(dir,{recursive:true,force:true});}}
+test('USD binding stays one link away in both guide outputs', () => {
+  const { sources, html, llms } = render(root);
+  const url = 'https://github.com/dylanebert/open-coasters/blob/main/usd-binding.md';
+  expect(sources).not.toContain('usd-binding.md');
+  expect(html).toContain(`<a href="${url}">USD asset binding</a>`);
+  expect(llms).toContain(`[USD asset binding](${url})`);
+});
 test('shared figure layout retains distinct tie and profile semantic groups',()=>{
  const {html}=render(root);
  expect([...html.matchAll(/class="figure-pair tie-pair"/g)]).toHaveLength(1);
