@@ -4,11 +4,14 @@ import { sectionTriangles } from './section-cap';
 import { frame, length, point, type Configuration } from './track';
 
 export const sweepIntervals = 192;
+export type SweepCaps = readonly [start: boolean, end: boolean];
+const bothCaps: SweepCaps = [true, true];
 
 // One directed topology and one assignment of authored wall and outward cap
 // normals. Consumers choose how to transport these local vertices to the path.
 export function profileTopology(profile: Profile, capMaterial: number,
   vertex: (station: number, xy: readonly number[], nx: number, ny: number, nz: number) => void,
+  caps = bothCaps,
 ) {
   const indices: number[] = [], materials: number[] = [];
   let count = 0;
@@ -25,10 +28,11 @@ export function profileTopology(profile: Profile, capMaterial: number,
       materials.push(edge.material, edge.material);
     }
   }
-  for (const contour of profile.contours) {
+  if (caps[0] || caps[1]) for (const contour of profile.contours) {
     const section = contour.map(edge => profile.points[edge.from]);
     const triangles = sectionTriangles(section);
     for (const end of [0, 1]) {
+      if (!caps[end]) continue;
       const start = count;
       for (const xy of section) {
         vertex(end * sweepIntervals, xy, 0, 0, end ? -1 : 1);
@@ -44,7 +48,7 @@ export function profileTopology(profile: Profile, capMaterial: number,
 }
 
 export function sweepProfile(profile: Profile, configuration: Configuration, capMaterial: number,
-  at = (s: number) => frame(configuration, s),
+  at = (s: number) => frame(configuration, s), caps = bothCaps,
 ) {
   const positions: number[][] = [], normals: number[][] = [];
   const frames = Array.from({ length: sweepIntervals + 1 }, (_, i) => at(length(configuration) * i / sweepIntervals));
@@ -52,6 +56,6 @@ export function sweepProfile(profile: Profile, configuration: Configuration, cap
     const f = frames[station];
     positions.push(point(f, x, y));
     normals.push(nz ? f.z.map(v => v * nz) : f.x.map((v, a) => v * nx + f.y[a] * ny));
-  });
+  }, caps);
   return { positions, normals, ...topology };
 }

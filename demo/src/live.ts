@@ -45,7 +45,7 @@ type State={
   paths:Path[];frames:(readonly Frame[])[];roles:Map<string,Role>;
   tracks:Map<string,TrackVariant>;railEntity?:number;trackEntities:number[];
 };
-export const Live:Resource<State>={create:()=>({} as State)};
+export const Live:Resource<State>={create:()=>({assets:new Map(),roles:new Map()} as State)};
 const kinds=['straight','curve','loop'] as const;
 const variantKey=(p:Parameters)=>`${p.configuration}:${!!p.fixed}:${!!p.secondSpine}`;
 function include(bounds:Bounds,p:readonly number[]) {
@@ -71,7 +71,7 @@ function trs(matrix:Float32Array,node:string) {
   if(matrix.some((v,i)=>!Number.isFinite(v)||Math.abs(v-rebuilt[i])>1e-5*Math.max(1,Math.abs(v))))throw Error(`Static instance ${node}: non-TRS transform`);
   return t;
 }
-async function cacheAsset(world:World,name:string,url:URL,supplied?:ImmutableNativeSnapshot) {
+export async function cacheAsset(world:World,name:string,url:URL,supplied?:ImmutableNativeSnapshot) {
   const snapshot=supplied??await readNative(url),data=await loadGltf(nativeURL(snapshot.document));
   if(data.unsupported.length)throw Error(`Unsupported glTF: ${data.unsupported.join(', ')}`);
   // Display-only contact adaptation: the loaded bar underside is y=-.18,
@@ -102,7 +102,7 @@ function removeRole(world:World,key:string) {
   if(role)for(const row of role.rows)for(const entity of row.entities)world.destroy(entity);
   s.roles.delete(key);
 }
-function place(world:World,roleKey:string,name:string,poses:readonly Placement[],key:string,override?:MaterialHandle,bounds?:Bounds) {
+export function place(world:World,roleKey:string,name:string,poses:readonly Placement[],key:string,override?:MaterialHandle,bounds?:Bounds) {
   const s=world.resource(Live),asset=s.assets.get(name)!;
   let role=s.roles.get(roleKey);
   if(role?.name!==name){removeRole(world,roleKey);role={name,key:'',rows:[]};s.roles.set(roleKey,role);}
@@ -261,9 +261,9 @@ export function liveScene(initial:Selection,assetUrl:(name:string)=>URL,aspect=(
     replayAt: replay ? (seconds:number) => {
       const retained=world.resource(TrackDeformation).retained!;
       const curvature=replayCurvature(seconds);
-      if(curvature===retained.curvature)return;
+      if(curvature===retained.revision)return;
       poseReplayTies(curvature);
-      retained.curvature=curvature;
+      retained.revision=curvature;
     } : undefined,
   };
 }
