@@ -1,2 +1,2 @@
 stage: 2
-clean
+finding: The hardware-only Stage 2 smoke is inside `demo/src`, so `.github/workflows/test.yml` discovers it in the `gpu` dispatch's recursive `find ./src -name '*.gpu.test.ts'`. That tier explicitly qualifies Mesa software Vulkan with `SHALLOT_ALLOW_SOFTWARE_GPU=1`, but the smoke independently requires `classifyAdapter(...).class === 'real'`, rejecting llvmpipe/lavapipe regardless of that opt-in. The local RTX receipt remains valid; the file placement breaks the software dispatch tier. Move the smoke to `demo/diagnostics/track-timing.gpu.test.ts`, adjust relative source imports and the brief's command, and preserve the hardware guard rather than adding a CI exception or skip.
