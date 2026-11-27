@@ -1,2 +1,2 @@
 stage: 1
-clean
+finding: Step 2 says to select just the tie and export, but Blender glTF export defaults Selected Objects to off, so selection alone exports other meshes too (notably when using the suggested multi-object assembly.blend). The checked roundtrip explicitly uses use_selection=True and does not cover the documented procedure. Name the Selected Objects export control so the trial actually repeats only the contributor's tie.
