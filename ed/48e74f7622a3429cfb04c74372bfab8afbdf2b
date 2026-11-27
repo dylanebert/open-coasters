@@ -1,2 +1,2 @@
 stage: 23
-finding: 80b5b4a has only a subject. The harness requires the commit message to preserve the reason and deciding evidence the diff cannot show. The native survivor/default comparisons, GPU evidence that gap scrubs do not emit or write rail geometry, and ignored-input/refusal evidence are not recorded in the commit message.
+clean
