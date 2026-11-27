@@ -1,2 +1,2 @@
 stage: 1
-finding: PROVENANCE.md claims the OpenUSD check verifies authored linear RGB, but check-openusd.py only compares the raw diffuseColor tuple. In a private layer, changing /_materials/TieSteel.colorSpace:name alone from lin_rec709_scene to srgb_rec709_scene leaves check_tie() passing while changing the interpretation of that tuple. Verify the effective color space with the values or narrow the claim to raw numeric inputs.
+clean
